@@ -4,12 +4,13 @@ that keeps workflow nodes in step with what ComfyQ serves."""
 from __future__ import annotations
 
 import bpy
-from bpy.props import StringProperty
+from bpy.props import EnumProperty, StringProperty
 
-from ..props import TABS
+from .. import match as scene_match
+from ..props import TABS, tab_of
 from ..runtime.session import SESSION
 from . import kinds
-from .tree import SOURCE_NODES, TREE, WORKFLOW_NODE, graph_trees, tab_workflows
+from .tree import SOURCE_FOR, SOURCE_NODES, TREE, WORKFLOW_NODE, find_node, graph_trees, socket_kind, tab_workflows
 
 GRAPH_NAME = "ComfyQ Graph"
 
@@ -129,6 +130,142 @@ class COMFYQ_OT_graph_clear(bpy.types.Operator):
         return {"FINISHED"}
 
 
+# -- node operators (they name their node: tree + node, never a Python reference) ------------------
+class _NodeOp:
+    tree: StringProperty(options={"HIDDEN"})
+    node: StringProperty(options={"HIDDEN"})
+    key: StringProperty(options={"HIDDEN"})
+
+    def target_node(self):
+        return find_node(self.tree, self.node)
+
+
+_WF_ITEMS: list[tuple[str, str, str]] = []          # kept alive: Blender keeps pointers to these strings
+_TAB_LABEL = {key: label for key, label, *_rest in TABS}
+
+
+def _workflow_items(self, context):
+    from ..ops.workflow import shared_budget, vram_badge
+    served, budget = SESSION.served_ids(), shared_budget()
+    items = []
+    for w in sorted(SESSION.workflows, key=lambda w: (w.id not in served, tab_of(w), w.name.lower())):
+        badge, _over = vram_badge(w, budget)
+        mark = "▶ " if w.id in served else ""
+        items.append((w.id, f"{mark}{w.name}  ·  {_TAB_LABEL.get(tab_of(w), '')}  ·  {badge}",
+                      (w.description or w.name)[:300]))
+    _WF_ITEMS[:] = items or [("", "Connect to ComfyQ first", "")]
+    return _WF_ITEMS
+
+
+class COMFYQ_OT_graph_set_workflow(_NodeOp, bpy.types.Operator):
+    bl_idname = "comfyq.graph_set_workflow"
+    bl_label = "Change Model"
+    bl_description = ("Choose this node's workflow (type to search; ▶ = served now). Settings are kept per "
+                      "model, links come back on inputs of the same kind")
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+    bl_property = "workflow"
+    workflow: EnumProperty(name="Workflow", items=_workflow_items)
+
+    def invoke(self, context, event):
+        if not SESSION.workflows:
+            self.report({"WARNING"}, "Connect to ComfyQ first")
+            return {"CANCELLED"}
+        context.window_manager.invoke_search_popup(self)
+        return {"RUNNING_MODAL"}
+
+    def execute(self, context):
+        node = self.target_node()
+        if node is None or not self.workflow:
+            return {"CANCELLED"}
+        node.change_workflow(self.workflow)
+        return {"FINISHED"}
+
+
+class COMFYQ_OT_graph_add_source(_NodeOp, bpy.types.Operator):
+    bl_idname = "comfyq.graph_add_source"
+    bl_label = "Add Source"
+    bl_description = "Add the matching source node (scene render, clay animation, mask, prompt…) and link it here"
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+
+    def execute(self, context):
+        node = self.target_node()
+        sock = next((i for i in node.inputs if i.identifier == self.key), None) if node else None
+        if sock is None:
+            return {"CANCELLED"}
+        kind = socket_kind(sock)
+        tree = node.id_data
+        src = tree.nodes.new(SOURCE_FOR[kind])
+        index = [i.identifier for i in node.inputs].index(self.key)
+        src.location = (node.location.x - src.width - 80, node.location.y - 230 * index)
+        spec = next((s for s in SESSION.specs.get(node.workflow_id, ()) if s.key == self.key), None)
+        sc = context.scene
+        if spec is not None and src.bl_idname == "ComfyQSceneRenderNode":
+            # start/first-frame inputs render the first frame, end/last-frame inputs the last one
+            last = scene_match.frame_for(spec, _facts(sc)) == sc.frame_end and sc.frame_end != sc.frame_start
+            src.frame = "END" if last else "START"
+        if kind == "text":
+            it = node.item(self.key)
+            if it is not None:
+                src.text = it.s
+                src.text_block = it.text
+        tree.links.new(src.outputs[0], sock)
+        return {"FINISHED"}
+
+
+def _facts(scene):
+    from ..ops.workflow import scene_facts
+    return scene_facts(scene)
+
+
+def _text_owner(node, key):
+    """(owner, one-line attribute, Text attribute) of a node's prompt."""
+    if key:
+        return node.item(key), "s", "text"
+    return node, "text", "text_block"
+
+
+class COMFYQ_OT_graph_edit_text(_NodeOp, bpy.types.Operator):
+    bl_idname = "comfyq.graph_edit_text"
+    bl_label = "Edit Prompt"
+    bl_description = "Edit this prompt with several lines in the ComfyQ window's Text Editor"
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+
+    def execute(self, context):
+        from ..ops.workflow import _show_text, open_comfyq_window, text_editor_area
+        node = self.target_node()
+        owner, str_attr, text_attr = _text_owner(node, self.key) if node else (None, "", "")
+        if owner is None:
+            return {"CANCELLED"}
+        txt = getattr(owner, text_attr)
+        if txt is None:
+            txt = bpy.data.texts.new(f"ComfyQ prompt · {node.name}")
+            txt.write(getattr(owner, str_attr))
+            setattr(owner, text_attr, txt)
+        area = text_editor_area()
+        if area is not None:
+            _show_text(area, txt)
+        elif context.window is not None and not open_comfyq_window(context, txt.name):
+            self.report({"WARNING"}, f"Open a Text Editor to edit “{txt.name}”")
+        return {"FINISHED"}
+
+
+class COMFYQ_OT_graph_unlink_text(_NodeOp, bpy.types.Operator):
+    bl_idname = "comfyq.graph_unlink_text"
+    bl_label = "Back to One-Line Prompt"
+    bl_description = "Copy the text back into the one-line field and stop using the Text Editor"
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+
+    def execute(self, context):
+        node = self.target_node()
+        owner, str_attr, text_attr = _text_owner(node, self.key) if node else (None, "", "")
+        txt = getattr(owner, text_attr) if owner is not None else None
+        if txt is None:
+            return {"CANCELLED"}
+        setattr(owner, str_attr, " ".join(txt.as_string().split()))
+        setattr(owner, text_attr, None)
+        return {"FINISHED"}
+
+
 # -- opening the graph ------------------------------------------------------------------------------
 def ensure_graph() -> bpy.types.NodeTree:
     tree = next(iter(graph_trees()), None)
@@ -233,7 +370,9 @@ def sync_all() -> None:
             img.preview_ensure()
 
 
-classes = (COMFYQ_OT_graph_add, *TAB_MENUS, COMFYQ_MT_graph_scene, COMFYQ_OT_graph_clear, COMFYQ_OT_open_graph)
+classes = (COMFYQ_OT_graph_add, *TAB_MENUS, COMFYQ_MT_graph_scene, COMFYQ_OT_graph_clear, COMFYQ_OT_open_graph,
+           COMFYQ_OT_graph_set_workflow, COMFYQ_OT_graph_add_source, COMFYQ_OT_graph_edit_text,
+           COMFYQ_OT_graph_unlink_text)
 
 
 def register_extras() -> None:

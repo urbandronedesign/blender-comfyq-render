@@ -1,6 +1,6 @@
 # Plan — ComfyQ node graph (Moodboard-style UI)
 
-Status: **N0 done** (2026-10-03), N1 next. Decisions: Node Editor (option A); the bar stays next to
+Status: **N0 + N1 done** (2026-10-03), N2 (running the graph) next. Decisions: Node Editor (option A); the bar stays next to
 the graph; settings are chips inside each node only (no linkable setting sockets). Goal: the same way of working as Mixar's Moodboard
 (cards wired together: image → *Generate Video* → …) inside the bridge, with nodes built from what
 ComfyQ serves, exposing every input and parameter of each workflow.
@@ -151,3 +151,18 @@ Phase-2 ComfyQ PRs that help: `outputs` in meta/`/workflows`, `job_deps`.
   crowded; Blender draws input sockets below the node's settings (fixed layout).
 - Not yet: running from the graph (N2), multi-line prompts in nodes, model swap inside a node, the other
   source kinds (mask, video/audio files).
+
+## 12. N1 results (2026-10-03)
+- New source nodes: **Selection Mask**, **Video File**, **Audio File**; Scene Render / Mask / Scene Animation
+  previews now use the node's own style and frame (`preview_pass` / `preview_animation` got `style`, `frame`).
+- Workflow node: **Change model** (searchable list of every workflow, served first, VRAM badge; settings kept
+  per model; links restored on inputs of the same kind), **“+” on each unlinked input** (adds the matching
+  source node — scene render at the first/last frame as the input asks, clay animation, mask, prompt, audio —
+  and links it), **multi-line prompts** (Text block in the ComfyQ window's Text Editor, wrapped preview,
+  Edit / ✕) in workflow and Prompt nodes, every setting one per row in the sidebar (Node tab) with the
+  workflow's description. Node values are now filtered per workflow (a key shared by two models no longer mixes).
+- Verified: headless smoke in Mixar and Blender 5.1 (**all 66 workflows build as nodes with the right
+  sockets and output**, change model keeps links and settings, “+” adds and links, prompt node multi-line);
+  GUI check in Mixar 77/77, no drawing errors.
+- Known: no thumbnail for videos (Blender makes no previews for movies; N3 could show a frame), red headers
+  and *Group* sidebar panels (N3).

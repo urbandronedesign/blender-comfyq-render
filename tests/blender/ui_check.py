@@ -577,6 +577,23 @@ def step_graph():
     check("graph toolbar (Scene · Image · Video · 3D · Splats · Audio · Tools · Clear) in the header",
           any(f.__name__ == "_header" for f in funcs))
     shot("09b_graph")
+    # N1: "+" on the unlinked start image, the model list, the sidebar view of the node
+    free = next((x for x in node.inputs if not x.is_linked and x.enabled), None)
+    if free is not None:
+        key = free.identifier
+        res = click("graph_add_source", graph_area, tree=tree.name, node=node.name, key=key)
+        sock = next(x for x in node.inputs if x.identifier == key)
+        check(f"node › + on “{sock.name}” adds and links a source node", res == {"FINISHED"} and sock.is_linked, res)
+    items = ext("graph.ui")._workflow_items(None, bpy.context)
+    served = S().served_ids()
+    check("node › Change model lists every workflow, served first",
+          len(items) == len(S().workflows) and items[0][0] in served, f"{len(items)} items, first {items[0][0]}")
+    area.spaces.active.show_region_ui = True
+    with bpy.context.temp_override(window=w, area=area,
+                                   region=next(r for r in area.regions if r.type == "WINDOW")):
+        bpy.ops.node.view_all()
+    yield 1.0
+    shot("09c_graph_n1")
     with bpy.context.temp_override(window=w, area=area):
         res = bpy.ops.comfyq.graph_clear("EXEC_DEFAULT")
     check("Clear Graph", res == {"FINISHED"} and len(tree.nodes) == 0, res)

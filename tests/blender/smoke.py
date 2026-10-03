@@ -300,6 +300,58 @@ check([s.identifier for s in wnode.inputs] == want and wnode.signature == gkinds
       "a changed workflow rebuilds the node's sockets")
 check(any(link.to_socket.identifier == vid_key for link in tree.links),
       f"links on inputs that still exist are kept ({n_links} → {len(tree.links)})")
+# N1: every ComfyQ workflow becomes a node with the right sockets and output
+from bl_ext.user_default.comfyq_bridge.graph.tree import socket_kind
+
+bad_nodes = []
+for w in SESSION.workflows:
+    if w.id not in SESSION.specs:
+        SESSION.specs[w.id] = SESSION.client.params(w.id)
+    n = tree.nodes.new("ComfyQWorkflowNode")
+    n.workflow_id = w.id
+    n.build(SESSION.specs[w.id])
+    want_kinds = [gkinds.input_kind(s.kind) for s in SESSION.specs[w.id] if gkinds.input_kind(s.kind)]
+    if [socket_kind(x) for x in n.inputs] != want_kinds or len(n.outputs) != 1 or not socket_kind(n.outputs[0]):
+        bad_nodes.append(w.id)
+    tree.nodes.remove(n)
+check(not bad_nodes, f"all {len(SESSION.workflows)} workflows become nodes with the right sockets {bad_nodes}")
+
+# N1: change model keeps links on inputs of the same kind, and each model's settings
+other = next(w.id for w in SESSION.workflows if w.id != v2v and w.id in SESSION.specs
+             and any(s.kind == "video" for s in SESSION.specs[w.id]))
+float_key = next(s.key for s in SESSION.specs[v2v] if s.kind == "float")
+wnode.item(float_key).f = 0.37
+bpy.ops.comfyq.graph_set_workflow(tree=tree.name, node=wnode.name, workflow=other)
+check(wnode.workflow_id == other and any(lk.to_node == wnode and socket_kind(lk.to_socket) == "video"
+                                         for lk in tree.links),
+      f"Change model ({other}): the clay animation stays linked to the video input")
+bpy.ops.comfyq.graph_set_workflow(tree=tree.name, node=wnode.name, workflow=v2v)
+check(abs(wnode.item(float_key).f - 0.37) < 1e-5, "Change model back: the node kept that model's settings")
+
+# N1: "+" on an unlinked input adds the matching source node, linked
+free = next((x for x in wnode.inputs if not x.is_linked), None)
+if free is not None:
+    free_key, free_kind = free.identifier, socket_kind(free)
+    n_nodes = len(tree.nodes)
+    res = bpy.ops.comfyq.graph_add_source(tree=tree.name, node=wnode.name, key=free_key)
+    sock = next(x for x in wnode.inputs if x.identifier == free_key)
+    check(res == {"FINISHED"} and len(tree.nodes) == n_nodes + 1 and sock.is_linked
+          and socket_kind(sock.links[0].from_socket) in gkinds.ACCEPTS[free_kind],
+          f"+ on “{free.name}” adds a {sock.links[0].from_node.bl_label if sock.is_linked else '?'} node, linked")
+
+# N1: multi-line prompts in nodes
+pnode = tree.nodes.new("ComfyQPromptNode")
+pnode.text = "a red car"
+bpy.ops.comfyq.graph_edit_text(tree=tree.name, node=pnode.name, key="")
+pnode.text_block.clear()
+pnode.text_block.write("a red car\nat night")
+check(pnode.value() == "a red car\nat night", "Prompt node: multi-line text is its value")
+bpy.ops.comfyq.graph_unlink_text(tree=tree.name, node=pnode.name, key="")
+check(pnode.text_block is None and pnode.text == "a red car at night", "Prompt node: back to one line")
+tree.nodes.remove(pnode)
+for extra in [n for n in tree.nodes if n not in (wnode, anim, img_node)]:
+    tree.nodes.remove(extra)
+
 graph_file = tmp / "graph.blend"
 bpy.ops.wm.save_as_mainfile(filepath=str(graph_file), copy=True)
 bpy.ops.wm.open_mainfile(filepath=str(graph_file))

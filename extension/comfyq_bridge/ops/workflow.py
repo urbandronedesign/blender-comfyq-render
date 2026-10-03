@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 import bpy
-from bpy.props import BoolProperty, StringProperty
+from bpy.props import BoolProperty, IntProperty, StringProperty
 
 from .. import match as scene_match
 from ..client.params import ParamSpec
@@ -262,15 +262,19 @@ class COMFYQ_OT_preview_pass(bpy.types.Operator):
     bl_label = "Capture Viewport"
     bl_description = "Render the still pass that will be sent (scene camera) and show it in an Image Editor"
     mask: BoolProperty(default=False)
+    style: StringProperty(default="", options={"SKIP_SAVE"})     # "" = the bar's style
+    frame: IntProperty(default=-1, options={"SKIP_SAVE"})        # -1 = the current frame
 
     def execute(self, context):
         from ..ui import player
         scene = context.scene
+        style = self.style or scene.comfyq.style
+        frame = self.frame if self.frame >= 0 else None
         try:
             if self.mask:
-                path = render.mask_pass(scene, list(context.selected_objects), scene.comfyq.style)
+                path = render.mask_pass(scene, list(context.selected_objects), style, None, frame)
             else:
-                path = render.structure_pass(scene, scene.comfyq.style)
+                path = render.structure_pass(scene, style, None, frame)
         except RuntimeError as e:
             self.report({"ERROR"}, str(e))
             return {"CANCELLED"}
@@ -287,7 +291,7 @@ class COMFYQ_OT_preview_pass(bpy.types.Operator):
             open_file(path)
         else:
             player.show_media(area, img)
-        self.report({"INFO"}, f"{img.size[0]}×{img.size[1]} {scene.comfyq.style.lower()} render of “{scene.camera.name}”")
+        self.report({"INFO"}, f"{img.size[0]}×{img.size[1]} {style.lower()} render of “{scene.camera.name}”")
         return {"FINISHED"}
 
 
@@ -298,12 +302,13 @@ class COMFYQ_OT_preview_animation(bpy.types.Operator):
                       "and play it. Generate reuses it while the scene is unchanged")
     force: BoolProperty(default=False, options={"SKIP_SAVE"})
     play: BoolProperty(default=True, options={"SKIP_SAVE"})
+    style: StringProperty(default="", options={"SKIP_SAVE"})     # "" = the bar's style
 
     def execute(self, context):
         scene = context.scene
         edge = max((s.max_input_edge or 0 for s in current_specs(context) if s.kind == "video"), default=0) or None
         try:
-            p = animation.animation_pass(scene, scene.comfyq.style, edge, force=self.force)
+            p = animation.animation_pass(scene, self.style or scene.comfyq.style, edge, force=self.force)
         except RuntimeError as e:
             self.report({"ERROR"}, str(e))
             return {"CANCELLED"}

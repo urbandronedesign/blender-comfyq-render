@@ -158,4 +158,4 @@ change that session: the user must reinstall from the UI or restart Mixar.
 ## Next steps (when the user asks)
 1. After any UI change: `smoke_test.ps1 -Ui` and update docs/UI.md. Reinstall into the user's profile only when asked.
 2. P1.4 MCP, then P1.5 sweep, then phase-2 ComfyQ PRs.
-3. Node graph (Moodboard-style UI): plan in `docs/plans/node-graph.md` — approved (Node Editor, bar kept, settings as chips only); **N0 done** (§11 of the plan); next N1.
+3. Node graph (Moodboard-style UI): plan in `docs/plans/node-graph.md` — approved (Node Editor, bar kept, settings as chips only); **N0 + N1 done** (§11–12 of the plan); next N2 (running the graph).

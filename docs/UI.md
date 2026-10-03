@@ -40,7 +40,7 @@ become icons (hover for the name), long lines wrap and **Generate** gets its own
 |---|---|---|
 | **Image / Video / 3D / Splats / Audio / Tools** tabs | Filters the model menu by category. Choosing a model also switches to its tab | `every tab lists workflows`, `tab follows the workflow` |
 | Window icon | Opens the ComfyQ window (see §1) | `window icon opens the ComfyQ window (one only), sidebar on the ComfyQ tab` |
-| Graph icon | Opens the **ComfyQ Graph** (node editor, Moodboard-style) in its own window — *first version: build and wire nodes; running from the graph comes next* (docs/plans/node-graph.md) | `bar › graph icon opens the ComfyQ graph…` |
+| Graph icon | Opens the **ComfyQ Graph** (node editor, Moodboard-style) in its own window — *build and wire nodes (see §8); running from the graph comes next* (docs/plans/node-graph.md) | `bar › graph icon opens the ComfyQ graph…` |
 | **Library** | Opens the results folder `%LOCALAPPDATA%\comfyq-bridge\cache` in Explorer | `Library opens the results folder` |
 | **Queue N** | Popover with the last jobs; N = jobs not finished yet | `Queue popover draws without error` |
 | ⟳ (panel header) | **Refresh**: reloads the workflow list and what is served. The chosen workflow's settings reload by themselves | `Refresh button`, `settings still loaded after Refresh`, `Generate enabled after Refresh` |
@@ -181,3 +181,19 @@ collection* first, so it never reached ComfyQ.
   sidebar or the ComfyQ window to follow a job.
 - The AI-keyframe chain has not run end to end on the server yet.
 - Job cards cannot be removed from the list yet (lower **Jobs shown** instead).
+
+## 8. ComfyQ Graph (node editor) — build and wire; running comes in N2
+
+Open it with the graph icon of the bar. Saved with the file.
+
+| Control | Does | Check |
+|---|---|---|
+| Header **Scene** | Adds a source node: Scene Animation (clay video), Scene Render (still, first/last/current frame), Selection Mask, Image, Video File, Audio File, Prompt | `toolbar › Scene › Scene Animation adds the node` |
+| Header **Image · Video · 3D · Splats · Audio · Tools** | Adds a workflow node (served first, VRAM badge). Same entries in Shift+A | `toolbar › Video › … adds a node with its inputs as sockets` |
+| Header **Clear Graph** | Removes every node (asks first) | `Clear Graph` |
+| Workflow node **Change model** | Searchable list of every workflow (▶ = served). Settings kept per model; links come back on inputs of the same kind | `node › Change model lists every workflow, served first`; smoke `Change model … stays linked` |
+| Workflow node chips | The workflow's settings (sidebar › Node: all of them, with the description) | smoke `settings stored on the node as chips` |
+| Prompt field + ⤢ / Edit / ✕ | Same as the bar's prompt, per node | smoke `Prompt node: multi-line…` |
+| **+ Scene render / Scene animation / …** next to an unlinked input | Adds the matching source node and links it | `node › + on “Start image” adds and links a source node` |
+| Sockets | Inputs = the workflow's images / masks / videos / audio / prompts; output = what it makes. A wrong kind is drawn red and never sent | smoke `Image → video input is refused` |
+| Served / Not served, VRAM | Live from the server | — |
