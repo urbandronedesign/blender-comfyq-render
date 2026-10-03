@@ -21,7 +21,14 @@ import bpy
 from bpy.app.handlers import persistent
 
 from ..runtime.session import cache_dir
-from .render import _workbench, fit_size, scene_aspect
+from .render import (  # noqa: F401 - QUIET_S re-exported
+    QUIET_S,
+    _workbench,
+    fit_size,
+    is_own_change,
+    own_changes,
+    scene_aspect,
+)
 
 
 @dataclass
@@ -40,9 +47,8 @@ class AnimPass:
 
 _last: AnimPass | None = None
 _last_edit = 0.0
-# Our own renders step frames and swap settings; updates right after them are not user edits.
-_quiet_until = 0.0
-QUIET_S = 1.5
+last_edit_by = ""          # what the last counted edit was (for messages and tests)
+edit_log: list[tuple] = []  # the last counted edits: (time, what, transform?, geometry?)
 
 
 def scene_fps(scene: bpy.types.Scene) -> float:
@@ -68,6 +74,11 @@ def current(scene: bpy.types.Scene, style: str, max_edge: int | None) -> AnimPas
     return None
 
 
+def last_edit() -> float:
+    """When the user last edited something in the scene (our own renders excluded)."""
+    return _last_edit
+
+
 def last() -> AnimPass | None:
     return _last
 
@@ -80,7 +91,7 @@ def forget() -> None:
 
 def animation_pass(scene: bpy.types.Scene, style: str = "CLAY", max_edge: int | None = None,
                    force: bool = False) -> AnimPass:
-    global _last, _quiet_until
+    global _last
     if not force and (cached := current(scene, style, max_edge)):
         return cached
     if scene.camera is None:
@@ -95,7 +106,7 @@ def animation_pass(scene: bpy.types.Scene, style: str = "CLAY", max_edge: int | 
     ims = r.image_settings
     saved = dict(media=getattr(ims, "media_type", None), fmt=ims.file_format, ff_format=r.ffmpeg.format,
                  codec=r.ffmpeg.codec, crf=r.ffmpeg.constant_rate_factor, audio=r.ffmpeg.audio_codec)
-    with _workbench(scene, size, style):
+    with own_changes(), _workbench(scene, size, style):
         try:
             if saved["media"] is not None:                 # Blender 5.0+: video is its own media type
                 ims.media_type = "VIDEO"
@@ -112,7 +123,6 @@ def animation_pass(scene: bpy.types.Scene, style: str = "CLAY", max_edge: int | 
             ims.file_format = saved["fmt"]
             r.ffmpeg.format, r.ffmpeg.codec = saved["ff_format"], saved["codec"]
             r.ffmpeg.constant_rate_factor, r.ffmpeg.audio_codec = saved["crf"], saved["audio"]
-    _quiet_until = time.time() + QUIET_S
     movies = sorted(out_dir.glob("*.mp4"))
     if not movies:
         raise RuntimeError(f"The animation render wrote no MP4 in {out_dir}")
@@ -121,15 +131,42 @@ def animation_pass(scene: bpy.types.Scene, style: str = "CLAY", max_edge: int | 
     return _last
 
 
+# Updates that never change what the camera sees: the Scene datablock itself (our own render-setting
+# swaps), images and texts (results loaded into the viewer, prompts), UI data, and the ComfyQ graph
+# (its nodes receive their results). Counting them made every finished job look like a scene edit.
+_NOT_SCENE_CONTENT = tuple(t for t in (getattr(bpy.types, n, None) for n in (
+    "Scene", "Image", "Text", "Screen", "WindowManager", "WorkSpace", "Brush", "Palette", "Library",
+    "MovieClip", "Sound")) if t is not None)
+
+
+def _is_scene_edit(update) -> bool:
+    idblock = update.id
+    if isinstance(idblock, _NOT_SCENE_CONTENT):
+        return False
+    if isinstance(idblock, bpy.types.NodeTree) and idblock.bl_idname == "ComfyQGraphTree":
+        return False
+    if isinstance(idblock, bpy.types.Object):
+        # Mixar's UI re-tags objects while it draws (seen live: "Object Cube", no transform, no
+        # geometry, every few seconds). Moving, deforming or reshading an object sets one of these;
+        # mesh/camera/material/action/collection edits arrive as their own (non-Object) updates.
+        return bool(update.is_updated_transform or update.is_updated_geometry or update.is_updated_shading)
+    return True
+
+
 @persistent
 def _on_depsgraph(scene, depsgraph):
-    """Any edit to something other than the Scene datablock makes the pass stale."""
-    global _last_edit
-    if time.time() < _quiet_until:
+    """An edit of the scene's content (objects, meshes, cameras, materials, animation…) makes the
+    pass stale — and every graph result made from the scene."""
+    global _last_edit, last_edit_by
+    if is_own_change():
         return
     for u in depsgraph.updates:
-        if not isinstance(u.id, bpy.types.Scene):
+        if _is_scene_edit(u):
             _last_edit = time.time()
+            last_edit_by = f"{type(u.id).__name__} “{u.id.name}”"
+            edit_log.append((round(_last_edit, 2), last_edit_by, bool(u.is_updated_transform),
+                             bool(u.is_updated_geometry)))
+            del edit_log[:-20]
             return
 
 

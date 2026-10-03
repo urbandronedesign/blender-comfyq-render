@@ -107,9 +107,19 @@ def start_job(scene, selected, wf_id: str, report: Report, *, frame: int | None 
     except RuntimeError as e:
         report({"ERROR"}, str(e))
         return False
+    book(scene, wf_id, specs, values, uploads, purpose=purpose, then=then)
+    return True
+
+
+def book(scene, wf_id: str, specs: list[ParamSpec], values: dict, uploads: dict[str, Path], *, purpose: str = "",
+         then: Callable[[JobView], None] | None = None, label: str = "",
+         on_booked: Callable[[str], None] | None = None, on_error: Callable[[str], None] | None = None) -> None:
+    """Upload `uploads` and book the job in the background; record it in the scene's job list.
+    Shared by the bar (start_job) and the graph."""
     client = SESSION.client
     scene_name = scene.name
     sent = json.dumps({key: str(path) for key, path in uploads.items()})
+    values = dict(values)
 
     def work():
         for key, path in uploads.items():
@@ -124,12 +134,14 @@ def start_job(scene, selected, wf_id: str, report: Report, *, frame: int | None 
             rec.job_id, rec.workflow_id, rec.created, rec.purpose = job_id, wf_id, time.time(), purpose
             rec.inputs = sent
             name = next((w.name for w in SESSION.workflows if w.id == wf_id), wf_id)
-            rec.label = f"Keyframe · {name}" if purpose == "keyframe" else name
+            rec.label = label or (f"Keyframe · {name}" if purpose == "keyframe" else name)
         SESSION.status_note = f"Booked {job_id[:8]}" + (" (AI keyframe)" if purpose == "keyframe" else "")
+        if on_booked:
+            on_booked(job_id)
 
     SESSION.error = ""
-    SESSION.run(work, done, label="Sending keyframe job" if purpose == "keyframe" else "Sending job")
-    return True
+    SESSION.run(work, done, label="Sending keyframe job" if purpose == "keyframe" else "Sending job",
+                on_error=on_error)
 
 
 def keyframe_frame(scene, spec: ParamSpec) -> int:
@@ -288,7 +300,8 @@ def on_job_done(view: JobView) -> None:
     """Session hook (main thread): auto-import into scenes that booked this job, once."""
     for sc in bpy.data.scenes:
         rec = next((r for r in sc.comfyq.jobs if r.job_id == view.job.id), None)
-        if rec is None or rec.imported or rec.purpose == "keyframe" or not sc.comfyq.auto_import:
+        # keyframes and graph results feed other jobs; graph nodes show and import their own results
+        if rec is None or rec.imported or rec.purpose in ("keyframe", "graph") or not sc.comfyq.auto_import:
             continue
         msgs = import_files(view.files, view.job.id, view.job.workflow_id, sc)
         rec.imported, view.imported = True, True

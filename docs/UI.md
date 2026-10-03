@@ -182,7 +182,7 @@ collection* first, so it never reached ComfyQ.
 - The AI-keyframe chain has not run end to end on the server yet.
 - Job cards cannot be removed from the list yet (lower **Jobs shown** instead).
 
-## 8. ComfyQ Graph (node editor) — build and wire; running comes in N2
+## 8. ComfyQ Graph (node editor)
 
 Open it with the graph icon of the bar. Saved with the file.
 
@@ -190,6 +190,11 @@ Open it with the graph icon of the bar. Saved with the file.
 |---|---|---|
 | Header **Scene** | Adds a source node: Scene Animation (clay video), Scene Render (still, first/last/current frame), Selection Mask, Image, Video File, Audio File, Prompt | `toolbar › Scene › Scene Animation adds the node` |
 | Header **Image · Video · 3D · Splats · Audio · Tools** | Adds a workflow node (served first, VRAM badge). Same entries in Shift+A | `toolbar › Video › … adds a node with its inputs as sockets` |
+| Header **Run Graph** | Runs the graph's last nodes (those that feed no other workflow node) | — |
+| Workflow node **Generate** | Runs this node: renders the scene sources it needs (fresh), books upstream workflow nodes that have no up-to-date result first, then this one. A result is reused while nothing it depends on changed (settings, prompts, links, the scene) | `node › Generate on B starts the chain A → B`, `Generate again reuses A and books only B` |
+| Workflow node ⟳ | Re-runs everything upstream too | — |
+| Status / progress, ✕ | *Waiting for its inputs*, *Sending…*, queue / progress bar; ✕ cancels the job and stops what depends on it | `node › ✕ cancels its job and ends the run` |
+| Result: thumbnail, **Show · Open · Import** | The node's result (fed to the nodes linked after it); Show plays it in the ComfyQ viewer | `chain finished: A and B have results`, `B was given A's result` |
 | Header **Clear Graph** | Removes every node (asks first) | `Clear Graph` |
 | Workflow node **Change model** | Searchable list of every workflow (▶ = served). Settings kept per model; links come back on inputs of the same kind | `node › Change model lists every workflow, served first`; smoke `Change model … stays linked` |
 | Workflow node chips | The workflow's settings (sidebar › Node: all of them, with the description) | smoke `settings stored on the node as chips` |

@@ -132,6 +132,15 @@ def step_send():
     sc = bpy.context.scene
     wf = sc.comfyq.workflow_id
     prompt_spec = next((s for s in S.specs[wf] if s.kind == "prompt"), None)
+    if "--prompt-file" in sys.argv and prompt_spec:      # use this prompt instead of the saved one
+        text = Path(sys.argv[sys.argv.index("--prompt-file") + 1]).read_text(encoding="utf-8").strip()
+        it = props.param_item(sc, prompt_spec.key, wf)
+        it.text, it.s = None, text
+    if "--match" in sys.argv:                           # duration / fps / size from the scene
+        wfops = ext("ops.workflow")
+        m = ext("match").match(S.specs[wf], wfops.scene_facts(sc))
+        wfops.apply_values(sc, wf, m.values)
+        log("matched to scene", notes=m.notes)
     prompt = props.param_item(sc, prompt_spec.key, wf).value() if prompt_spec else ""
     n = len(sc.comfyq.jobs)
     msgs = []

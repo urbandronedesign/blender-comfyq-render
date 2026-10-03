@@ -1,6 +1,6 @@
 # Plan — ComfyQ node graph (Moodboard-style UI)
 
-Status: **N0 + N1 done** (2026-10-03), N2 (running the graph) next. Decisions: Node Editor (option A); the bar stays next to
+Status: **N0 + N1 + N2 done** (2026-10-03), N3 (look) next. Decisions: Node Editor (option A); the bar stays next to
 the graph; settings are chips inside each node only (no linkable setting sockets). Goal: the same way of working as Mixar's Moodboard
 (cards wired together: image → *Generate Video* → …) inside the bridge, with nodes built from what
 ComfyQ serves, exposing every input and parameter of each workflow.
@@ -166,3 +166,32 @@ Phase-2 ComfyQ PRs that help: `outputs` in meta/`/workflows`, `job_deps`.
   GUI check in Mixar 77/77, no drawing errors.
 - Known: no thumbnail for videos (Blender makes no previews for movies; N3 could show a frame), red headers
   and *Group* sidebar panels (N3).
+
+## 13. N2 results (2026-10-03)
+- `graph/engine.py` (bpy-free, 11 unit tests): dependency order, node hash (own settings + everything
+  upstream), plan (target always; upstream only without an up-to-date result; anything downstream of a
+  re-run), readiness, leaves, cycle refusal.
+- `graph/run.py`: a run renders the scene sources a job needs (fresh, once per run even when several
+  nodes share them), books workflow nodes in order through the bar's own `ops.generate.book()`, gives
+  each downstream node its upstream result (images resized to ComfyQ's limits; text results read as
+  prompts), records jobs in the scene (purpose `graph`, no auto-import), shows the target's result in the
+  ComfyQ viewer at the end. Refuses with a message: not connected, unserved workflows, unlinked needed
+  inputs, settings still loading, loops, a run already going.
+- Node: **Generate** (and ⟳ = re-run upstream too), status / progress / ✕ cancel (stops what depends on
+  it), result thumbnail (images) and Show / Open / Import; header **Run Graph** (the graph's last nodes).
+  A job finished while the file was closed is picked up again (`_adopt_result`).
+- Found and fixed (GUI check: re-running B re-ran A every time): "has the scene changed?" was first
+  answered from depsgraph updates, but our own renders (frame steps of the animated camera, mask colours)
+  and **Mixar's UI** (it re-tags objects with shading updates while it draws) look like edits. Scene
+  sources now hash what the render depends on instead — `render.scene_fingerprint()`: camera, frame
+  range, resolution, each renderable object's placement (keyframes when animated), mesh shape, modifiers,
+  constraints, materials in Material style. Scrubbing the timeline, selection, custom properties and UI
+  activity do not change it. (`render.own_changes()` also brackets every pass, which keeps the bar's
+  animation cache honest.)
+- Cancelling a running job: ComfyQ stores it as failed / "cancelled" → now read as **Cancelled**
+  everywhere (job cards, nodes).
+- Verified: headless smoke in Mixar and Blender 5.1 (plan, reuse, B gets A's result, edits re-run,
+  results arriving do not, refusals); live in Mixar on the GPU: Scene Animation → V2V A → V2V B
+  (B received A's MP4; ComfyQ stored each node's prompt), cancel from the node.
+- Not verified live: Scene Render → *image workflow* → V2V start image, because no image workflow is
+  served on this ComfyQ (the mechanics are covered headless: image results are resized and uploaded).

@@ -74,12 +74,15 @@ class Job:
 
     @classmethod
     def from_wire(cls, d: dict[str, Any]) -> Job:
+        # `phase` is the fine-grained state; `status` is the coarse one.
+        phase = d.get("phase") or d.get("status") or SCHEDULED
+        if phase == FAILED and d.get("error_reason") == "cancelled":
+            phase = CANCELLED          # ComfyQ marks a job cancelled while running as failed/"cancelled"
         return cls(
             id=d["id"],
             workflow_id=d.get("workflow_id") or "",
             user_id=d.get("user_id") or "",
-            # `phase` is the fine-grained state; `status` is the coarse one.
-            phase=d.get("phase") or d.get("status") or SCHEDULED,
+            phase=phase,
             progress=_progress(d.get("progress")),
             current_node=d.get("current_node"),
             outputs=tuple(Output.from_wire(o) for o in (d.get("outputs") or [])),

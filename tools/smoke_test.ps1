@@ -17,7 +17,7 @@ $ErrorActionPreference = "Continue"
 $root = Split-Path -Parent $PSScriptRoot
 $exe = @{
     mixar   = "C:\Program Files\Mixar\mixar.exe"
-    blender = "C:\Program Files\Blender Foundation\Blender 5.1\blender.exe"
+    blender = "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe"
 }[$App]
 if (-not (Test-Path $exe)) { Write-Error "$App not found at $exe"; exit 1 }
 

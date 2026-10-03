@@ -594,12 +594,113 @@ def step_graph():
         bpy.ops.node.view_all()
     yield 1.0
     shot("09c_graph_n1")
+    # N2 without GPU: rendering a node's inputs as a run does, then showing results while Mixar idles,
+    # must not make the node look out of date (it did in the live check: A re-ran every time).
+    grun, gengine, anim_mod = ext("graph.run"), ext("graph.engine"), ext("passes.animation")
+    before = grun.describe(tree, sc)
+    h0 = gengine.node_hash(before, node.name)
+    r = grun.Run(tree, sc, [node.name], before, [])
+    r._collect(sc, node, S().specs[wf])
+    pv = bpy.data.images.get("ComfyQ render preview")
+    if pv is not None:
+        click("show_media", graph_area, image=pv.name)
+    node.job_id = "stability-check"
+    yield 4.0
+    after = grun.describe(tree, sc)
+    changed = {n: (before[n].own, after[n].own) for n in after if n in before and after[n].own != before[n].own}
+    check("rendering a node's inputs and showing results keeps it up to date (no false re-runs)",
+          gengine.node_hash(after, node.name) == h0,
+          f"changed={list(changed)} last edit={anim_mod.last_edit_by or 'none'}")
+    node.job_id = ""
     with bpy.context.temp_override(window=w, area=area):
         res = bpy.ops.comfyq.graph_clear("EXEC_DEFAULT")
     check("Clear Graph", res == {"FINISHED"} and len(tree.nodes) == 0, res)
     click("graph_add", graph_area, node_type="ComfyQSceneAnimationNode")
     click("graph_add", graph_area, node_type="ComfyQWorkflowNode", workflow_id=wf)
     yield 0.3
+
+
+def _small(node, specs):
+    """Cheapest settings for a GPU test: no start image / prompt rewrite, smallest size, shortest clip."""
+    for sp in specs:
+        it = node.item(sp.key)
+        low = sp.label.lower()
+        if it is None:
+            continue
+        if sp.kind == "bool" and ("start image" in low or "enhance" in low):
+            it.b = False
+        elif sp.kind == "int" and "resolution" in low and sp.min is not None:
+            it.i = int(sp.min)
+        elif sp.kind == "float" and ("clip length" in low or "duration" in low):
+            it.f = float(sp.min) if sp.min else 1.0
+
+
+def step_graph_run():
+    """N2 on the GPU (--book): Scene Animation → V2V A → V2V B, then reuse and cancel."""
+    if not BOOK:
+        return
+    grun, gtree = ext("graph.run"), ext("graph.tree")
+    sc = bpy.context.scene
+    _w, area = graph_area()
+    tree = area.spaces.active.node_tree
+    tree.nodes.clear()
+    wf = min(S().served_ids())
+    specs = S().specs[wf]
+    anim = tree.nodes.new("ComfyQSceneAnimationNode")
+    a = tree.nodes.new("ComfyQWorkflowNode")
+    b = tree.nodes.new("ComfyQWorkflowNode")
+    for n, x in ((anim, -700), (a, -300), (b, 200)):
+        n.location = (x, 0)
+    for n, text in ((a, "ui check chain A: clay figures, warm light"), (b, "ui check chain B: same shot, night")):
+        n.workflow_id = wf
+        n.build(specs)
+        _small(n, specs)
+        n.item(next(sp.key for sp in specs if sp.kind == "prompt")).s = text
+    names = (a.name, b.name)
+    tree.links.new(anim.outputs[0], next(x for x in a.inputs if gtree.socket_kind(x) == "video"))
+    tree.links.new(a.outputs[0], next(x for x in b.inputs if gtree.socket_kind(x) == "video"))
+    n_jobs = len(sc.comfyq.jobs)
+    run_started = round(time.time(), 2)
+    res = click("graph_run", graph_area, tree=tree.name, node=names[1])
+    started = dict(grun.RUNS[tree.name].nodes) if tree.name in grun.RUNS else {}
+    check("node › Generate on B starts the chain A → B", res == {"FINISHED"} and tree.name in grun.RUNS,
+          S().status_note)
+    shot("09d_graph_running")
+    yield (lambda: tree.name not in grun.RUNS), 1500
+    a, b = tree.nodes[names[0]], tree.nodes[names[1]]
+    check("chain finished: A and B have results", Path(a.result).is_file() and Path(b.result).is_file(),
+          f"A={a.result} B={b.result} note={a.note or b.note} {S().status_note}")
+    recs = {r.job_id: r for r in sc.comfyq.jobs[n_jobs:]}
+    sent_b = json.loads(recs[b.job_id].inputs or "{}") if b.job_id in recs else {}
+    check("B was given A's result (not a fresh clay render)", list(sent_b.values()) == [a.result], sent_b)
+    stored = S().client.http.get(f"/jobs/{b.job_id}")["job"]
+    check("ComfyQ stored B's own prompt", stored.get("prompt") == "ui check chain B: same shot, night",
+          stored.get("prompt"))
+    res = click("show_media", graph_area, path=b.result)
+    yield 0.5
+    shot("09e_graph_done")
+    report["graph_jobs"] = [a.job_id, b.job_id]
+    # Generate on B again, nothing changed upstream: A is reused, only B is booked — then cancel it
+    anim_mod, gengine = ext("passes.animation"), ext("graph.engine")
+    now = grun.describe(tree, sc)
+    report["reuse_diag"] = {
+        "changed_own": [n for n in now if n in started and now[n].own != started[n].own],
+        "A_hash_now": gengine.node_hash(now, names[0]), "A_result_hash": tree.nodes[names[0]].result_hash,
+        "last_edit_by": anim_mod.last_edit_by, "A_inputs": now[names[0]].inputs,
+        "edit_log": list(anim_mod.edit_log), "run_started": run_started, "now": round(time.time(), 2),
+        "anim_own_then_now": [started.get(anim.name).own if anim.name in started else None, now[anim.name].own]}
+    res = click("graph_run", graph_area, tree=tree.name, node=names[1])
+    run = grun.RUNS.get(tree.name)
+    check("Generate again reuses A and books only B", res == {"FINISHED"} and run is not None
+          and run.pending == {names[1]} and "reusing" in S().status_note, S().status_note)
+    yield (lambda: bool(tree.nodes[names[1]].job_id) and tree.nodes[names[1]].job_id != report["graph_jobs"][1]), 60
+    jid = tree.nodes[names[1]].job_id
+    click("cancel", graph_area, job_id=jid)
+    yield (lambda: tree.name not in grun.RUNS), 90
+    v = S().jobs.get(jid)
+    check("node › ✕ cancels its job and ends the run", v is not None and v.job.phase == "cancelled"
+          and tree.name not in grun.RUNS, v and v.job.phase)
+    report["graph_jobs"].append(jid)
 
 
 def step_generate():
@@ -691,7 +792,7 @@ def step_extras():
 
 STEPS = [step_start, step_connect, step_refresh, step_tabs_and_menu, step_chips, step_prompt, step_match,
          step_render_scene, step_animation, step_player, step_library, step_cleanup, step_finished_job_card,
-         step_keyframe, step_graph, step_generate, step_disconnect_reconnect, step_reload_file, step_extras]
+         step_keyframe, step_graph, step_graph_run, step_generate, step_disconnect_reconnect, step_reload_file, step_extras]
 
 
 class Runner:

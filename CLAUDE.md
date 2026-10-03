@@ -14,7 +14,7 @@ Git: local repo, branch `main`, no remote. Commit author = repo-local `urbandron
 | Thing | Where |
 |---|---|
 | Mixar 4.2.0 (Blender 5.2, Python 3.13.13) | `C:\Program Files\Mixar\mixar.exe`; user profile `%APPDATA%\Mixar\Mixar\5.2` (extensions in `extensions\user_default\comfyq_bridge`) |
-| Blender 5.1 (Python 3.13.9) | `C:\Program Files\Blender Foundation\Blender 5.1\blender.exe` |
+| Blender 5.2.2 LTS (Python 3.13.13) | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2`, Allow Online Access on. `smoke_test.ps1 -App blender` uses 5.2 |
 | ComfyQ server (Node, Socket.IO, SQLite) | `F:\ComfyQ`, http://127.0.0.1:3000 — user works with b2renger, full control of its code |
 | ComfyUI 0.37, torch 2.8 cu128, RTX 5090 32 GB | `F:\ComfyUI_windows_portable_nvidia\…`, :8188 (listens on 0.0.0.0 — P1.0 issue) |
 | Ollama | 127.0.0.1:11434 |
@@ -50,7 +50,8 @@ extension/comfyq_bridge/
   ui/studio.py           the Mixar-style bar (tabs, chips, prompt, scene strip, references, job cards with "Sent" rows)
   ui/panel.py            panels: View3D sidebar, Image Editor sidebar, Queue popover, dialog (Ctrl+Shift+Q), header buttons
   ui/player.py           video player for the ComfyQ window (independent of the scene timeline)
-  graph/                 node graph (Moodboard-style, docs/plans/node-graph.md): kinds.py (bpy-free), tree.py, ui.py
+  graph/                 node graph (Moodboard-style, docs/plans/node-graph.md): kinds.py + engine.py (bpy-free),
+                         tree.py (nodes), ui.py (toolbar/operators/timer sync), run.py (running the graph)
 tests/unit/              pytest, no bpy (params, match, models/profile, submit)
 tests/contract/          against the live ComfyQ (read-only + a no-GPU booking 1 day ahead, then deleted)
 tests/blender/smoke.py   headless inside Mixar/Blender (run via tools/smoke_test.ps1)
@@ -135,7 +136,12 @@ change that session: the user must reinstall from the UI or restart Mixar.
     file's trees and calls our `NodeTree.update()` with half-registered socket types; touching sockets
     there = access violation (seen on reinstall). Guard with `graph.tree.REGISTERING`; read socket kinds
     from `bl_idname`, not Python attributes.
-22. Panel/Menu `draw` methods can't be monkeypatched with a plain wrapper (Blender calls them its own
+22. **Don't infer "the scene changed" from depsgraph updates.** Our own renders (frame steps of an
+    animated camera, mask recolouring) and Mixar's UI (re-tags objects with *shading* updates while
+    drawing) produce them constantly. The graph hashes the scene content instead
+    (`render.scene_fingerprint`). The depsgraph tracker (bar's animation cache) ignores our passes
+    (`render.own_changes`), images/texts/UI and flagless Object updates; `animation.edit_log` shows why.
+23. Panel/Menu `draw` methods can't be monkeypatched with a plain wrapper (Blender calls them its own
     way); tests read panel tracebacks from the console log instead.
 
 ## Status
@@ -158,4 +164,4 @@ change that session: the user must reinstall from the UI or restart Mixar.
 ## Next steps (when the user asks)
 1. After any UI change: `smoke_test.ps1 -Ui` and update docs/UI.md. Reinstall into the user's profile only when asked.
 2. P1.4 MCP, then P1.5 sweep, then phase-2 ComfyQ PRs.
-3. Node graph (Moodboard-style UI): plan in `docs/plans/node-graph.md` — approved (Node Editor, bar kept, settings as chips only); **N0 + N1 done** (§11–12 of the plan); next N2 (running the graph).
+3. Node graph (Moodboard-style UI): plan in `docs/plans/node-graph.md` — approved (Node Editor, bar kept, settings as chips only); **N0–N2 done** (§11–13 of the plan): graph builds, wires and runs; next N3 (look).

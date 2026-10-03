@@ -352,6 +352,83 @@ tree.nodes.remove(pnode)
 for extra in [n for n in tree.nodes if n not in (wnode, anim, img_node)]:
     tree.nodes.remove(extra)
 
+# N2 (no GPU): what a run books, what it reuses, what it sends, what it refuses
+from bl_ext.user_default.comfyq_bridge.graph import engine as gengine
+from bl_ext.user_default.comfyq_bridge.graph import run as grun
+
+for x in list(tree.links):
+    if x.to_node == wnode and socket_kind(x.to_socket) != "video":
+        tree.links.remove(x)
+nodes = grun.describe(tree, scene)
+check(gengine.plan(nodes, [wnode.name]) == [wnode.name], "graph run: Generate on a node books that node")
+r = grun.Run(tree, scene, [wnode.name], nodes, [])
+vals, ups = r._collect(scene, wnode, SESSION.specs[v2v])
+vid_key2 = next(x.identifier for x in wnode.inputs if socket_kind(x) == "video")
+check(vid_key2 in ups and ups[vid_key2].suffix == ".mp4" and ups[vid_key2].is_file(),
+      f"graph run: the linked Scene Animation is rendered and sent ({ups.get(vid_key2)})")
+prompt_key = next(s.key for s in SESSION.specs[v2v] if s.kind == "prompt")
+check(vals.get(prompt_key) == wnode.item(prompt_key).value(), "graph run: the node's prompt is sent")
+# B fed by A's result: A is reused while up to date, re-run once its settings change
+b_node = tree.nodes.new("ComfyQWorkflowNode")
+b_node.workflow_id = v2v
+b_node.build(SESSION.specs[v2v])
+tree.links.new(wnode.outputs[0], next(x for x in b_node.inputs if socket_kind(x) == "video"))
+nodes = grun.describe(tree, scene)
+check(gengine.plan(nodes, [b_node.name]) == [wnode.name, b_node.name], "graph run: a chain books upstream first")
+wnode.result = str(ups[vid_key2])                          # pretend A has made a result
+wnode.result_hash = gengine.node_hash(grun.describe(tree, scene), wnode.name)
+check(gengine.plan(grun.describe(tree, scene), [b_node.name]) == [b_node.name],
+      "graph run: an up-to-date upstream result is reused")
+r2 = grun.Run(tree, scene, [b_node.name], grun.describe(tree, scene), [])
+_v, ups_b = r2._collect(scene, b_node, SESSION.specs[v2v])
+check(next(iter(ups_b.values())) == ups[vid_key2], "graph run: B receives A's result")
+# What happens after a real run must not make A's scene input look edited (GUI check found this):
+# the node receiving its result, a result image loaded, a depsgraph update.
+def _reuses_a():
+    return gengine.plan(grun.describe(tree, scene), [b_node.name]) == [b_node.name]
+
+
+# What happens during and after a real run must not make A's scene input look edited (the live check
+# found Mixar's UI re-tagging objects): results arriving, images, custom properties, the timeline.
+wnode.job_id = "x"
+probe = bpy.data.images.new("ComfyQ probe", 8, 8)
+cube["mixar_ui_tag"] = 1
+keep_frame = scene.frame_current
+scene.frame_set(scene.frame_start + 10)
+bpy.context.view_layer.update()
+check(_reuses_a(), "graph run: results arriving, custom properties and scrubbing the timeline do not "
+                   "invalidate the scene input")
+scene.frame_set(keep_frame)
+bpy.data.images.remove(probe)
+del cube["mixar_ui_tag"]
+cam = scene.camera
+cam.location.x += 0.5                                      # a real change of what the camera sees
+check(not _reuses_a(), "graph run: moving the camera makes the scene-fed node run again")
+cam.location.x -= 0.5
+check(_reuses_a(), "graph run: moving it back makes the old result valid again")
+fc_cube = next(render._fcurves(cube.animation_data.action))
+fc_cube.keyframe_points[-1].co.y += 1.0                     # a changed keyframe
+check(not _reuses_a(), "graph run: changing a keyframe makes the scene-fed node run again")
+fc_cube.keyframe_points[-1].co.y -= 1.0
+wnode.result_hash = gengine.node_hash(grun.describe(tree, scene), wnode.name)
+wnode.item(prompt_key).s = wnode.item(prompt_key).s + " (changed)"
+check(gengine.plan(grun.describe(tree, scene), [b_node.name]) == [wnode.name, b_node.name],
+      "graph run: changing A's prompt makes A run again")
+unlinked = tree.nodes.new("ComfyQWorkflowNode")
+unlinked.workflow_id = wf                                  # the served workflow (v2v above is not served)
+unlinked.build(SESSION.specs[wf])
+ok, msg = grun.start(tree, scene, [unlinked.name], [])
+check(not ok and "Link these inputs" in msg, f"graph run: refused when a needed input is not linked ({msg[:60]})")
+unserved = next((w.id for w in SESSION.workflows if w.id not in SESSION.served_ids()), None)
+if unserved:
+    unlinked.change_workflow(unserved)
+    ok, msg = grun.start(tree, scene, [unlinked.name], [])
+    check(not ok and "Not served" in msg, f"graph run: refused when a workflow is not served ({msg[:60]})")
+tree.nodes.remove(unlinked)
+tree.nodes.remove(b_node)
+wnode.result, wnode.result_hash = "", ""
+check(not grun.RUNS, "graph run: nothing left running after refusals")
+
 graph_file = tmp / "graph.blend"
 bpy.ops.wm.save_as_mainfile(filepath=str(graph_file), copy=True)
 bpy.ops.wm.open_mainfile(filepath=str(graph_file))

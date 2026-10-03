@@ -4,9 +4,10 @@ that keeps workflow nodes in step with what ComfyQ serves."""
 from __future__ import annotations
 
 import bpy
-from bpy.props import EnumProperty, StringProperty
+from bpy.props import BoolProperty, EnumProperty, StringProperty
 
 from .. import match as scene_match
+from ..importers.media import IMAGE_EXTS
 from ..props import TABS, tab_of
 from ..runtime.session import SESSION
 from . import kinds
@@ -266,6 +267,33 @@ class COMFYQ_OT_graph_unlink_text(_NodeOp, bpy.types.Operator):
         return {"FINISHED"}
 
 
+class COMFYQ_OT_graph_run(_NodeOp, bpy.types.Operator):
+    bl_idname = "comfyq.graph_run"
+    bl_label = "Generate"
+    bl_description = ("Run this node: renders the scene sources it needs, books its job, and first books "
+                      "any upstream workflow node without an up-to-date result. Without a node: run the graph's "
+                      "last nodes. ⟳ = re-run everything upstream")
+    bl_options = {"REGISTER", "INTERNAL"}
+    force: BoolProperty(default=False, options={"SKIP_SAVE"})
+
+    @classmethod
+    def poll(cls, context):
+        return SESSION.connected
+
+    def execute(self, context):
+        from . import engine, run
+        tree = bpy.data.node_groups.get(self.tree) if self.tree else (
+            context.space_data.edit_tree if _in_graph(context) else None)
+        if tree is None:
+            return {"CANCELLED"}
+        scene = context.scene
+        targets = [self.node] if self.node else engine.leaves(run.describe(tree, scene))
+        ok, msg = run.start(tree, scene, targets, [o.name for o in context.selected_objects], force=self.force)
+        self.report({"INFO"} if ok else {"ERROR"}, msg)
+        SESSION.status_note = msg
+        return {"FINISHED"} if ok else {"CANCELLED"}
+
+
 # -- opening the graph ------------------------------------------------------------------------------
 def ensure_graph() -> bpy.types.NodeTree:
     tree = next(iter(graph_trees()), None)
@@ -335,6 +363,9 @@ def _header(self, context):
     for m in TAB_MENUS:
         row.menu(m.bl_idname, text=m.bl_label, icon=m.comfyq_icon)
     layout.separator()
+    run = layout.row()
+    run.scale_x = 1.3
+    run.operator(COMFYQ_OT_graph_run.bl_idname, text="Run Graph", icon="PLAY")
     layout.operator(COMFYQ_OT_graph_clear.bl_idname, text="Clear Graph", icon="X")
 
 
@@ -352,6 +383,8 @@ def sync_all() -> None:
     """Called from the add-on timer: build/rebuild workflow nodes from their parameters, hide inputs
     the workflow switches off, make thumbnails. Never runs inside a draw."""
     from ..ops.workflow import request_specs
+    from . import run
+    run.tick_all()
     for tree in graph_trees():
         for node in tree.nodes:
             if node.bl_idname == WORKFLOW_NODE and node.workflow_id:
@@ -362,6 +395,7 @@ def sync_all() -> None:
                     node.build(specs)
                 else:
                     node.refresh_visibility(specs)
+                _adopt_result(tree, node)
             elif node.bl_idname == "ComfyQImageNode" and node.image is not None and node.image.preview is None:
                 node.image.preview_ensure()
     for name in ("ComfyQ render preview", "ComfyQ animation pass"):
@@ -370,9 +404,30 @@ def sync_all() -> None:
             img.preview_ensure()
 
 
+def _adopt_result(tree, node) -> None:
+    """A node's job finished outside a run (e.g. the file was reopened meanwhile): take its result.
+    Image results get a thumbnail."""
+    from pathlib import Path
+
+    from . import run
+    if node.job_id and not run.running(tree.name, node.name):
+        view = SESSION.jobs.get(node.job_id)
+        if view is not None and view.job.ok and view.files and not node.result:
+            node.result = str(run.pick_result(view.files, node.output_kind))
+            node.result_hash = node.pending_hash
+    if node.result:
+        p = Path(node.result)
+        if p.suffix.lower() in IMAGE_EXTS and p.is_file():
+            img = bpy.data.images.get(p.name)
+            if img is None:
+                img = bpy.data.images.load(str(p), check_existing=True)
+            if img.preview is None:
+                img.preview_ensure()
+
+
 classes = (COMFYQ_OT_graph_add, *TAB_MENUS, COMFYQ_MT_graph_scene, COMFYQ_OT_graph_clear, COMFYQ_OT_open_graph,
            COMFYQ_OT_graph_set_workflow, COMFYQ_OT_graph_add_source, COMFYQ_OT_graph_edit_text,
-           COMFYQ_OT_graph_unlink_text)
+           COMFYQ_OT_graph_unlink_text, COMFYQ_OT_graph_run)
 
 
 def register_extras() -> None:

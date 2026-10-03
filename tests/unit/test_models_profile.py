@@ -16,6 +16,13 @@ def test_job_from_http_shape():
     assert j.outputs[0].media_path == "b2renger_x_00001_.png"
 
 
+def test_job_cancelled_while_running_reads_as_cancelled():
+    # real ComfyQ shape of a job cancelled while executing (52d895a8, 2026-10-03)
+    j = Job.from_wire({"id": "x", "status": "failed", "error_reason": "cancelled"})
+    assert j.phase == "cancelled" and j.done and not j.ok
+    assert Job.from_wire({"id": "y", "status": "failed", "error_reason": "OOM"}).phase == "failed"
+
+
 def test_job_from_socket_shape():
     j = Job.from_wire({"id": "x", "status": "processing", "phase": "executing", "progress": {"value": 3, "max": 12},
                        "outputs": [{"kind": "video", "filename": "a.mp4", "subfolder": "sub"}]})

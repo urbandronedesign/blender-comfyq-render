@@ -14,6 +14,7 @@ are restored afterwards.
 """
 from __future__ import annotations
 
+import hashlib
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -134,6 +135,91 @@ def _render_to(scene: bpy.types.Scene, path: Path) -> Path:
     return path
 
 
+QUIET_S = 1.5
+_OWN = {"depth": 0, "until": 0.0}
+
+
+@contextmanager
+def own_changes():
+    """Everything changed inside (frame steps, render settings, temporary object colours) is ours,
+    not a user edit of the scene: scene-fed results must not look out of date because of our own
+    renders. The updates we caused are flushed before the bracket closes; a short tail covers any
+    that arrive later."""
+    _OWN["depth"] += 1
+    try:
+        yield
+    finally:
+        try:
+            bpy.context.evaluated_depsgraph_get().update()
+        except (AttributeError, RuntimeError):
+            pass
+        _OWN["depth"] -= 1
+        _OWN["until"] = time.time() + QUIET_S
+
+
+def is_own_change() -> bool:
+    return _OWN["depth"] > 0 or time.time() < _OWN["until"]
+
+
+def _fcurves(action):
+    """F-curves of an action, layered (Blender 4.4+/5.x) or legacy."""
+    for layer in getattr(action, "layers", ()):
+        for strip in layer.strips:
+            for bag in getattr(strip, "channelbags", ()):
+                yield from bag.fcurves
+    yield from getattr(action, "fcurves", ())
+
+
+def scene_fingerprint(scene: bpy.types.Scene, style: str) -> str:
+    """A hash of what a camera render of the scene depends on: camera, frame range, resolution, every
+    renderable object's placement (keyframes when animated), mesh shape, modifiers, materials (Material
+    style). Not the current frame, selection, custom properties or UI state — so neither scrubbing the
+    timeline nor Mixar's own UI activity makes scene-fed graph results look out of date."""
+    h = hashlib.sha1()
+
+    def add(*v):
+        h.update(repr(v).encode())
+
+    r = scene.render
+    add(style, scene.frame_start, scene.frame_end, r.fps, r.fps_base, r.resolution_x, r.resolution_y,
+        r.pixel_aspect_x, r.pixel_aspect_y, scene.camera.name if scene.camera else None)
+    actions, datas = set(), set()
+    for ob in sorted(scene.objects, key=lambda o: o.name):
+        if ob.hide_render:
+            add(ob.name, "hidden")
+            continue
+        ad = ob.animation_data
+        animated = ad is not None and ad.action is not None
+        if animated:
+            actions.add(ad.action)
+        add(ob.name, ob.type, ob.parent.name if ob.parent else None, ob.data.name if ob.data else None,
+            None if animated else [tuple(round(x, 5) for x in row) for row in ob.matrix_basis],
+            [(m.name, m.type, m.show_render) for m in getattr(ob, "modifiers", ())],
+            [(c.name, c.type, c.mute) for c in ob.constraints])
+        if ob.data is not None:
+            datas.add(ob.data)
+        if style == "MATERIAL":
+            add([(sl.material.name, tuple(sl.material.diffuse_color)) for sl in ob.material_slots if sl.material])
+    for data in sorted(datas, key=lambda d: (type(d).__name__, d.name)):
+        dad = getattr(data, "animation_data", None)
+        if dad is not None and dad.action is not None:
+            actions.add(dad.action)
+        if isinstance(data, bpy.types.Mesh):
+            co = np.empty(len(data.vertices) * 3, dtype=np.float32)
+            data.vertices.foreach_get("co", co)
+            add(data.name, len(data.polygons), hashlib.sha1(co.tobytes()).hexdigest())
+        elif isinstance(data, bpy.types.Camera):
+            add(data.name, data.type, data.lens, data.sensor_width, data.sensor_fit, data.shift_x, data.shift_y,
+                data.clip_start, data.clip_end, data.ortho_scale)
+    for act in sorted(actions, key=lambda a: a.name):
+        for fc in _fcurves(act):
+            co = np.empty(len(fc.keyframe_points) * 2, dtype=np.float32)
+            fc.keyframe_points.foreach_get("co", co)
+            add(act.name, fc.data_path, fc.array_index, fc.mute, hashlib.sha1(co.tobytes()).hexdigest(),
+                [k.interpolation for k in fc.keyframe_points])
+    return h.hexdigest()[:16]
+
+
 @contextmanager
 def _at_frame(scene: bpy.types.Scene, frame: int | None):
     if frame is None or frame == scene.frame_current:
@@ -150,7 +236,7 @@ def _at_frame(scene: bpy.types.Scene, frame: int | None):
 def structure_pass(scene: bpy.types.Scene, style: str = "CLAY", max_edge: int | None = None,
                    frame: int | None = None) -> Path:
     size = fit_size(scene_aspect(scene), max_edge)
-    with _at_frame(scene, frame), _workbench(scene, size, style):
+    with own_changes(), _at_frame(scene, frame), _workbench(scene, size, style):
         return _render_to(scene, _out_path("structure" if frame is None else f"structure_f{frame}"))
 
 
@@ -162,7 +248,7 @@ def mask_pass(scene: bpy.types.Scene, selected: list[bpy.types.Object], style: s
     size = fit_size(scene_aspect(scene), max_edge)
     rgb_path = _out_path("mask_rgb")
     matte_path = _out_path("mask_matte")
-    with _at_frame(scene, frame), _workbench(scene, size, style):
+    with own_changes(), _at_frame(scene, frame), _workbench(scene, size, style):
         _render_to(scene, rgb_path)
         sh, r = scene.display.shading, scene.render
         colors = {o.name: tuple(o.color) for o in scene.objects}

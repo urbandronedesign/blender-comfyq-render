@@ -292,6 +292,10 @@ class ComfyQWorkflowNode(_Node, bpy.types.Node):
     output_kind: StringProperty()
     note: StringProperty()                 # e.g. inputs removed by a workflow update
     relink: StringProperty()               # JSON: links to restore after a model change
+    job_id: StringProperty()               # last job booked for this node
+    result: StringProperty(subtype="FILE_PATH")   # its downloaded result (fed to linked nodes)
+    result_hash: StringProperty()          # inputs + settings the result was made with
+    pending_hash: StringProperty()         # same, for the job in progress
 
     def init(self, context):
         self.use_custom_color = True
@@ -438,7 +442,53 @@ class ComfyQWorkflowNode(_Node, bpy.types.Node):
                 row.label(text=f"{scene_match.short_label(s.label, 28)}: not linked"
                                + (" (needed)" if s.required else ""), icon="ERROR" if s.required else "INFO")
                 target(row.operator("comfyq.graph_add_source", text=SOURCE_LABEL[kind], icon="ADD"), self, s.key)
-        layout.label(text="Run from the graph: next step (N2) — use the bar meanwhile", icon="TIME")
+        self._draw_run(context, layout)
+
+    def _draw_run(self, context, layout) -> None:
+        """Generate · status / progress · result (thumbnail, Show, Open, Import)."""
+        from pathlib import Path
+
+        from ..ui.studio import PHASE_TEXT
+        from .run import running
+        state = running(self.id_data.name, self.name)
+        view = SESSION.jobs.get(self.job_id) if self.job_id else None
+        job = view.job if view else None
+        live = state or (job is not None and not job.done)
+        row = layout.row(align=True)
+        row.scale_y = 1.4
+        if live and job is not None and not job.done:
+            if job.progress is not None and job.phase == "executing":
+                row.progress(factor=job.progress, type="BAR", text=f"Generating {job.progress * 100:.0f}%")
+            else:
+                row.label(text=PHASE_TEXT.get(job.phase, job.phase), icon="SORTTIME")
+            row.operator("comfyq.cancel", text="", icon="X").job_id = self.job_id
+        elif state in ("waiting", "sending"):
+            row.label(text="Waiting for its inputs" if state == "waiting" else "Sending…", icon="SORTTIME")
+        else:
+            gen = row.row(align=True)
+            gen.enabled = self.workflow_id in SESSION.specs
+            target(gen.operator("comfyq.graph_run", text="Generate", icon="RENDER_STILL"), self)
+            op = row.operator("comfyq.graph_run", text="", icon="FILE_REFRESH")
+            target(op, self)
+            op.force = True
+        if job is not None and job.done and not job.ok and not state:
+            col = layout.column(align=True)
+            col.alert = True
+            col.label(text=f"{PHASE_TEXT.get(job.phase, job.phase)} {job.error or ''}".strip(), icon="ERROR")
+        path = Path(self.result) if self.result else None
+        if path is None or not path.is_file():
+            return
+        img = bpy.data.images.get(path.name)
+        if img is not None and img.source != "MOVIE":
+            _thumbnail(layout, img, scale=10.0)
+        res = layout.column(align=True)
+        res.label(text=("Result · " if self.result_hash == self.pending_hash or not self.pending_hash
+                        else "Older result · ") + path.name, icon="CHECKMARK")
+        btn = res.row(align=True)
+        btn.operator("comfyq.show_media", text="Show", icon="PLAY").path = str(path)
+        btn.operator("comfyq.open_media", text="Open", icon="WINDOW").path = str(path)
+        op = btn.operator("comfyq.import_file", text="Import", icon="IMPORT")
+        op.job_id, op.path = self.job_id, str(path)
 
 
 # Source node offered by the "+" of an unlinked input
