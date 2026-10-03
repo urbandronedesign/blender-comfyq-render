@@ -153,9 +153,11 @@ def step_start():
     saved = ext("ops.workflow").comfyq_window()
     report["saved_comfyq_window"] = saved is not None
     if saved is not None:
-        yield (lambda: ui_region(img()[1]).active_panel_category == "ComfyQ"), 8
+        yield (lambda: ui_region(img()[1]).active_panel_category == "ComfyQ"), 30
         check("the ComfyQ window saved in the file is recognised and shows the ComfyQ tab",
-              ui_region(img()[1]).active_panel_category == "ComfyQ", ui_region(img()[1]).active_panel_category)
+              ui_region(img()[1]).active_panel_category == "ComfyQ",
+              f"{ui_region(img()[1]).active_panel_category} focus log={ext('ops.workflow').FOCUS_LOG} "
+              f"windows={[sorted(a.type for a in w.screen.areas) for w in bpy.context.window_manager.windows]}")
     sc = bpy.context.scene
     report["scene_info"] = {"name": sc.name, "frames": f"{sc.frame_start}-{sc.frame_end}",
                             "camera": sc.camera.name if sc.camera else None,
@@ -245,7 +247,7 @@ def step_prompt():
     old = wfops.comfyq_window()
     res = click("open_window", v3d)
     yield (lambda: wfops.comfyq_window() is not None and wfops.comfyq_window() != old), 5
-    yield (lambda: ui_region(img()[1]).active_panel_category == "ComfyQ"), 8
+    yield (lambda: ui_region(img()[1]).active_panel_category == "ComfyQ"), 30
     n_cq = sum(1 for w in bpy.context.window_manager.windows
                if sorted(a.type for a in w.screen.areas) == ["IMAGE_EDITOR", "TEXT_EDITOR"])
     check("window icon opens the ComfyQ window (one only), sidebar on the ComfyQ tab",
@@ -676,6 +678,11 @@ def step_graph_run():
     stored = S().client.http.get(f"/jobs/{b.job_id}")["job"]
     check("ComfyQ stored B's own prompt", stored.get("prompt") == "ui check chain B: same shot, night",
           stored.get("prompt"))
+    if not _graph_open():                         # seen once: the graph window was gone after the run
+        report["graph_window_reopened"] = True
+        click("open_graph", v3d)
+        yield _graph_open, 8
+    check("the graph editor is still open after the run", not report.get("graph_window_reopened"))
     res = click("show_media", graph_area, path=b.result)
     yield 0.5
     shot("09e_graph_done")
@@ -866,10 +873,16 @@ class Runner:
 RUNNER = Runner()
 
 
-@persistent
-def _after_load(_dummy):
+def _unhook():
     if _after_load in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.remove(_after_load)
+
+
+@persistent
+def _after_load(_dummy):
+    # Not removed here: Blender is walking the load_post list right now, and removing an entry
+    # makes it skip the next handler (the add-on's own, in Blender 5.2's order). Remove it just after.
+    bpy.app.timers.register(_unhook, first_interval=0.0)
     bpy.app.timers.register(RUNNER.tick, first_interval=2.0, persistent=True)
 
 

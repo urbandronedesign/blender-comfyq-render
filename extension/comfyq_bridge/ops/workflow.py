@@ -514,20 +514,31 @@ def _setup_step(ptr: int, text_name: str, state: dict):
     return None
 
 
+FOCUS_LOG: list[tuple] = []          # last tab-focus attempts (diagnostics for tests)
+
+
 def focus_comfyq_tab_soon(ptr: int) -> None:
     """Show the ComfyQ tab in the window's Image Editor sidebar. The sidebar only knows its tabs
-    after it has been drawn (until then the setter fails or is ignored): retry until it reads back."""
+    after it has been drawn (until then the setter fails or is ignored): retry until it reads back.
+    Up to 30 s: on a first start (fresh profile, shaders compiling) a window can take seconds to draw;
+    it stops at the first success, so a tab the user picks afterwards is never overridden."""
     tries = {"n": 0}
+    FOCUS_LOG.clear()
 
     def focus():
         w = next((w for w in bpy.context.window_manager.windows if w.as_pointer() == ptr), None)
         tries["n"] += 1
-        if w is None or tries["n"] > 40:
+        if w is None or tries["n"] > 200:
+            FOCUS_LOG.append(("stop", tries["n"], "window gone" if w is None else "gave up"))
             return None
         area = next((a for a in w.screen.areas if a.type == "IMAGE_EDITOR"), None)
         if area is not None:
             area.spaces.active.show_region_ui = True
-        return None if area is not None and _focus_comfyq_tab(area) else 0.15
+        ok = area is not None and _focus_comfyq_tab(area)
+        if tries["n"] <= 3 or ok or tries["n"] % 20 == 0:
+            reg = next((r for r in area.regions if r.type == "UI"), None) if area else None
+            FOCUS_LOG.append((tries["n"], ok, reg.width if reg else None, reg.active_panel_category if reg else None))
+        return None if ok else 0.15
 
     bpy.app.timers.register(focus, first_interval=0.15)
 

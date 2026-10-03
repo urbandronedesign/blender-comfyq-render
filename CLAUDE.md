@@ -77,8 +77,9 @@ tools/late_open.py       start Mixar THEN open a file (workaround for the launch
 .\tools\smoke_test.ps1 -Ui [-Book]      # VISIBLE Mixar (~3 min, tell the user): every button on a copy of
                                         # testV2V_clean.mixar -> live_check\ui\report.json + screenshots
 .\tools\comfyq.ps1 doctor               # classroom health check
-# install the build into the USER's Blender 5.2 profile (only when asked):
-& "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -b --factory-startup --online-mode --command extension install-file -r user_default -e dist\comfyq_bridge-0.1.0.zip
+# install the build into the USER's Blender 5.2 profile (only when asked). NOT --factory-startup: it
+# saves factory preferences and turns the user's "Allow Online Access" off (seen 2026-10-03)
+& "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -b --online-mode --command extension install-file -r user_default -e dist\comfyq_bridge-0.1.0.zip
 # send a job from the node graph on a real project (visible window; use a sandbox profile for unreleased code):
 & "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" --online-mode --python tools\graph_send.py -- <file> <prompt.txt>
 ```
@@ -147,6 +148,9 @@ change that session: the user must reinstall from the UI or restart Mixar.
     (`render.own_changes`), images/texts/UI and flagless Object updates; `animation.edit_log` shows why.
 23. Panel/Menu `draw` methods can't be monkeypatched with a plain wrapper (Blender calls them its own
     way); tests read panel tracebacks from the console log instead.
+24. **Never remove a `load_post` handler from inside itself.** Blender is iterating the list; removing an
+    entry makes it skip the next handler (in Blender 5.2's order: the add-on's `_on_load`, so a saved ComfyQ
+    window was not adopted). Remove it from a timer right after (`_unhook` in our tools).
 
 ## Status
 - **Done:** P1.1 client + Socket.IO transport + CLI; P1.2 extension MVP; P1.3 imports (image/video/GLB/PLY/

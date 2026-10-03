@@ -1,15 +1,16 @@
 # ComfyQ bridge — user interface reference
 
-Every place the bridge appears in Mixar (or Blender 5.x), every button, what it does, and how it is
-checked. The checks run in a visible Mixar on a copy of a real scene:
+Every place the bridge appears in Blender 5.2 LTS (and Mixar), every button, what it does, and how it
+is checked. The checks run in a visible Blender on a copy of a real scene:
 
 ```powershell
 .\tools\smoke_test.ps1 -Ui          # presses every button (no GPU job)        → live_check\ui\report.json + screenshots
-.\tools\smoke_test.ps1 -Ui -Book    # also Generate: books one job and cancels it at once
+.\tools\smoke_test.ps1 -Ui -Book    # also Generate (booked, cancelled) and a live graph chain A → B (2 short jobs)
 ```
 
-Last full run: **72 / 72 checks passed, no drawing errors** (Mixar 4.2.0 / Blender 5.2, 2026-10-03,
-on `testV2V_clean.mixar`).
+Last full runs, 2026-10-03, on `testV2V_clean.mixar` in **Blender 5.2.2 LTS**: **78 / 78** without GPU and,
+with `-Book`, the live part (graph chain A → B, B given A's result, *Generate again* reuses A, ✕ cancels);
+no drawing errors. Earlier the same checks passed in Mixar 4.2.0 (uninstalled since).
 
 ---
 

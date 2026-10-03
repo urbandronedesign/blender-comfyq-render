@@ -166,9 +166,16 @@ def trace(node):
     log("DONE")
 
 
+def _unhook():
+    if _after_load in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.remove(_after_load)
+
+
 @persistent
 def _after_load(_dummy):
-    bpy.app.handlers.load_post.remove(_after_load)
+    # Not removed here: Blender is walking the load_post list right now, and removing an entry
+    # makes it skip the next handler (the add-on's own, in Blender 5.2's order). Remove it just after.
+    bpy.app.timers.register(_unhook, first_interval=0.0)
     bpy.app.timers.register(lambda: connect() and None, first_interval=1.5)
 
 

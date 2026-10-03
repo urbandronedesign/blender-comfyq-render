@@ -193,5 +193,7 @@ Phase-2 ComfyQ PRs that help: `outputs` in meta/`/workflows`, `job_deps`.
 - Verified: headless smoke in Mixar and Blender 5.1 (plan, reuse, B gets A's result, edits re-run,
   results arriving do not, refusals); live in Mixar on the GPU: Scene Animation → V2V A → V2V B
   (B received A's MP4; ComfyQ stored each node's prompt), cancel from the node.
+- **Confirmed live in Blender 5.2.2 LTS** (2026-10-03): chain A → B, *Generate again reuses A* ("Running
+  1 job(s): Workflow.001 (reusing Workflow)"), ✕ cancels; and a 5 s run of the user's project from a node.
 - Not verified live: Scene Render → *image workflow* → V2V start image, because no image workflow is
   served on this ComfyQ (the mechanics are covered headless: image results are resized and uploaded).
