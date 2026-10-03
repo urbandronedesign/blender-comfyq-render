@@ -1,12 +1,12 @@
 # Build the extension, install it into an ISOLATED user folder and run the headless smoke test.
-# Run after every Mixar update, before class. Your real Mixar/Blender setup is not touched.
-#   .\tools\smoke_test.ps1                    # Mixar, no GPU job
+# Run after every Blender update, before class. Your real Blender setup is not touched.
+#   .\tools\smoke_test.ps1                    # Blender 5.2 LTS, no GPU job
 #   .\tools\smoke_test.ps1 -Book              # also books a short job on the served workflow
-#   .\tools\smoke_test.ps1 -App blender
+#   .\tools\smoke_test.ps1 -App mixar         # Mixar (uninstalled on 2026-10-03, kept for later)
 #   .\tools\smoke_test.ps1 -Ui [-Book]       # VISIBLE window: presses every ComfyQ button on a copy of
 #                                            # -Scene (default Desktop\testV2V_clean.mixar); report in live_check\ui
 param(
-    [ValidateSet("mixar", "blender")] [string] $App = "mixar",
+    [ValidateSet("mixar", "blender")] [string] $App = "blender",
     [switch] $Book,
     [switch] $Ui,
     [string] $Scene = (Join-Path $env:USERPROFILE "Desktop\testV2V_clean.mixar")

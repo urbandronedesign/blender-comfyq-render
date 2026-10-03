@@ -6,6 +6,10 @@ A Blender extension (`comfyq_bridge`) that runs inside **Mixar** (a Blender 5.2 
 Main use: **AI rendering** of a Mixar layout/animation (ControlNet, image edit, video-to-video), not Cycles.
 Used in a **class on a local network**.
 
+**Since 2026-10-03 the user works in Blender 5.2 LTS only: Mixar was uninstalled** (MSI + leftover
+program folder removed; its user data in `%APPDATA%\Mixar` / `%LOCALAPPDATA%\Mixar` was left). The code
+stays Mixar-compatible (`smoke_test.ps1 -App mixar` if Mixar is reinstalled); Mixar-only gotchas below are history.
+
 Approved plan: `C:\Users\Ateliernum\.claude\plans\we-are-planning-a-effervescent-widget.md`.
 Git: local repo, branch `main`, no remote. Commit author = repo-local `urbandronedesign <urbandronedesign@users.noreply.github.com>`
 (never the global identity). Ask the user before committing. **UI reference: `docs/UI.md`** (every button + its check).
@@ -13,13 +17,13 @@ Git: local repo, branch `main`, no remote. Commit author = repo-local `urbandron
 ## Environment (this machine)
 | Thing | Where |
 |---|---|
-| Mixar 4.2.0 (Blender 5.2, Python 3.13.13) | `C:\Program Files\Mixar\mixar.exe`; user profile `%APPDATA%\Mixar\Mixar\5.2` (extensions in `extensions\user_default\comfyq_bridge`) |
-| Blender 5.2.2 LTS (Python 3.13.13) | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2`, Allow Online Access on. `smoke_test.ps1 -App blender` uses 5.2 |
+| **Blender 5.2.2 LTS** (Python 3.13.13) — the host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (N2 build), Allow Online Access on. Default of `smoke_test.ps1` and `comfyq.ps1` |
+| Mixar 4.2.0 | **uninstalled 2026-10-03** (was `C:\Program Files\Mixar\mixar.exe`, profile `%APPDATA%\Mixar\Mixar\5.2`) |
 | ComfyQ server (Node, Socket.IO, SQLite) | `F:\ComfyQ`, http://127.0.0.1:3000 — user works with b2renger, full control of its code |
 | ComfyUI 0.37, torch 2.8 cu128, RTX 5090 32 GB | `F:\ComfyUI_windows_portable_nvidia\…`, :8188 (listens on 0.0.0.0 — P1.0 issue) |
 | Ollama | 127.0.0.1:11434 |
 | Bridge cache | `%LOCALAPPDATA%\comfyq-bridge\cache\` — `passes\` (temporary renders), `<job8>\` (downloaded results) |
-| User's test project | `Desktop\testV2V_clean.mixar` (cleaned copy, use this); `testV2V.mixar` crashes Mixar at launch (see Gotchas) |
+| User's test project | `Desktop\testV2V_clean.mixar` (cleaned copy, use this). `.mixar` = zstd-compressed .blend: **Blender 5.2 opens it** (scene 0–120 @ 24 fps, camera, ComfyQ settings intact) |
 
 **User constraints:** do not change the live ComfyQ/ComfyUI server behaviour (P1.0 hardening is postponed).
 Every workflow stays visible (never hide uncalibrated ones). Update check = manual smoke script.
@@ -69,14 +73,14 @@ tools/late_open.py       start Mixar THEN open a file (workaround for the launch
 ```powershell
 .\.venv\Scripts\python -m pytest -q tests\unit tests\contract     # unit + live contract (ComfyQ must run)
 .\.venv\Scripts\ruff check extension tests tools
-.\tools\smoke_test.ps1                  # Mixar, isolated profile, no GPU   (also: -App blender, -Book)
+.\tools\smoke_test.ps1                  # Blender 5.2, isolated profile, no GPU   (also: -Book, -App mixar)
 .\tools\smoke_test.ps1 -Ui [-Book]      # VISIBLE Mixar (~3 min, tell the user): every button on a copy of
                                         # testV2V_clean.mixar -> live_check\ui\report.json + screenshots
 .\tools\comfyq.ps1 doctor               # classroom health check
-# install the build into the USER's Mixar profile (only when asked):
-& "C:\Program Files\Mixar\mixar.exe" -b --factory-startup --online-mode --command extension install-file -r user_default -e dist\comfyq_bridge-0.1.0.zip
-# open the user's project safely (launch crash workaround):
-& "C:\Program Files\Mixar\mixar.exe" --online-mode --python tools\late_open.py -- C:\Users\Ateliernum\Desktop\testV2V_clean.mixar --no-send
+# install the build into the USER's Blender 5.2 profile (only when asked):
+& "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -b --factory-startup --online-mode --command extension install-file -r user_default -e dist\comfyq_bridge-0.1.0.zip
+# send a job from the node graph on a real project (visible window; use a sandbox profile for unreleased code):
+& "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" --online-mode --python tools\graph_send.py -- <file> <prompt.txt>
 ```
 `dist\comfyq_bridge-0.1.0.zip` is rebuilt by every smoke run. Installing it into a running Mixar does not
 change that session: the user must reinstall from the UI or restart Mixar.

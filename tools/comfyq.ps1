@@ -5,11 +5,11 @@
 $Rest = $args
 $root = Split-Path -Parent $PSScriptRoot
 $ext = Join-Path $root "extension\comfyq_bridge"
-$candidates = @(
+$candidates = @(@(
     $env:COMFYQ_BRIDGE_PYTHON,
-    "C:\Program Files\Mixar\5.2\python\bin\python.exe",
-    "C:\Program Files\Blender Foundation\Blender 5.1\5.1\python\bin\python.exe"
-) | Where-Object { $_ -and (Test-Path $_) }
+    "C:\Program Files\Blender Foundation\Blender 5.2\5.2\python\bin\python.exe",
+    "C:\Program Files\Mixar\5.2\python\bin\python.exe"
+) | Where-Object { $_ -and (Test-Path $_) })   # outer @(): one match must stay a list, not a string
 if (-not $candidates) { Write-Error "No Mixar/Blender Python found; set COMFYQ_BRIDGE_PYTHON"; exit 1 }
 
 $wheels = (Get-ChildItem (Join-Path $ext "wheels\*.whl") | ForEach-Object FullName) -join ";"
