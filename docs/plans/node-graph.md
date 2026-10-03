@@ -1,6 +1,6 @@
 # Plan — ComfyQ node graph (Moodboard-style UI)
 
-Status: **N0 + N1 + N2 done** (2026-10-03), N3 (look) next. Decisions: Node Editor (option A); the bar stays next to
+Status: **N0 + N1 + N2 done and verified in Blender 5.2.2 LTS** (2026-10-03); **N3 (look) is next** — task list in CLAUDE.md › Next steps. Decisions: Node Editor (option A); the bar stays next to
 the graph; settings are chips inside each node only (no linkable setting sockets). Goal: the same way of working as Mixar's Moodboard
 (cards wired together: image → *Generate Video* → …) inside the bridge, with nodes built from what
 ComfyQ serves, exposing every input and parameter of each workflow.

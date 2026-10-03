@@ -59,7 +59,8 @@ extension/comfyq_bridge/
 tests/unit/              pytest, no bpy (params, match, models/profile, submit)
 tests/contract/          against the live ComfyQ (read-only + a no-GPU booking 1 day ahead, then deleted)
 tests/blender/smoke.py   headless inside Mixar/Blender (run via tools/smoke_test.ps1)
-tests/blender/ui_check.py VISIBLE Mixar: presses every button in its real window/area/region (smoke_test.ps1 -Ui)
+tests/blender/ui_check.py VISIBLE Blender (or Mixar): presses every button in its real window/area/region,
+                         graph steps, live chain with -Book (smoke_test.ps1 -Ui [-Book])
 docs/UI.md               user-facing reference of every control, mapped to the ui_check checks
 tests/fixtures/cube.glb  committed fixture (Mixar's glTF exporter crashes at exit in -b)
 tools/smoke_test.ps1     build zip -> install into an ISOLATED profile -> run smoke (-Book: one real GPU job)
@@ -67,6 +68,7 @@ tools/comfyq.ps1         client CLI with Mixar's Python: doctor | workflows | pa
 tools/live_check.py      run from Mixar's Text Editor on the user's open scene; writes live_check/report.json + window.png
 tools/open_and_send.py   `mixar <file> --python tools/open_and_send.py -- [--no-send] [--cleanup]`
 tools/late_open.py       start Mixar THEN open a file (workaround for the launch crash), then runs open_and_send
+tools/graph_send.py      build Scene Animation → served V2V node on a real file, Generate on the node, trace it
 ```
 
 ## Commands
@@ -152,24 +154,46 @@ change that session: the user must reinstall from the UI or restart Mixar.
     entry makes it skip the next handler (in Blender 5.2's order: the add-on's `_on_load`, so a saved ComfyQ
     window was not adopted). Remove it from a timer right after (`_unhook` in our tools).
 
-## Status
-- **Done:** P1.1 client + Socket.IO transport + CLI; P1.2 extension MVP; P1.3 imports (image/video/GLB/PLY/
-  audio), reattach after reload, per-workflow settings; animation → V2V (clay MP4, always re-rendered at
-  Generate, scene/workflow matching, start/last frame); AI-keyframe chain (needs both workflows served —
-  **never tested end-to-end on the server**); Mixar-style bar (sidebar + dialog + detached window with
-  Image Editor/player/Text Editor); multi-line prompts (Text blocks); player; job cards (Sent inputs,
-  Show/Open/Save as…/Import, Download); grayscale clay; Clean up; prompt also sent as job prompt.
-- **Verified live:** job `78193cf8` on the user's scene — prompt + clay video traced through ComfyQ and
-  ComfyUI (run `ecad3950`). **UI check 2026-10-03: 72/72** (`smoke_test.ps1 -Ui -Book`; Generate booked
-  job `2ac2b430` and cancelled it). Fixed that day: settings reload, saved-window recognition, sidebar tab,
-  shortcut, narrow layout (docs/UI.md §6).
-- **Not done:** P1.0 (server hardening — user postponed), P1.4 MCP (extension loopback MCP + Claude Code/Codex
-  config), P1.5 workflow test sweep (66 workflows, 41 without VRAM measurement), phase 2 (ComfyQ REST/SSE/MCP,
-  direct-control bundles, quotas).
-- **Known gaps:** dialog doesn't live-redraw job progress; job cards can't be removed from the list;
-  `ComfyQ animation pass.NNN` duplicates fixed in code (single datablock) but old files may hold copies.
+## Status (2026-10-03, last commit `d4f3e42`)
+- **Host:** Blender 5.2.2 LTS (user's profile has the latest build, Allow Online Access on). Mixar uninstalled.
+- **Done — bar & tools:** P1.1 client + Socket.IO transport + CLI; P1.2 extension MVP; P1.3 imports
+  (image/video/GLB/PLY/audio), reattach after reload, per-workflow settings; animation → V2V (clay MP4,
+  always re-rendered at Generate, scene/workflow matching, start/last frame); AI-keyframe chain in the bar
+  (**never run end-to-end**: needs an image + a video workflow served together); Moodboard-style bar
+  (sidebar + Ctrl+Shift+Q dialog + detached ComfyQ window: Image Editor/player/Text Editor); multi-line
+  prompts; player; job cards; grayscale clay; Clean up; prompt also sent as the job's prompt; cancelled
+  jobs read as Cancelled. Every control documented in **docs/UI.md** with the check that covers it.
+- **Done — node graph N0–N2** (docs/plans/node-graph.md §11–13): graph in the Node Editor (bar icon),
+  category toolbar, source nodes (Scene Animation / Scene Render / Selection Mask / Image / Video File /
+  Audio File / Prompt), workflow nodes built from ComfyQ's parameters (sockets = inputs, chips = settings,
+  Change model, "+" sources, multi-line prompts), **running** (Generate per node, Run Graph, chains, reuse
+  of up-to-date results via `render.scene_fingerprint`, cancel, results on the node).
+- **Verified live:** bar job `78193cf8` traced through ComfyQ + ComfyUI; the user's 5 s project from a
+  node (job `f71fdd3a`, user: "it's working"); in Blender 5.2: `smoke_test.ps1 -Ui` 78/78 + live part
+  (chain A → B, *Generate again* reuses A, cancel). Headless smoke passes on Blender 5.2 (and passed on
+  Mixar 4.2 / Blender 5.1).
+- **Not verified live:** image workflow → V2V start image in the graph (no image workflow served).
+- **Not done:** N3–N5 of the graph plan; P1.0 (server hardening — user postponed); P1.4 MCP; P1.5 sweep of
+  the 66 workflows (41 without VRAM measurement); phase 2 (ComfyQ REST/SSE/MCP, direct-control bundles,
+  quotas, `outputs` in meta.json).
+- **Known gaps:** the dialog doesn't live-redraw job progress; job cards can't be removed from the list;
+  videos have no thumbnail in nodes (Blender makes no movie previews).
 
-## Next steps (when the user asks)
-1. After any UI change: `smoke_test.ps1 -Ui` and update docs/UI.md. Reinstall into the user's profile only when asked.
-2. P1.4 MCP, then P1.5 sweep, then phase-2 ComfyQ PRs.
-3. Node graph (Moodboard-style UI): plan in `docs/plans/node-graph.md` — approved (Node Editor, bar kept, settings as chips only); **N0–N2 done** (§11–13 of the plan): graph builds, wires and runs; next N3 (look).
+## Next steps
+1. **N3 — look of the graph** (the user asked to start it; plan §2, §9, findings §11–13):
+   - node headers are drawn **red** for add-on nodes (seen in Mixar's theme; check Blender 5.2's default
+     theme first — may differ) → find a public way to colour them (node `color_tag` / theme / custom colour);
+   - the Node Editor sidebar shows Blender's **Group / Group Sockets / Node Width** panels for our tree
+     (meaningless here) → hide them for `ComfyQGraphTree` (poll override, or our own sidebar tab);
+   - header toolbar labels truncate when crowded → icon + short label, or a compact mode by header width;
+   - **video results/sources have no thumbnail** → show a frame (e.g. extract one frame to PNG with
+     Blender's movie loader, cache by file) in Scene Animation and video-result nodes;
+   - Blender draws input sockets below the node's buttons (fixed layout) — accept, or move long content
+     (description, result) to the sidebar so sockets stay near the top;
+   - graph mode of the ComfyQ window (plan §8: Node Editor + viewer/player + prompt editor) and
+     **Open as graph** (turn the bar's current setup into nodes);
+   - verify with screenshots in Blender 5.2 (`smoke_test.ps1 -Ui`, look at `live_check/ui/09*.png`), and
+     ask the user to compare with their Moodboard screenshot.
+2. N4 (Viewer / Import / Save output nodes, tests), N5 (docs, class presets).
+3. After any UI change: `smoke_test.ps1 -Ui` and update docs/UI.md. Install into the user's Blender 5.2
+   profile only when asked, with the command above (not `--factory-startup`). Ask before committing.
