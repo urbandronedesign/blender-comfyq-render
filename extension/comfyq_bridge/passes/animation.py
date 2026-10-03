@@ -114,7 +114,9 @@ def animation_pass(scene: bpy.types.Scene, style: str = "CLAY", max_edge: int | 
             ims.color_mode = "RGB"          # H.264 wants RGB frames; clay content is already neutral grey
             r.ffmpeg.format, r.ffmpeg.codec = "MPEG4", "H264"
             r.ffmpeg.constant_rate_factor = "HIGH"
-            r.ffmpeg.audio_codec = "NONE"
+            # Always a sound track: the scene's own sound, or silence. Some workflows keep the source
+            # video's audio and refuse a clip without one (LTX 2.5 deblur & upscale).
+            r.ffmpeg.audio_codec = "AAC"
             r.filepath = str(out_dir / "animation_")
             bpy.ops.render.render(animation=True, scene=scene.name)
         finally:

@@ -179,6 +179,14 @@ check(a.path.suffix == ".mp4" and a.path.stat().st_size > 1000,
       f"animation pass {a.path.name}: {a.frames} frames, {a.size}, {time.monotonic() - t0:.1f}s to render")
 check(a.frames == 48 and abs(a.seconds - 2.0) < 1e-6, "animation pass covers the frame range")
 check(animation.animation_pass(scene, "CLAY", 1280).path == a.path, "unchanged scene reuses the pass")
+import aud
+
+try:
+    _snd = aud.Sound(str(a.path))
+    _has_audio = _snd.length > 0
+except Exception as _e:  # noqa: BLE001
+    _has_audio = False
+check(_has_audio, "the clay animation has a sound track (workflows that keep the source audio need one)")
 scene.frame_end = 72
 check(animation.current(scene, "CLAY", 1280) is None, "changing the frame range invalidates it")
 scene.frame_end = 48

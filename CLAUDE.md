@@ -212,7 +212,7 @@ change that session: the user must reinstall from the UI or restart Mixar.
   Round trip by **Claude Code** verified (`tools\agent_roundtrip.ps1`, job `86924b46`). Codex not tested.
 - **P1.5 started** (docs/workflow-matrix.md, `tests/blender/sweep.py`): LTX 2.5 family done 2026-10-03 —
   canny / pose / union / i2v / t2v / flf2v ok from Blender (VRAM ~30 GB each, 12–33 s with the cheapest
-  settings); deblur-upscale refused the clay MP4 (no sound track → fixed by giving it one, retest);
+  settings); deblur-upscale ok too since the clay MP4 has a sound track (AAC, scene sound or silence);
   union's calibration fails in ComfyQ (missing bench input `comfyq__bench-vi__sports_car.png`: tell b2renger).
   Two LTX models never fit side by side (32 GB card): test them by switching the main workflow.
   The user approved lane/main switching for sweeps; ask again before doing it for other families.
