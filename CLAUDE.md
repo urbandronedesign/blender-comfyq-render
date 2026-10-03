@@ -215,8 +215,11 @@ change that session: the user must reinstall from the UI or restart Mixar.
   settings); deblur-upscale ok too since the clay MP4 has a sound track (AAC, scene sound or silence);
   union's calibration fails in ComfyQ (missing bench input `comfyq__bench-vi__sports_car.png`: tell b2renger).
   Two LTX models never fit side by side (32 GB card): test them by switching the main workflow.
-  The user approved lane/main switching for sweeps; ask again before doing it for other families.
-- **Not done:** the rest of P1.5 (59 workflows); Codex / `codex --oss` round trip (needs the Codex CLI);
+  Flux 2 family done 2026-10-03: all 8 ok (t2i Klein/Dev, edit, edit+ref, depth control, inpaint prompt/ref; mask
+  convention verified visually). VRAM: Klein 17–20 GB, Dev 29.5–30.2 GB. Results looked at, none black.
+  Switching the main workflow for a sweep: done when the user names a family to test (LTX 2.5, Flux 2 so far);
+  canny is always restored at the end.
+- **Not done:** the rest of P1.5 (51 workflows); Codex / `codex --oss` round trip (needs the Codex CLI);
   P1.0 (server hardening — user postponed); phase 2 (ComfyQ REST/SSE/MCP, direct-control bundles,
   quotas, `outputs` in meta.json).
 - **Known gaps:** the dialog doesn't live-redraw job progress; job cards can't be removed from the list;
