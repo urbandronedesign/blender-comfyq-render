@@ -429,6 +429,37 @@ tree.nodes.remove(b_node)
 wnode.result, wnode.result_hash = "", ""
 check(not grun.RUNS, "graph run: nothing left running after refusals")
 
+# N3: look — no group panels, video thumbnails, the bar's setup as nodes
+from bl_ext.user_default.comfyq_bridge.graph import tree as gtree_mod
+from bl_ext.user_default.comfyq_bridge.graph import ui as gui
+
+check(tree.bl_use_group_interface is False, "graph: no Group Sockets / Node Width panels (no group interface)")
+gtree_mod.movie_thumbnail(str(ups[vid_key2]))
+thumb = gtree_mod._PREVIEWS[0].get(gtree_mod._MOVIES.get(str(ups[vid_key2]), ""))
+check(thumb is not None and thumb.image_size[0] > 0,
+      f"graph: a video gets a thumbnail ({tuple(thumb.image_size) if thumb else None})")
+scene.comfyq.workflow_id = wf
+from bl_ext.user_default.comfyq_bridge.ops.workflow import sync_params
+
+sync_params(scene, wf, SESSION.specs[wf])
+bar_prompt =next(s for s in SESSION.specs[wf] if s.kind == "prompt")
+param_item(scene, bar_prompt.key, wf).s = "bar prompt for the graph"
+bar_num = next((s for s in SESSION.specs[wf] if s.kind == "float"), None)
+if bar_num is not None:
+    param_item(scene, bar_num.key, wf).f = 0.61
+tmp_tree = bpy.data.node_groups.new("smoke open as graph", gtree_mod.TREE)
+from_bar = gui.node_from_bar(tmp_tree, scene, wf, 0.0, 0.0)
+check(from_bar.workflow_id == wf and from_bar.item(bar_prompt.key).s == "bar prompt for the graph"
+      and (bar_num is None or abs(from_bar.item(bar_num.key).f - 0.61) < 1e-5),
+      "Open as graph: the node has the bar's model, prompt and settings")
+fed = {x.identifier: x.links[0].from_node.bl_idname for x in from_bar.inputs if x.is_linked}
+want_fed = {s.key for s in SESSION.specs[wf] if s.is_media
+            and param_item(scene, s.key, wf).source != "NONE"
+            and next(x for x in from_bar.inputs if x.identifier == s.key).enabled}
+check(set(fed) >= {k for k in want_fed if param_item(scene, k, wf).source in ("STRUCTURE", "MASK", "ANIMATION")},
+      f"Open as graph: each input is fed like in the bar {fed}")
+bpy.data.node_groups.remove(tmp_tree)
+
 graph_file = tmp / "graph.blend"
 bpy.ops.wm.save_as_mainfile(filepath=str(graph_file), copy=True)
 bpy.ops.wm.open_mainfile(filepath=str(graph_file))

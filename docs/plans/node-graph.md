@@ -197,3 +197,26 @@ Phase-2 ComfyQ PRs that help: `outputs` in meta/`/workflows`, `job_deps`.
   1 job(s): Workflow.001 (reusing Workflow)"), ✕ cancels; and a 5 s run of the user's project from a node.
 - Not verified live: Scene Render → *image workflow* → V2V start image, because no image workflow is
   served on this ComfyQ (the mechanics are covered headless: image results are resized and uploaded).
+
+## 14. N3 results (2026-10-03, Blender 5.2.2 LTS)
+- **Header colour:** Blender's default theme draws our headers maroon too: every Python node is class
+  *Input* (`Node.color_tag` read-only; `color_tag`, `bl_color_tag`, `NodeCustomGroup` all read back
+  INPUT — probed). Only the user's theme could change it (and would recolour shader inputs): accepted.
+- **Sidebar:** `ComfyQGraphTree.bl_use_group_interface = False` → Blender's Group tab keeps only
+  Name/Description (no Group Sockets, Color Tag, Node Width) and the Make Group / Ungroup entries go.
+- **Header:** stepped by width (labels → icons → one + menu), 🔍 search of every workflow, 🗑 clear.
+  Room measured: about `(width − 200) / 2 − 200` px (Blender centres the tree selector).
+- **Video thumbnails:** `bpy.utils.previews` `load(…, 'MOVIE')` (Blender's file-browser thumbnailer)
+  for Scene Animation (last clay pass), Video File and video results; loaded by the timer, keyed by
+  path + mtime + size; the draw only looks them up.
+- **Graph mode of the ComfyQ window** (§8): the graph icon splits the window's viewer, the graph takes
+  the larger part (left 62%), viewer + bar the rest, prompt editor below. The window's bar shows a
+  **Graph** switch. Selecting a node shows its output in the viewer and its multi-line prompt below.
+  (Split areas only get their positions on the next draw: the graph side is chosen from a timer.)
+- **Open as Graph** (bar › Actions): the bar's model, settings, prompt (Text copied) and one source
+  node per input, as the bar would feed it (AI keyframe → the keyframe workflow's node in front).
+- **Sockets below the buttons:** Blender's fixed layout for Python nodes; accepted (the sidebar › Node
+  tab shows the full settings of the selected node).
+- Verified: headless smoke (thumbnail 256×144, Open as graph feeds each input like the bar) and
+  `smoke_test.ps1 -Ui` **86 / 86** in Blender 5.2 (graph mode, switch both ways, thumbnail with an icon,
+  viewer follows the node, Open as graph). Waiting for the user's side-by-side with Moodboard.

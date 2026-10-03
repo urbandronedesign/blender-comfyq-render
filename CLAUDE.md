@@ -17,7 +17,7 @@ Git: local repo, branch `main`, no remote. Commit author = repo-local `urbandron
 ## Environment (this machine)
 | Thing | Where |
 |---|---|
-| **Blender 5.2.2 LTS** (Python 3.13.13) — the host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (N2 build), Allow Online Access on. Default of `smoke_test.ps1` and `comfyq.ps1` |
+| **Blender 5.2.2 LTS** (Python 3.13.13) — the host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (N3 build), Allow Online Access on. Theme = Mixar's **"Mixar Forest"** with Input node colour changed from #ff284d to #3d4640 (calmer graph headers) (exported from `%APPDATA%\Mixar\Mixar\5.2\config\mixar_userpref.blend`, preset `scripts\presets\interface_theme\mixar_forest.xml`; previous prefs backed up as `config\userpref.before_mixar_theme.blend`) Default of `smoke_test.ps1` and `comfyq.ps1` |
 | Mixar 4.2.0 | **uninstalled 2026-10-03** (was `C:\Program Files\Mixar\mixar.exe`, profile `%APPDATA%\Mixar\Mixar\5.2`) |
 | ComfyQ server (Node, Socket.IO, SQLite) | `F:\ComfyQ`, http://127.0.0.1:3000 — user works with b2renger, full control of its code |
 | ComfyUI 0.37, torch 2.8 cu128, RTX 5090 32 GB | `F:\ComfyUI_windows_portable_nvidia\…`, :8188 (listens on 0.0.0.0 — P1.0 issue) |
@@ -153,6 +153,12 @@ change that session: the user must reinstall from the UI or restart Mixar.
 24. **Never remove a `load_post` handler from inside itself.** Blender is iterating the list; removing an
     entry makes it skip the next handler (in Blender 5.2's order: the add-on's `_on_load`, so a saved ComfyQ
     window was not adopted). Remove it from a timer right after (`_unhook` in our tools).
+25. **Add-on node headers can't be coloured**: every Python node is class *Input* (the theme's maroon)
+    and `Node.color_tag` is read-only in 5.2 (probed: class attributes and NodeCustomGroup change nothing).
+    `bl_use_group_interface = False` on the tree hides Blender's group panels/menus. Movie thumbnails:
+    `bpy.utils.previews` `load(name, path, "MOVIE")` (works; `icon_id` stays 0 in background mode).
+26. After `screen.area_split` both areas keep stale `x`/`width` until the next draw: decide which part is
+    which from a timer (`ops.workflow.set_graph_mode`).
 
 ## Status (2026-10-03, last commit `d4f3e42`)
 - **Host:** Blender 5.2.2 LTS (user's profile has the latest build, Allow Online Access on). Mixar uninstalled.
@@ -168,32 +174,26 @@ change that session: the user must reinstall from the UI or restart Mixar.
   Audio File / Prompt), workflow nodes built from ComfyQ's parameters (sockets = inputs, chips = settings,
   Change model, "+" sources, multi-line prompts), **running** (Generate per node, Run Graph, chains, reuse
   of up-to-date results via `render.scene_fingerprint`, cancel, results on the node).
+- **Done — N3 look** (plan §14, committed + installed; not yet compared with Moodboard by the user): graph mode of the ComfyQ
+  window (graph left, viewer + bar right, prompt below; **Graph** switch in the window's bar; the viewer
+  follows the selected node), **Open as Graph** (bar › Actions), video thumbnails, no group panels, header
+  steps labels → icons → + menu, 🔍 search of all workflows. Headers stay maroon (Blender limit, gotcha 25).
+  `smoke_test.ps1 -Ui` 86/86 in Blender 5.2.
 - **Verified live:** bar job `78193cf8` traced through ComfyQ + ComfyUI; the user's 5 s project from a
   node (job `f71fdd3a`, user: "it's working"); in Blender 5.2: `smoke_test.ps1 -Ui` 78/78 + live part
   (chain A → B, *Generate again* reuses A, cancel). Headless smoke passes on Blender 5.2 (and passed on
   Mixar 4.2 / Blender 5.1).
 - **Not verified live:** image workflow → V2V start image in the graph (no image workflow served).
-- **Not done:** N3–N5 of the graph plan; P1.0 (server hardening — user postponed); P1.4 MCP; P1.5 sweep of
+- **Not done:** N4–N5 of the graph plan; P1.0 (server hardening — user postponed); P1.4 MCP; P1.5 sweep of
   the 66 workflows (41 without VRAM measurement); phase 2 (ComfyQ REST/SSE/MCP, direct-control bundles,
   quotas, `outputs` in meta.json).
 - **Known gaps:** the dialog doesn't live-redraw job progress; job cards can't be removed from the list;
   videos have no thumbnail in nodes (Blender makes no movie previews).
 
 ## Next steps
-1. **N3 — look of the graph** (the user asked to start it; plan §2, §9, findings §11–13):
-   - node headers are drawn **red** for add-on nodes (seen in Mixar's theme; check Blender 5.2's default
-     theme first — may differ) → find a public way to colour them (node `color_tag` / theme / custom colour);
-   - the Node Editor sidebar shows Blender's **Group / Group Sockets / Node Width** panels for our tree
-     (meaningless here) → hide them for `ComfyQGraphTree` (poll override, or our own sidebar tab);
-   - header toolbar labels truncate when crowded → icon + short label, or a compact mode by header width;
-   - **video results/sources have no thumbnail** → show a frame (e.g. extract one frame to PNG with
-     Blender's movie loader, cache by file) in Scene Animation and video-result nodes;
-   - Blender draws input sockets below the node's buttons (fixed layout) — accept, or move long content
-     (description, result) to the sidebar so sockets stay near the top;
-   - graph mode of the ComfyQ window (plan §8: Node Editor + viewer/player + prompt editor) and
-     **Open as graph** (turn the bar's current setup into nodes);
-   - verify with screenshots in Blender 5.2 (`smoke_test.ps1 -Ui`, look at `live_check/ui/09*.png`), and
-     ask the user to compare with their Moodboard screenshot.
-2. N4 (Viewer / Import / Save output nodes, tests), N5 (docs, class presets).
+1. **N3 sign-off:** ask the user to compare graph mode with their
+   Moodboard screenshot; adjust what they point at.
+2. N4 (Viewer / Import / Save output nodes, tests), N5 (docs, class presets: *Clay animation → V2V*,
+   *Keyframe → V2V*, *Image → 3D*, *Image → upscale*).
 3. After any UI change: `smoke_test.ps1 -Ui` and update docs/UI.md. Install into the user's Blender 5.2
    profile only when asked, with the command above (not `--factory-startup`). Ask before committing.

@@ -8,7 +8,7 @@ is checked. The checks run in a visible Blender on a copy of a real scene:
 .\tools\smoke_test.ps1 -Ui -Book    # also Generate (booked, cancelled) and a live graph chain A → B (2 short jobs)
 ```
 
-Last full runs, 2026-10-03, on `testV2V_clean.mixar` in **Blender 5.2.2 LTS**: **78 / 78** without GPU and,
+Last full runs, 2026-10-03, on `testV2V_clean.mixar` in **Blender 5.2.2 LTS**: **86 / 86** without GPU (after N3) and,
 with `-Book`, the live part (graph chain A → B, B given A's result, *Generate again* reuses A, ✕ cancels);
 no drawing errors. Earlier the same checks passed in Mixar 4.2.0 (uninstalled since).
 
@@ -185,21 +185,42 @@ collection* first, so it never reached ComfyQ.
 
 ## 8. ComfyQ Graph (node editor)
 
-Open it with the graph icon of the bar. Saved with the file.
+Open it with the graph icon of the bar: it opens in the **ComfyQ window, left of the viewer** (graph mode;
+the window opens if needed). Saved with the file.
+
+```
+┌──────────────────────────┬──────────────────┐
+│ Node Editor: the graph   │ Viewer + bar     │
+├──────────────────────────┴──────────────────┤
+│ Text Editor: prompt of the selected node    │
+└─────────────────────────────────────────────┘
+```
 
 | Control | Does | Check |
 |---|---|---|
 | Header **Scene** | Adds a source node: Scene Animation (clay video), Scene Render (still, first/last/current frame), Selection Mask, Image, Video File, Audio File, Prompt | `toolbar › Scene › Scene Animation adds the node` |
 | Header **Image · Video · 3D · Splats · Audio · Tools** | Adds a workflow node (served first, VRAM badge). Same entries in Shift+A | `toolbar › Video › … adds a node with its inputs as sockets` |
+| Header 🔍 (and Shift+A › *Any Workflow…*) | Search every workflow by name and add it | — |
+| Header width | Wide: labelled menus. Narrower: icons (names in tooltips), then *Run Graph* becomes ▶; very narrow: one **+** menu. Never truncated labels | `N3: the toolbar picks labels or icons by the header width` |
 | Header **Run Graph** | Runs the graph's last nodes (those that feed no other workflow node) | — |
 | Workflow node **Generate** | Runs this node: renders the scene sources it needs (fresh), books upstream workflow nodes that have no up-to-date result first, then this one. A result is reused while nothing it depends on changed (settings, prompts, links, the scene) | `node › Generate on B starts the chain A → B`, `Generate again reuses A and books only B` |
 | Workflow node ⟳ | Re-runs everything upstream too | — |
 | Status / progress, ✕ | *Waiting for its inputs*, *Sending…*, queue / progress bar; ✕ cancels the job and stops what depends on it | `node › ✕ cancels its job and ends the run` |
 | Result: thumbnail, **Show · Open · Import** | The node's result (fed to the nodes linked after it); Show plays it in the ComfyQ viewer | `chain finished: A and B have results`, `B was given A's result` |
-| Header **Clear Graph** | Removes every node (asks first) | `Clear Graph` |
+| Header 🗑 **Clear Graph** | Removes every node (asks first) | `Clear Graph` |
 | Workflow node **Change model** | Searchable list of every workflow (▶ = served). Settings kept per model; links come back on inputs of the same kind | `node › Change model lists every workflow, served first`; smoke `Change model … stays linked` |
 | Workflow node chips | The workflow's settings (sidebar › Node: all of them, with the description) | smoke `settings stored on the node as chips` |
 | Prompt field + ⤢ / Edit / ✕ | Same as the bar's prompt, per node | smoke `Prompt node: multi-line…` |
 | **+ Scene render / Scene animation / …** next to an unlinked input | Adds the matching source node and links it | `node › + on “Start image” adds and links a source node` |
 | Sockets | Inputs = the workflow's images / masks / videos / audio / prompts; output = what it makes. A wrong kind is drawn red and never sent | smoke `Image → video input is refused` |
 | Served / Not served, VRAM | Live from the server | — |
+| Thumbnails | Image / Scene Render / Mask: the image. **Scene Animation, Video File, video results: a frame of the video** (Blender's file-browser thumbnailer; refreshed when the file changes) | `N3: Scene Animation shows a thumbnail of the clay video`; smoke `a video gets a thumbnail` |
+| Selecting a node (graph mode) | The viewer shows what it makes (result, render, clay video, file); its multi-line prompt opens in the Text Editor | `N3: selecting a node shows what it makes in the viewer` |
+| ComfyQ window bar › **Graph** (pressed = graph mode) | Switches the window between bar mode (viewer + bar) and graph mode | `N3: window › Graph switch closes the graph / shows it again` |
+| Bar › Actions › node icon (**Open as Graph**) | Turns the bar's setup into nodes: its model + settings + prompt (a copy of the Text), and a source node for every input as the bar feeds it (scene render at the right frame, clay animation, mask, image, file; *AI keyframe* = the keyframe workflow's node in front) | `N3: bar › Open as graph adds…`; smoke `Open as graph: …` |
+| Sidebar (N) | **Node** tab: every setting of the selected workflow node + its description. **Group** tab: only the graph's name (no group sockets / node width: the graph has no group interface) | `N3: no Group / Group Sockets / Node Width panels` |
+
+Node headers keep the theme's **Input node** colour (maroon in Blender's default theme): Blender 5.2 gives
+every add-on node that class and offers no way to change it per node (`color_tag` is read-only); only the
+user's theme could, and that would recolour shader input nodes too, so it is left alone. Sockets carry
+the kind colours. Input sockets are drawn below a node's buttons (Blender's fixed node layout).

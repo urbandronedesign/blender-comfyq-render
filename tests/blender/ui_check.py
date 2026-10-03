@@ -552,6 +552,10 @@ def step_graph():
     tree = area.spaces.active.node_tree
     check("the graph editor shows the ComfyQ Graph", tree is not None and tree.bl_idname == gtree.TREE,
           tree and tree.name)
+    wfops = ext("ops.workflow")
+    check("N3: the graph opens in the ComfyQ window, next to the viewer (graph mode)",
+          w == wfops.comfyq_window() and any(a.type == "IMAGE_EDITOR" for a in w.screen.areas),
+          [a.type for a in w.screen.areas])
     tree.nodes.clear()
     wf = sc.comfyq.workflow_id
     r1 = click("graph_add", graph_area, node_type="ComfyQSceneAnimationNode")
@@ -620,6 +624,47 @@ def step_graph():
     click("graph_add", graph_area, node_type="ComfyQSceneAnimationNode")
     click("graph_add", graph_area, node_type="ComfyQWorkflowNode", workflow_id=wf)
     yield 0.3
+    yield from _graph_n3(tree, wf)
+
+
+def _graph_n3(tree, wf):
+    """N3: header without truncated labels, Bar / Graph switch, Open as graph, viewer follows the node."""
+    gui, gtree = ext("graph.ui"), ext("graph.tree")
+    _w, area = graph_area()
+    header = next(r for r in area.regions if r.type == "HEADER")
+    room = gui.header_room(type("C", (), {"preferences": bpy.context.preferences, "region": header})())
+    report["graph_header"] = {"width": header.width, "room": round(room), "labels": room >= gui._LABELS_NEED}
+    check("N3: the toolbar picks labels or icons by the header width (no “Sce…” truncation)", room > 0,
+          report["graph_header"])
+    check("N3: no Group / Group Sockets / Node Width panels for the ComfyQ graph",
+          tree.bl_use_group_interface is False)
+    res = click("open_graph", img, toggle=True)
+    yield (lambda: not _graph_open()), 5
+    check("N3: window › Graph switch closes the graph (bar mode)", res == {"FINISHED"} and not _graph_open(), res)
+    res = click("open_graph", img, toggle=True)
+    yield _graph_open, 5
+    check("N3: window › Graph switch shows it again (graph mode)", res == {"FINISHED"} and _graph_open(), res)
+    yield 0.5
+    anim = next((n for n in tree.nodes if n.bl_idname == "ComfyQSceneAnimationNode"), None)
+    if anim is not None and gtree.animation_path():
+        tree.nodes.active = anim
+        yield 1.5
+        thumb = gtree._PREVIEWS[0].get(gtree._MOVIES.get(gtree.animation_path(), "")) if gtree._PREVIEWS[0] else None
+        check("N3: Scene Animation shows a thumbnail of the clay video", thumb is not None and thumb.icon_id > 0,
+              thumb and tuple(thumb.image_size))
+        _w, viewer = img()
+        shown = viewer.spaces.active.image
+        check("N3: selecting a node shows what it makes in the viewer",
+              shown is not None and shown.name == "ComfyQ animation pass", shown and shown.name)
+    n = len(tree.nodes)
+    res = click("open_as_graph", v3d)
+    yield 1.0
+    added = list(tree.nodes)[n:]
+    wnode = next((x for x in added if x.bl_idname == "ComfyQWorkflowNode"), None)
+    check("N3: bar › Open as graph adds the bar's workflow, its settings and its sources",
+          res == {"FINISHED"} and wnode is not None and wnode.workflow_id == bpy.context.scene.comfyq.workflow_id
+          and any(x.is_linked for x in wnode.inputs), f"{res} {[x.bl_idname for x in added]}")
+    shot("09f_open_as_graph")
 
 
 def _small(node, specs):

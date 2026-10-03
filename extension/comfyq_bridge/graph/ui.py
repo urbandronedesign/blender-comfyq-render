@@ -7,11 +7,23 @@ import bpy
 from bpy.props import BoolProperty, EnumProperty, StringProperty
 
 from .. import match as scene_match
-from ..importers.media import IMAGE_EXTS
+from ..importers.media import IMAGE_EXTS, VIDEO_EXTS
 from ..props import TABS, tab_of
 from ..runtime.session import SESSION
 from . import kinds
-from .tree import SOURCE_FOR, SOURCE_NODES, TREE, WORKFLOW_NODE, find_node, graph_trees, socket_kind, tab_workflows
+from .tree import (
+    SOURCE_FOR,
+    SOURCE_NODES,
+    TREE,
+    WORKFLOW_NODE,
+    animation_path,
+    find_node,
+    free_thumbnails,
+    graph_trees,
+    movie_thumbnail,
+    socket_kind,
+    tab_workflows,
+)
 
 GRAPH_NAME = "ComfyQ Graph"
 
@@ -90,20 +102,22 @@ def _draw_workflow_items(layout, wfs) -> None:
             op.node_type, op.workflow_id = WORKFLOW_NODE, w.id
 
 
-def _tab_menu(key: str, label: str, icon: str):
+def _tab_menu(key: str, label: str, desc: str, icon: str):
     def draw(self, context):
         _draw_workflow_items(self.layout, tab_workflows(key))
     name = f"COMFYQ_MT_graph_{key.lower()}"
     return type(name, (bpy.types.Menu,), {"bl_idname": name, "bl_label": label, "draw": draw,
+                                         "bl_description": f"Add a {label} workflow node: {desc}",
                                          "comfyq_icon": icon})
 
 
-TAB_MENUS = [_tab_menu(key, label, icon) for key, label, _desc, icon, _n in TABS]
+TAB_MENUS = [_tab_menu(key, label, desc, icon) for key, label, desc, icon, _n in TABS]
 
 
 class COMFYQ_MT_graph_scene(bpy.types.Menu):
     bl_idname = "COMFYQ_MT_graph_scene"
     bl_label = "Scene"
+    bl_description = "Add a source node: scene render, clay animation, selection mask, image, video, audio, prompt"
 
     def draw(self, context):
         for cls in SOURCE_NODES:
@@ -180,6 +194,31 @@ class COMFYQ_OT_graph_set_workflow(_NodeOp, bpy.types.Operator):
             return {"CANCELLED"}
         node.change_workflow(self.workflow)
         return {"FINISHED"}
+
+
+class COMFYQ_OT_graph_add_search(bpy.types.Operator):
+    bl_idname = "comfyq.graph_add_search"
+    bl_label = "Add Any Workflow"
+    bl_description = "Search every ComfyQ workflow and add it as a node (type to search; ▶ = served now)"
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+    bl_property = "workflow"
+    workflow: EnumProperty(name="Workflow", items=_workflow_items)
+
+    @classmethod
+    def poll(cls, context):
+        return COMFYQ_OT_graph_add.poll(context)
+
+    def invoke(self, context, event):
+        if not SESSION.workflows:
+            self.report({"WARNING"}, "Connect to ComfyQ first")
+            return {"CANCELLED"}
+        context.window_manager.invoke_search_popup(self)
+        return {"RUNNING_MODAL"}
+
+    def execute(self, context):
+        if not self.workflow:
+            return {"CANCELLED"}
+        return bpy.ops.comfyq.graph_add(node_type=WORKFLOW_NODE, workflow_id=self.workflow)
 
 
 class COMFYQ_OT_graph_add_source(_NodeOp, bpy.types.Operator):
@@ -308,65 +347,211 @@ def show_graph(area, tree) -> None:
     area.spaces.active.node_tree = tree
 
 
+def graph_editor():
+    """(window, area) of an open Node Editor showing the ComfyQ graph, or (None, None)."""
+    for w in bpy.context.window_manager.windows:
+        for a in w.screen.areas:
+            if a.type == "NODE_EDITOR" and a.spaces.active.tree_type == TREE:
+                return w, a
+    return None, None
+
+
 class COMFYQ_OT_open_graph(bpy.types.Operator):
     bl_idname = "comfyq.open_graph"
     bl_label = "ComfyQ Graph"
-    bl_description = "Open the ComfyQ node graph in its own window (wire scene passes into workflows)"
+    bl_description = ("Show the ComfyQ node graph next to the viewer in the ComfyQ window (opens the window "
+                      "if needed). In the ComfyQ window: switch between bar and graph")
+    toggle: BoolProperty(default=False, options={"HIDDEN", "SKIP_SAVE"})
 
     @classmethod
     def poll(cls, context):
         return context.window is not None
 
     def execute(self, context):
+        from ..ops.workflow import comfyq_window, graph_pane, open_comfyq_window, set_graph_mode
         tree = ensure_graph()
-        for w in context.window_manager.windows:          # already open somewhere: show it there
-            for a in w.screen.areas:
-                if a.type == "NODE_EDITOR" and a.spaces.active.tree_type == TREE:
-                    a.spaces.active.node_tree = tree
-                    return {"FINISHED"}
-        before = {w.as_pointer() for w in context.window_manager.windows}
-        area = context.area or context.window.screen.areas[0]
+        win = comfyq_window()
+        if self.toggle and win is not None and graph_pane(win) is not None:
+            set_graph_mode(win, False)                     # back to bar mode
+            return {"FINISHED"}
+        _w, area = graph_editor()
+        if area is not None:                               # already open somewhere: show it there
+            area.spaces.active.node_tree = tree
+            return {"FINISHED"}
         try:
-            with context.temp_override(window=context.window, area=area):
-                bpy.ops.wm.window_new()
+            if win is not None and set_graph_mode(win, True):
+                return {"FINISHED"}
         except RuntimeError as e:
-            self.report({"ERROR"}, f"Could not open a window: {e}")
+            print("ComfyQ graph mode:", e)
+        if not open_comfyq_window(context, graph=True):
+            self.report({"ERROR"}, "Could not open a window")
             return {"CANCELLED"}
-        new = [w for w in context.window_manager.windows if w.as_pointer() not in before]
-        new = [w for w in new if any(a.type == area.type for a in w.screen.areas)] or new
-        if not new:
-            return {"CANCELLED"}
-        ptr, tries = new[0].as_pointer(), {"n": 0}
-
-        def setup():
-            w = next((w for w in bpy.context.window_manager.windows if w.as_pointer() == ptr), None)
-            tries["n"] += 1
-            if w is None or tries["n"] > 40:
-                return None
-            a = max(w.screen.areas, key=lambda a: a.width * a.height)
-            if a.width < 50:                              # not laid out yet
-                return 0.05
-            show_graph(a, ensure_graph())
-            return None
-
-        bpy.app.timers.register(setup, first_interval=0.05)
         return {"FINISHED"}
 
 
+# -- the bar's setup as nodes ---------------------------------------------------------------------------
+def _frame_choice(scene, spec, default: str = "START") -> str:
+    f = scene_match.frame_for(spec, _facts(scene))
+    if scene.frame_end != scene.frame_start and f == scene.frame_end:
+        return "END"
+    return "START" if f == scene.frame_start else default
+
+
+def node_from_bar(tree, scene, wf_id: str, x: float, y: float, keyframe_ok: bool = True):
+    """A workflow node with the bar's settings for `wf_id`, its media inputs fed by source nodes that
+    do what the bar's sources do (scene render, clay animation, mask, image, file, AI keyframe)."""
+    from ..client.params import is_disabled
+    from ..props import DEFAULT_SOURCE, param_item
+    specs = SESSION.specs[wf_id]
+    node = tree.nodes.new(WORKFLOW_NODE)
+    node.location = (x, y)
+    node.workflow_id = wf_id
+    node.build(specs)
+    for s in specs:
+        bar, it = param_item(scene, s.key, wf_id), node.item(s.key)
+        if bar is None or it is None or s.is_media:
+            continue
+        it.s, it.i, it.f, it.b, it.randomize = bar.s, bar.i, bar.f, bar.b, bar.randomize
+        if s.options and bar.s in s.options:
+            it.e = bar.s
+        if bar.text is not None:                           # a copy: editing the node leaves the bar alone
+            it.text = bar.text.copy()
+    current = node.current_values()
+    row = 0
+    for s in specs:
+        sock = next((i for i in node.inputs if i.identifier == s.key), None)
+        if sock is None or not s.is_media or is_disabled(s, current, specs):
+            continue
+        kind = socket_kind(sock)
+        bar = param_item(scene, s.key, wf_id)
+        out = _source_from_bar(tree, scene, s, kind, bar, bar.source if bar else DEFAULT_SOURCE.get(kind, "NONE"),
+                               keyframe_ok, x - 400, y - 300 * row)
+        if out is not None:
+            tree.links.new(out, sock)
+            row += 1
+    return node
+
+
+def _source_from_bar(tree, scene, spec, kind, bar, src, keyframe_ok, x, y):
+    style = scene.comfyq.style
+    if src == "KEYFRAME":
+        kf = scene.comfyq.keyframe_workflow_id
+        if keyframe_ok and kf in SESSION.specs:
+            return node_from_bar(tree, scene, kf, x - 100, y, keyframe_ok=False).outputs[0]
+        src = "STRUCTURE"
+    node = None
+    if src == "ANIMATION":
+        node = tree.nodes.new("ComfyQSceneAnimationNode")
+        node.style = style
+    elif src in ("STRUCTURE", "MASK"):
+        node = tree.nodes.new("ComfyQSceneRenderNode" if src == "STRUCTURE" else "ComfyQMaskNode")
+        node.style = style
+        node.frame = _frame_choice(scene, spec, "START" if src == "STRUCTURE" else "CURRENT")
+    elif src == "IMAGE" and bar is not None and bar.image is not None:
+        node = tree.nodes.new("ComfyQImageNode")
+        node.image = bar.image
+    elif src == "FILE" and bar is not None and bar.path:
+        if kind in ("video", "audio"):
+            node = tree.nodes.new("ComfyQVideoFileNode" if kind == "video" else "ComfyQAudioFileNode")
+            node.filepath = bar.path
+        else:
+            node = tree.nodes.new("ComfyQImageNode")
+            try:
+                node.image = bpy.data.images.load(bpy.path.abspath(bar.path), check_existing=True)
+            except RuntimeError:
+                pass
+    if node is None:
+        return None
+    node.location = (x, y)
+    return node.outputs[0]
+
+
+class COMFYQ_OT_open_as_graph(bpy.types.Operator):
+    bl_idname = "comfyq.open_as_graph"
+    bl_label = "Open as Graph"
+    bl_description = ("Turn the bar's current setup (model, settings, prompt and what feeds each input) into "
+                      "nodes in the ComfyQ graph, then show the graph")
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        return context.scene.comfyq.workflow_id in SESSION.specs
+
+    def execute(self, context):
+        scene = context.scene
+        tree = ensure_graph()
+        right = max((n.location.x + n.width for n in tree.nodes), default=-200.0)
+        for n in tree.nodes:
+            n.select = False
+        node = node_from_bar(tree, scene, scene.comfyq.workflow_id, right + 700, 0.0)
+        node.select = True
+        tree.nodes.active = node
+        if bpy.ops.comfyq.open_graph.poll():
+            bpy.ops.comfyq.open_graph()
+        _frame_graph_soon()
+        return {"FINISHED"}
+
+
+def _frame_graph_soon() -> None:
+    """Fit the view to the graph once its editor is open and laid out."""
+    tries = {"n": 0}
+
+    def step():
+        tries["n"] += 1
+        w, area = graph_editor()
+        region = next((r for r in area.regions if r.type == "WINDOW"), None) if area else None
+        if region is None or region.width < 50:
+            return 0.1 if tries["n"] < 40 else None
+        with bpy.context.temp_override(window=w, screen=w.screen, area=area, region=region):
+            bpy.ops.node.view_all()
+        return None
+    bpy.app.timers.register(step, first_interval=0.1)
+
+
 # -- header toolbar + Shift+A --------------------------------------------------------------------------
+# Room for our toolbar. Blender centres the tree selector, so in a wide editor we get the right half
+# minus the selector and the overlay buttons: about (width - 200) / 2 - 200 px (measured in Blender 5.2).
+# Rather than letting Blender truncate every label ("Sce…", "Ima…"), the toolbar steps down:
+# labels → icons (names in the tooltips) → one Add menu.
+_LABELS_NEED = 700          # px at UI scale 1: 7 labelled menus + search + Run Graph + Clear (610 truncated)
+_RUN_LABEL_NEED = 280       # 8 icon menus (~19 px each) + search + labelled Run Graph + Clear
+_ICONS_NEED = 160           # same with an icon-only Run
+
+
+def header_room(context) -> float:
+    scale = context.preferences.system.ui_scale or 1.0
+    width = context.region.width / scale if context.region else 1000.0
+    return (width - 200) / 2 - 200
+
+
+class COMFYQ_MT_graph_all(bpy.types.Menu):
+    bl_idname = "COMFYQ_MT_graph_all"
+    bl_label = "Add"
+    bl_description = "Add a ComfyQ node: scene sources and the workflows of each category"
+
+    def draw(self, context):
+        _add_menu(self, context)
+
+
 def _header(self, context):
     if not _in_graph(context):
         return
     layout = self.layout
+    room = header_room(context)
     row = layout.row(align=True)
-    row.menu(COMFYQ_MT_graph_scene.bl_idname, text="Scene", icon="SCENE_DATA")
-    for m in TAB_MENUS:
-        row.menu(m.bl_idname, text=m.bl_label, icon=m.comfyq_icon)
+    if room < _ICONS_NEED:
+        row.menu(COMFYQ_MT_graph_all.bl_idname, text="", icon="ADD")
+    else:
+        labels = room >= _LABELS_NEED
+        row.menu(COMFYQ_MT_graph_scene.bl_idname, text="Scene" if labels else "", icon="SCENE_DATA")
+        for m in TAB_MENUS:
+            row.menu(m.bl_idname, text=m.bl_label if labels else "", icon=m.comfyq_icon)
+        row.operator(COMFYQ_OT_graph_add_search.bl_idname, text="", icon="VIEWZOOM")
     layout.separator()
     run = layout.row()
-    run.scale_x = 1.3
-    run.operator(COMFYQ_OT_graph_run.bl_idname, text="Run Graph", icon="PLAY")
-    layout.operator(COMFYQ_OT_graph_clear.bl_idname, text="Clear Graph", icon="X")
+    run.scale_x = 1.2
+    run.operator(COMFYQ_OT_graph_run.bl_idname, text="Run Graph" if room >= _RUN_LABEL_NEED else "", icon="PLAY")
+    layout.operator(COMFYQ_OT_graph_clear.bl_idname, text="", icon="TRASH")
 
 
 def _add_menu(self, context):
@@ -376,6 +561,7 @@ def _add_menu(self, context):
     layout.menu(COMFYQ_MT_graph_scene.bl_idname, icon="SCENE_DATA")
     for m in TAB_MENUS:
         layout.menu(m.bl_idname, icon=m.comfyq_icon)
+    layout.operator(COMFYQ_OT_graph_add_search.bl_idname, text="Any Workflow…", icon="VIEWZOOM")
 
 
 # -- timer sync -------------------------------------------------------------------------------------
@@ -398,10 +584,90 @@ def sync_all() -> None:
                 _adopt_result(tree, node)
             elif node.bl_idname == "ComfyQImageNode" and node.image is not None and node.image.preview is None:
                 node.image.preview_ensure()
-    for name in ("ComfyQ render preview", "ComfyQ animation pass"):
+            elif node.bl_idname == "ComfyQVideoFileNode" and node.filepath:
+                movie_thumbnail(bpy.path.abspath(node.filepath))
+            elif node.bl_idname == "ComfyQSceneAnimationNode" and animation_path():
+                movie_thumbnail(animation_path())
+        _follow_active(tree)
+    for name in ("ComfyQ render preview", "ComfyQ mask preview"):
         img = bpy.data.images.get(name)
         if img is not None and img.preview is None and graph_trees():
             img.preview_ensure()
+
+
+_ACTIVE: dict[str, str] = {}        # tree name -> active node last shown in the viewer
+
+
+def _follow_active(tree) -> None:
+    """Graph mode: selecting a node shows what it makes in the ComfyQ window's viewer, and its
+    multi-line prompt in the prompt editor."""
+    from ..ops.workflow import _show_text, comfyq_window, graph_pane, text_editor_area
+    node = tree.nodes.active
+    name = node.name if node is not None else ""
+    if _ACTIVE.get(tree.name) == name:
+        return
+    _ACTIVE[tree.name] = name
+    win = comfyq_window()
+    if node is None or graph_pane(win) is None:
+        return
+    media = _node_media(node)
+    if media is not None:
+        from ..ui.player import _PLAY, show_media, viewer_area
+        area = viewer_area()
+        if area is not None:
+            _PLAY["on"] = False
+            show_media(area, media)
+    text = None
+    if node.bl_idname == "ComfyQPromptNode":
+        text = node.text_block
+    elif node.bl_idname == WORKFLOW_NODE:
+        text = next((it.text for it in node.params if it.workflow_id == node.workflow_id and it.text is not None),
+                    None)
+    area = text_editor_area(win)
+    if text is not None and area is not None:
+        _show_text(area, text)
+
+
+def _animation_image():
+    """The clay animation as the viewer's "ComfyQ animation pass" movie (made again after a Clean up)."""
+    from ..ui.player import forget_meta
+    path = animation_path()
+    img = bpy.data.images.get("ComfyQ animation pass")
+    if not path:
+        return img
+    if img is None:
+        img = bpy.data.images.load(path, check_existing=False)
+        img.name = "ComfyQ animation pass"
+    elif bpy.path.abspath(img.filepath) != path:
+        img.filepath = path
+        img.reload()
+        forget_meta(img)
+    return img
+
+
+def _node_media(node):
+    """The image/movie datablock a node shows (its result, render, file), loading files if needed."""
+    from pathlib import Path
+    path = ""
+    if node.bl_idname == WORKFLOW_NODE:
+        path = node.result
+    elif node.bl_idname == "ComfyQImageNode":
+        return node.image
+    elif node.bl_idname == "ComfyQSceneRenderNode":
+        return bpy.data.images.get("ComfyQ render preview")
+    elif node.bl_idname == "ComfyQMaskNode":
+        return bpy.data.images.get("ComfyQ mask preview")
+    elif node.bl_idname == "ComfyQSceneAnimationNode":
+        return _animation_image()
+    elif node.bl_idname == "ComfyQVideoFileNode" and node.filepath:
+        path = bpy.path.abspath(node.filepath)
+    p = Path(path) if path else None
+    if p is None or not p.is_file() or p.suffix.lower() not in IMAGE_EXTS | VIDEO_EXTS:
+        return None
+    try:
+        return bpy.data.images.load(str(p), check_existing=True)
+    except RuntimeError:
+        return None
 
 
 def _adopt_result(tree, node) -> None:
@@ -417,7 +683,9 @@ def _adopt_result(tree, node) -> None:
             node.result_hash = node.pending_hash
     if node.result:
         p = Path(node.result)
-        if p.suffix.lower() in IMAGE_EXTS and p.is_file():
+        if p.suffix.lower() in VIDEO_EXTS and p.is_file():
+            movie_thumbnail(str(p))
+        elif p.suffix.lower() in IMAGE_EXTS and p.is_file():
             img = bpy.data.images.get(p.name)
             if img is None:
                 img = bpy.data.images.load(str(p), check_existing=True)
@@ -426,7 +694,8 @@ def _adopt_result(tree, node) -> None:
 
 
 classes = (COMFYQ_OT_graph_add, *TAB_MENUS, COMFYQ_MT_graph_scene, COMFYQ_OT_graph_clear, COMFYQ_OT_open_graph,
-           COMFYQ_OT_graph_set_workflow, COMFYQ_OT_graph_add_source, COMFYQ_OT_graph_edit_text,
+           COMFYQ_OT_open_as_graph, COMFYQ_OT_graph_add_search, COMFYQ_MT_graph_all, COMFYQ_OT_graph_set_workflow,
+           COMFYQ_OT_graph_add_source, COMFYQ_OT_graph_edit_text,
            COMFYQ_OT_graph_unlink_text, COMFYQ_OT_graph_run)
 
 
@@ -438,3 +707,5 @@ def register_extras() -> None:
 def unregister_extras() -> None:
     bpy.types.NODE_HT_header.remove(_header)
     bpy.types.NODE_MT_add.remove(_add_menu)
+    free_thumbnails()
+    _ACTIVE.clear()

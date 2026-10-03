@@ -433,7 +433,67 @@ def adopt_saved_window() -> None:
         focus_comfyq_tab_soon(win.as_pointer())
 
 
-def open_comfyq_window(context, text_name: str = "") -> bool:
+def graph_pane(win):
+    """The window's Node Editor showing the ComfyQ graph (graph mode), or None (bar mode)."""
+    from ..graph.tree import TREE
+    if win is None:
+        return None
+    return next((a for a in win.screen.areas
+                 if a.type == "NODE_EDITOR" and a.spaces.active.tree_type == TREE), None)
+
+
+# Graph mode of the ComfyQ window (plan §8): the viewer area is split, the graph takes the left part;
+# the viewer (with the bar in its sidebar) and the prompt editor stay as they are.
+#          ┌──────────────────────┬────────────────┐
+#          │ Node Editor          │ Viewer + bar   │
+#          ├──────────────────────┴────────────────┤
+#          │ Text Editor: multi-line prompt        │
+#          └───────────────────────────────────────┘
+GRAPH_SHARE = 0.62
+_SPLITTING: set[int] = set()      # windows whose split waits for its layout
+
+
+def set_graph_mode(win, on: bool) -> bool:
+    """Show (on) or close (off) the graph in the ComfyQ window. True when the window is in that mode
+    (or getting there: the split areas get their positions on the next draw, then the larger one
+    becomes the graph)."""
+    pane = graph_pane(win)
+    if not on:
+        if pane is not None:
+            with bpy.context.temp_override(window=win, screen=win.screen, area=pane):
+                bpy.ops.screen.area_close()
+        return True
+    ptr = win.as_pointer()
+    if pane is not None or ptr in _SPLITTING:
+        return True
+    viewer = next((a for a in win.screen.areas if a.type == "IMAGE_EDITOR"), None)
+    if viewer is None or viewer.width < 50:
+        return False
+    _split(win, viewer, "VERTICAL", GRAPH_SHARE)
+    _SPLITTING.add(ptr)
+    tries = {"n": 0}
+
+    def assign():
+        from ..graph.ui import ensure_graph, show_graph
+        w = next((w for w in bpy.context.window_manager.windows if w.as_pointer() == ptr), None)
+        tries["n"] += 1
+        eds = [a for a in w.screen.areas if a.type == "IMAGE_EDITOR"] if w is not None else []
+        if len(eds) < 2:
+            _SPLITTING.discard(ptr)
+            return None
+        if eds[0].x == eds[1].x and tries["n"] < 40:            # not laid out yet
+            return 0.05
+        _SPLITTING.discard(ptr)
+        graph = max(eds, key=lambda a: a.width)        # the viewer + bar keep the narrower part
+        show_graph(graph, ensure_graph())
+        graph.spaces.active.show_region_ui = False
+        focus_comfyq_tab_soon(ptr)
+        return None
+    bpy.app.timers.register(assign, first_interval=0.05)
+    return True
+
+
+def open_comfyq_window(context, text_name: str = "", graph: bool = False) -> bool:
     before = {w.as_pointer() for w in context.window_manager.windows}
     area = context.area or next((a for a in context.window.screen.areas if a.type == "VIEW_3D"), None)
     if area is None:
@@ -452,7 +512,7 @@ def open_comfyq_window(context, text_name: str = "") -> bool:
         return False
     ptr = new[0].as_pointer()
     _WINDOW[0] = ptr
-    state = {"tries": 0}
+    state = {"tries": 0, "graph": graph}
     bpy.app.timers.register(lambda: _setup_step(ptr, text_name, state), first_interval=0.05)
     return True
 
@@ -511,6 +571,20 @@ def _setup_step(ptr: int, text_name: str, state: dict):
         a.tag_redraw()
     win.screen[_MARK] = True
     focus_comfyq_tab_soon(ptr)
+    if state.get("graph"):
+        tries = {"n": 0}
+
+        def graph_step():              # the areas just set up are laid out on the next draw
+            w = next((w for w in bpy.context.window_manager.windows if w.as_pointer() == ptr), None)
+            tries["n"] += 1
+            if w is None or tries["n"] > 40:
+                return None
+            try:
+                return None if set_graph_mode(w, True) else 0.05
+            except RuntimeError as e:
+                print("ComfyQ window graph mode:", e)
+                return 0.1
+        bpy.app.timers.register(graph_step, first_interval=0.05)
     return None
 
 

@@ -57,9 +57,15 @@ def draw_studio(layout: bpy.types.UILayout, context, columns: int = 2, dialog: b
         top = layout.row()
     right = top.row(align=True)
     right.alignment = "RIGHT"
-    if not dialog and context.window != wfops.comfyq_window():
+    in_window = not dialog and context.window == wfops.comfyq_window()
+    if not dialog and not in_window:
         right.operator("comfyq.open_window", text="", icon="WINDOW")
-    right.operator("comfyq.open_graph", text="", icon="NODETREE")
+    if in_window:                    # the ComfyQ window: Bar / Graph switch
+        graph_on = wfops.graph_pane(context.window) is not None
+        right.operator("comfyq.open_graph", text="" if narrow else "Graph", icon="NODETREE",
+                       depress=graph_on).toggle = True
+    else:
+        right.operator("comfyq.open_graph", text="", icon="NODETREE")
     right.operator("comfyq.open_folder", text="Library", icon="FILE_FOLDER").job_id = ""
     active = sum(1 for v in SESSION.jobs.values() if not v.job.done)
     right.popover("COMFYQ_PT_queue", text=f"Queue {active}" if active else "Queue", icon="SORTTIME")
@@ -117,6 +123,7 @@ def draw_studio(layout: bpy.types.UILayout, context, columns: int = 2, dialog: b
         gen = box.row() if narrow else actions.row()       # narrow: Generate gets its own full row
         gen.scale_x, gen.scale_y = 1.6, 1.3
         gen.operator("comfyq.generate", icon="RENDER_STILL")
+        actions.operator("comfyq.open_as_graph", text="", icon="NODE_INSERT_OFF")
     _messages(layout)
 
 

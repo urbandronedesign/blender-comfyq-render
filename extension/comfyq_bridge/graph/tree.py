@@ -60,6 +60,9 @@ class ComfyQGraphTree(bpy.types.NodeTree):
     bl_idname = TREE
     bl_label = "ComfyQ Graph"
     bl_icon = "NODETREE"
+    # No node groups here: Blender then hides Group Sockets / Color Tag / Node Width in the sidebar
+    # and Make Group / Ungroup in the menus.
+    bl_use_group_interface = False
 
     def update(self):
         # Wrong kinds (an image into a video input) are drawn red and never sent.
@@ -89,6 +92,58 @@ def _thumbnail(layout, img, scale: float = 9.0) -> None:
         layout.template_icon(icon_value=prev.icon_id, scale=scale)
     else:
         layout.label(text=img.name, icon="IMAGE_DATA")
+
+
+# Videos: Blender makes no preview for a movie image, but its file-browser thumbnailer reads movies.
+# The timer loads them (movie_thumbnail); drawing only looks them up.
+_PREVIEWS = [None]                  # bpy.utils.previews collection, made on first use
+_MOVIES: dict[str, str] = {}        # file path -> key of its current thumbnail (path + mtime + size)
+
+
+def movie_thumbnail(path: str) -> None:
+    """Load the thumbnail of a video file, and again whenever the file changes (timer only)."""
+    import os
+
+    import bpy.utils.previews
+    try:
+        st = os.stat(path)
+    except OSError:
+        return
+    key = f"{path}|{st.st_mtime_ns}|{st.st_size}"
+    if _MOVIES.get(path) == key:
+        return
+    if _PREVIEWS[0] is None:
+        _PREVIEWS[0] = bpy.utils.previews.new()
+    if key not in _PREVIEWS[0]:
+        _PREVIEWS[0].load(key, path, "MOVIE")
+    _MOVIES[path] = key
+
+
+def free_thumbnails() -> None:
+    import bpy.utils.previews
+    if _PREVIEWS[0] is not None:
+        bpy.utils.previews.remove(_PREVIEWS[0])
+        _PREVIEWS[0] = None
+    _MOVIES.clear()
+
+
+def _movie(layout, path: str, scale: float = 9.0) -> bool:
+    key, col = _MOVIES.get(path), _PREVIEWS[0]
+    item = col.get(key) if key and col is not None else None
+    if item is None or not item.icon_id:
+        return False
+    layout.template_icon(icon_value=item.icon_id, scale=scale)
+    return True
+
+
+def animation_path() -> str:
+    """The clay animation last rendered (what the Scene Animation node shows)."""
+    from ..passes import animation
+    last = animation.last()
+    if last is not None and last.path.is_file():
+        return str(last.path)
+    img = bpy.data.images.get("ComfyQ animation pass")
+    return bpy.path.abspath(img.filepath) if img is not None and img.filepath else ""
 
 
 def target(op, node, key: str = "") -> None:
@@ -216,7 +271,7 @@ class ComfyQSceneAnimationNode(_Node, bpy.types.Node):
         layout.prop(self, "style", text="")
         op = layout.operator("comfyq.preview_animation", text="Render & play clay animation", icon="PLAY")
         op.force, op.play, op.style = True, True, self.style
-        _thumbnail(layout, bpy.data.images.get("ComfyQ animation pass"))
+        _movie(layout, animation_path())
 
 
 class _FileNode(_Node):
@@ -235,6 +290,8 @@ class _FileNode(_Node):
             row = layout.row(align=True)
             row.operator("comfyq.show_media", text="Show", icon="PLAY").path = path
             row.operator("comfyq.open_media", text="Open", icon="WINDOW").path = path
+            if self.comfyq_kind == "video":
+                _movie(layout, path)
 
 
 class ComfyQVideoFileNode(_FileNode, bpy.types.Node):
@@ -478,9 +535,10 @@ class ComfyQWorkflowNode(_Node, bpy.types.Node):
         path = Path(self.result) if self.result else None
         if path is None or not path.is_file():
             return
-        img = bpy.data.images.get(path.name)
-        if img is not None and img.source != "MOVIE":
-            _thumbnail(layout, img, scale=10.0)
+        if not _movie(layout, str(path), scale=10.0):
+            img = bpy.data.images.get(path.name)
+            if img is not None and img.source != "MOVIE":
+                _thumbnail(layout, img, scale=10.0)
         res = layout.column(align=True)
         res.label(text=("Result · " if self.result_hash == self.pending_hash or not self.pending_hash
                         else "Older result · ") + path.name, icon="CHECKMARK")
