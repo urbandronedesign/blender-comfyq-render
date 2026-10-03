@@ -174,6 +174,156 @@ def comfyq_outputs(args: dict) -> dict:
     return {"job_id": j.id, "files": [str(f) for f in files]}
 
 
+# -- teacher: what ComfyQ serves (behind the "Teacher tools" preference) ---------------------------------
+TEACHER_OFF = ("Teacher tools are off. In Blender: Preferences › Add-ons › ComfyQ Bridge › tick "
+               "“Teacher tools: agents may load models”, then reconnect the agent (/mcp in Claude Code).")
+TASK: dict[str, Any] = {}          # the one serve/calibrate running in the background (one at a time)
+_TASK_LOCK = threading.Lock()
+SERVE_TIMEOUT_S = 900              # a main-workflow switch restarts ComfyQ; loading a model takes 1–3 min
+
+
+def _teacher_on() -> bool:
+    from . import STATE
+    return bool(STATE.get("teacher"))
+
+
+def _task_dict() -> dict | None:
+    if not TASK:
+        return None
+    out = {k: TASK.get(k) for k in ("kind", "workflow_id", "how", "state", "message", "result")}
+    out["seconds"] = round((TASK.get("ended") or time.time()) - TASK["started"])
+    return out
+
+
+def _start_task(kind: str, wf_id: str, work, **extra) -> None:
+    with _TASK_LOCK:
+        if TASK.get("state") == "running":
+            raise ToolError(f"Busy: {TASK['kind']} of {TASK['workflow_id']} is still running "
+                            f"(follow it with comfyq_server_status)")
+        TASK.clear()
+        TASK.update(kind=kind, workflow_id=wf_id, state="running", message="", result=None,
+                    started=time.time(), ended=None, **extra)
+
+    def go():
+        try:
+            msg, result = work()
+            TASK.update(state="done", message=msg, result=result)
+        except Exception as e:  # noqa: BLE001 - reported through comfyq_server_status
+            TASK.update(state="failed", message=str(e))
+        finally:
+            TASK["ended"] = time.time()
+    threading.Thread(target=go, daemon=True, name=f"comfyq-{kind}").start()
+
+
+def _wait_task(wait_s: float) -> dict | None:
+    t0 = time.monotonic()
+    while TASK.get("state") == "running" and time.monotonic() - t0 < wait_s:
+        time.sleep(1)
+    return _task_dict()
+
+
+def _task_reply(wait_s: float, note: str) -> dict:
+    task = _wait_task(min(float(wait_s), MAX_WAIT_S))
+    return {"task": task, "note": note if task and task["state"] == "running" else ""}
+
+
+def _workflow(wf_id: str):
+    wf = next((w for w in SESSION.workflows if w.id == wf_id), None)
+    if wf is None:
+        raise ToolError(f"Unknown workflow {wf_id!r} (comfyq_list_workflows served_only=false lists them)")
+    if wf.unavailable:
+        raise ToolError(f"{wf_id} is unavailable on this ComfyQ: {wf.unavailable_reason or 'models missing'}")
+    return wf
+
+
+def comfyq_server_status(args: dict) -> dict:
+    client = _client()
+    if TASK.get("state") == "running" and args.get("wait_s"):
+        _wait_task(min(float(args["wait_s"]), MAX_WAIT_S))
+    info = client.server_lanes()
+    fit = info.get("fit") or {}
+    card = info.get("card") or {}
+    out: dict[str, Any] = {
+        "card_gb": card.get("vramGb"), "used_gb": card.get("usedGb"),
+        "served": [{"workflow_id": ln.get("workflowId"), "name": ln.get("name"), "main": bool(ln.get("primary")),
+                    "busy": bool(ln.get("busy")), "state": ln.get("state"), "vram_gb": ln.get("vramGb")}
+                   for ln in info.get("lanes") or []],
+        "fits_alongside_now": sorted(k for k, v in fit.items() if v.get("ok")),
+        "teacher_tools": _teacher_on(),
+        "task": _task_dict(),
+    }
+    if args.get("workflow_id"):
+        f = fit.get(args["workflow_id"]) or {}
+        out["workflow"] = {"workflow_id": args["workflow_id"], "fits_alongside": bool(f.get("ok")),
+                           "reason": f.get("reason"), "needs_gb": f.get("needGb"), "free_gb": f.get("freeGb")}
+    return out
+
+
+def comfyq_serve(args: dict) -> dict:
+    wf_id, how, force = args["workflow_id"], args.get("how") or "auto", bool(args.get("force"))
+    client = _client()
+    _workflow(wf_id)
+    if wf_id in SESSION.served_ids():
+        return {"workflow_id": wf_id, "served": True, "message": "already served"}
+    info = client.server_lanes()
+    fit = (info.get("fit") or {}).get(wf_id) or {}
+    if how == "auto":
+        how = "alongside" if fit.get("ok") else "main"
+    if how == "alongside" and not fit.get("ok") and not force:
+        raise ToolError(f"{wf_id} does not fit alongside ({fit.get('reason')}: needs {fit.get('needGb')} GB, "
+                        f"{fit.get('freeGb')} GB free). Use how='main' (replaces the main workflow, ComfyQ "
+                        f"restarts), stop a lane first, or force=true when the size is unknown.")
+    busy = [ln.get("workflowId") for ln in info.get("lanes") or [] if ln.get("busy")]
+    if how == "main" and busy and not force:
+        raise ToolError(f"A job is running on {', '.join(busy)}. how='main' restarts ComfyQ and stops it: "
+                        f"wait for it, or pass force=true.")
+
+    def work():
+        if how == "alongside":
+            client.open_lane(wf_id, force=force)
+        else:
+            client.activate(wf_id)
+            time.sleep(5)                                  # ComfyQ goes down; don't read the old lanes
+        deadline = time.monotonic() + SERVE_TIMEOUT_S
+        while time.monotonic() < deadline:
+            if SESSION.connected and wf_id in SESSION.served_ids():
+                return f"{wf_id} is served ({how})", None
+            time.sleep(2)
+        raise ToolError(f"{wf_id} still not served after {SERVE_TIMEOUT_S // 60} min (see ComfyQ's console)")
+    _start_task("serve", wf_id, work, how=how)
+    return _task_reply(args.get("wait_s", 60), "Still loading: follow with comfyq_server_status (wait_s).")
+
+
+def comfyq_unserve(args: dict) -> dict:
+    wf_id = args["workflow_id"]
+    client = _client()
+    lane = next((ln for ln in client.server_lanes().get("lanes") or [] if ln.get("workflowId") == wf_id), None)
+    if lane is None:
+        raise ToolError(f"{wf_id} is not served")
+    if lane.get("primary"):
+        raise ToolError(f"{wf_id} is the main workflow: replace it with comfyq_serve how='main' instead")
+    if lane.get("busy") and not args.get("force"):
+        raise ToolError(f"A job is running on {wf_id}: wait for it, or pass force=true")
+    client.close_lane(wf_id)
+    return {"workflow_id": wf_id, "served": False, "message": "lane stopped, its VRAM is free"}
+
+
+def comfyq_calibrate(args: dict) -> dict:
+    wf_id = args["workflow_id"]
+    client = _client()
+    _workflow(wf_id)
+
+    def work():
+        res = client.calibrate(wf_id)
+        if not res.get("ok", True):
+            raise ToolError(res.get("error") or "calibration failed")
+        wfs = client.workflows()                            # new VRAM badge / what fits, for the bar too
+        SESSION.later(lambda: setattr(SESSION, "workflows", wfs))
+        return f"{wf_id} calibrated", res.get("runtime")
+    _start_task("calibrate", wf_id, work)
+    return _task_reply(args.get("wait_s", 60), "The GPU is busy for minutes: follow with comfyq_server_status.")
+
+
 # -- blender_* --------------------------------------------------------------------------------------------
 def blender_scene_info(args: dict) -> dict:
     def get():
@@ -411,6 +561,25 @@ TOOLS = [
     Tool("comfyq_cancel", "Cancel one of this student's jobs.", obj({"job_id": _S}, ("job_id",)), comfyq_cancel),
     Tool("comfyq_outputs", "Download a finished job's results; returns local file paths (for blender_import).",
          obj({"job_id": _S}, ("job_id",)), comfyq_outputs),
+    Tool("comfyq_server_status", "What the GPU serves now: served workflows (main + lanes, busy, VRAM), card/"
+         "used GB, which workflows fit alongside, the running serve/calibrate task. `workflow_id` = also say "
+         "whether that one fits; `wait_s` = first wait (≤120 s) for the running task to end.",
+         obj({"workflow_id": _S, "wait_s": {"type": "number", "maximum": MAX_WAIT_S}}), comfyq_server_status),
+    Tool("comfyq_serve", "TEACHER — load a workflow's models so it can run. how='alongside' opens a lane next "
+         "to the main workflow (no restart; must fit in VRAM); how='main' replaces the main workflow (ComfyQ "
+         "restarts ~1–2 min for the whole class; refused while a job runs unless force); 'auto' (default) = "
+         "alongside if it fits, else main. Waits up to `wait_s` (≤120, default 60), then keeps going in the "
+         "background: follow with comfyq_server_status.",
+         obj({"workflow_id": _S, "how": {"type": "string", "enum": ["auto", "alongside", "main"]},
+              "force": {"type": "boolean"}, "wait_s": {"type": "number", "maximum": MAX_WAIT_S}},
+             ("workflow_id",)), comfyq_serve, _teacher_on, TEACHER_OFF),
+    Tool("comfyq_unserve", "TEACHER — stop a lane opened alongside the main workflow (frees its VRAM). Not "
+         "the main workflow.", obj({"workflow_id": _S, "force": {"type": "boolean"}}, ("workflow_id",)),
+         comfyq_unserve, _teacher_on, TEACHER_OFF),
+    Tool("comfyq_calibrate", "TEACHER — measure a workflow's VRAM peak and duration on ComfyQ's benchmark "
+         "inputs (GPU busy for minutes). Fills its VRAM badge and what fits alongside.",
+         obj({"workflow_id": _S, "wait_s": {"type": "number", "maximum": MAX_WAIT_S}}, ("workflow_id",)),
+         comfyq_calibrate, _teacher_on, TEACHER_OFF),
     Tool("blender_scene_info", "The open Blender scene: file, frame range, fps, duration, resolution, camera, "
          "objects (animated or not), selection, ComfyQ connection.", obj(), blender_scene_info),
     Tool("blender_select", "Select these objects (e.g. the area an inpaint mask repaints).",
@@ -448,4 +617,6 @@ INSTRUCTIONS = (
     "animation) → comfyq_submit (files = the rendered path) → comfyq_wait → comfyq_outputs → blender_import. "
     "Or work in the student's node graph: blender_graph_add_preset → blender_graph_set (prompt) → "
     "blender_graph_run → blender_graph_status. Only served workflows run; GPU time is shared by the class: "
-    "keep jobs short and cancel what is not needed.")
+    "keep jobs short and cancel what is not needed. comfyq_server_status shows what is served and what fits. "
+    "With teacher tools on, comfyq_serve loads another workflow: alongside if it fits, else as the main one, "
+    "which restarts ComfyQ for the whole class (say so before doing it).")

@@ -27,6 +27,7 @@ class Profile:
     user: str = ""
     token: str = ""           # x-access-token (sha256 handed out by POST /access/login)
     password: str = ""        # access password; exchanged for a token at connect
+    admin_password: str = ""  # teacher only: ComfyQ's admin password (lanes, switching, calibration)
     gpu_policy: str = "none"  # none | shared (ComfyQ on the same GPU as Mixar)
     mixar_reserve_gb: float = 6.0
     timeout_s: float = 30.0
@@ -78,6 +79,7 @@ def load_profile(name: str | None = None, path: Path | None = None) -> Profile:
         user=os.environ.get("COMFYQ_USER") or comfyq.get("user") or "",
         token=os.environ.get("COMFYQ_TOKEN") or _secret(comfyq, "token"),
         password=os.environ.get("COMFYQ_PASSWORD") or _secret(comfyq, "password"),
+        admin_password=os.environ.get("COMFYQ_ADMIN_PASSWORD") or _secret(comfyq, "admin_password"),
         gpu_policy=gpu.get("policy") or "none",
         mixar_reserve_gb=float(gpu.get("mixar_reserve_gb") or 6.0),
         timeout_s=float(comfyq.get("timeout_s") or 30.0),

@@ -47,6 +47,18 @@ def test_tool_calls_and_errors_reach_the_agent():
     assert rpc(d, "tools/call", {"name": "missing"})["error"]["code"] == -32602
 
 
+def test_gated_tools_are_hidden_and_refused_while_off():
+    on = [False]
+    d = srv.Dispatcher(TOOLS + [srv.Tool("serve", "Teacher", srv.obj(), lambda a: "served",
+                                         lambda: on[0], "Teacher tools are off")])
+    assert "serve" not in [t["name"] for t in rpc(d, "tools/list")["result"]["tools"]]
+    off = rpc(d, "tools/call", {"name": "serve", "arguments": {}})["result"]
+    assert off["isError"] and "Teacher tools are off" in off["content"][0]["text"]
+    on[0] = True
+    assert "serve" in [t["name"] for t in rpc(d, "tools/list")["result"]["tools"]]
+    assert rpc(d, "tools/call", {"name": "serve", "arguments": {}})["result"]["content"][0]["text"] == "served"
+
+
 @pytest.fixture
 def live():
     s = srv.McpHttpServer(srv.Dispatcher(TOOLS), "secret-token", 0)

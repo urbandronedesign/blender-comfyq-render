@@ -37,7 +37,8 @@ def test_workflow_calibrated_means_vram_measured():
 
 
 def test_profile_file_and_env(tmp_path, monkeypatch):
-    for k in ("COMFYQ_URL", "COMFYQ_TOKEN", "COMFYQ_USER", "COMFYQ_PASSWORD", "COMFYQ_BRIDGE_PROFILE"):
+    for k in ("COMFYQ_URL", "COMFYQ_TOKEN", "COMFYQ_USER", "COMFYQ_PASSWORD", "COMFYQ_ADMIN_PASSWORD",
+              "COMFYQ_BRIDGE_PROFILE"):
         monkeypatch.delenv(k, raising=False)
     (tmp_path / "pw.txt").write_text("s3cret\n")
     cfg = tmp_path / "profiles.toml"
@@ -51,11 +52,14 @@ gpu = {{ policy = "shared", mixar_reserve_gb = 8 }}
 ''')
     p = load_profile(path=cfg)
     assert (p.name, p.url, p.user, p.password) == ("class", "http://192.168.1.10:3000", "ana", "s3cret")
+    assert p.admin_password == ""                     # students: no admin password unless given one
     monkeypatch.setenv("MY_TOKEN", "abc")
     s = load_profile("solo", path=cfg)
     assert s.token == "abc" and s.gpu_policy == "shared" and s.mixar_reserve_gb == 8
     monkeypatch.setenv("COMFYQ_URL", "http://10.0.0.5:3000")
     assert load_profile("solo", path=cfg).url == "http://10.0.0.5:3000"
+    monkeypatch.setenv("COMFYQ_ADMIN_PASSWORD", "teach")
+    assert load_profile("solo", path=cfg).admin_password == "teach"
 
 
 def test_missing_file_gives_local_default(tmp_path, monkeypatch):

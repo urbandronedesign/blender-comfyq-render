@@ -58,6 +58,7 @@ def _start_mcp() -> None:
         p = prefs.prefs()
     except KeyError:
         return
+    mcp.STATE["teacher"] = bool(p.mcp_teacher)
     if p.mcp_enabled and not mcp.running():
         mcp.start(p.mcp_port)
 

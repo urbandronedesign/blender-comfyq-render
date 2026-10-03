@@ -662,7 +662,7 @@ def mcp_tool(name, **args):
 
 check(mcp_rpc("ping", token="wrong") == 401, "MCP: a wrong token is refused")
 names = [t["name"] for t in mcp_rpc("tools/list")["result"]["tools"]]
-check(len(names) == 16 and "comfyq_submit" in names and "blender_graph_run" in names, f"MCP: {len(names)} tools")
+check(len(names) == 17 and "comfyq_submit" in names and "blender_graph_run" in names, f"MCP: {len(names)} tools")
 err, info = mcp_tool("blender_scene_info")
 check(not err and info["camera"] and info["frames"] == [scene.frame_start, scene.frame_end],
       f"MCP blender_scene_info: {info.get('scene')} {info.get('frames')} camera {info.get('camera')}")
@@ -688,6 +688,29 @@ err, st = mcp_tool("blender_graph_status")
 check(not err and not st["running"] and st["nodes"], "MCP blender_graph_status")
 err, imp = mcp_tool("blender_import", path=still["path"])
 check(not err and imp["imported"], f"MCP blender_import: {imp.get('imported')}")
+# teacher tools (load models): hidden + refused while the preference is off; only safe calls here
+err, st = mcp_tool("comfyq_server_status", workflow_id=unserved or wf)
+check(not err and {s_["workflow_id"] for s_ in st["served"]} == SESSION.served_ids() and st["card_gb"]
+      and "workflow" in st and st["teacher_tools"] is False,
+      f"MCP comfyq_server_status: {st.get('used_gb')}/{st.get('card_gb')} GB, served "
+      f"{[s_['workflow_id'] for s_ in st.get('served', [])]}, fits now {len(st.get('fits_alongside_now', []))}")
+check(not {"comfyq_serve", "comfyq_unserve", "comfyq_calibrate"} & set(names),
+      "MCP: teacher tools are hidden while the preference is off")
+err, out = mcp_tool("comfyq_serve", workflow_id=wf)
+check(err and "Teacher tools are off" in out["error"], "… and refused if called anyway")
+_p = bpy.context.preferences.addons["bl_ext.user_default.comfyq_bridge"].preferences
+_p.mcp_teacher = True
+names_t = [t["name"] for t in mcp_rpc("tools/list")["result"]["tools"]]
+check(bmcp.STATE["teacher"] and {"comfyq_serve", "comfyq_unserve", "comfyq_calibrate"} <= set(names_t),
+      f"Preferences › Teacher tools lists them ({len(names_t)} tools)")
+err, out = mcp_tool("comfyq_serve", workflow_id=wf)
+check(not err and out.get("message") == "already served", f"MCP comfyq_serve on a served workflow: {out}")
+err, out = mcp_tool("comfyq_serve", workflow_id="no_such_workflow")
+check(err and "Unknown workflow" in out["error"], "MCP comfyq_serve refuses an unknown workflow")
+err, out = mcp_tool("comfyq_unserve", workflow_id=wf)
+check(err and "main workflow" in out["error"], f"MCP comfyq_unserve refuses the main workflow ({out})")
+_p.mcp_teacher = False
+check(not bmcp.STATE["teacher"], "… unticking turns them off again")
 bmcp.stop()
 check(not bmcp.info_path().exists(), "MCP server stops and removes its connection file")
 import socket as _socket

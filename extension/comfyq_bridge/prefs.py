@@ -28,6 +28,11 @@ def _mcp_toggle(self, context) -> None:
     _mcp_update(self)
 
 
+def _teacher_toggle(self, context) -> None:
+    from . import mcp
+    mcp.STATE["teacher"] = bool(self.mcp_teacher)
+
+
 class ComfyQPreferences(bpy.types.AddonPreferences):
     bl_idname = __package__
 
@@ -49,6 +54,11 @@ class ComfyQPreferences(bpy.types.AddonPreferences):
     mcp_port: IntProperty(name="Port", default=8790, min=1024, max=65535,
                           update=_mcp_toggle,
                           description="Local port of the MCP server (127.0.0.1 only)")
+    mcp_teacher: BoolProperty(
+        name="Teacher tools: agents may load models", default=False, update=_teacher_toggle,
+        description="Also give agents the tools that change what ComfyQ serves for the whole class: serve "
+                    "a workflow (alongside, or as the main one — ComfyQ restarts), stop a lane, calibrate. "
+                    "Leave off on student PCs. Agents see the change when they reconnect")
 
     def draw(self, context):
         col = self.layout.column()
@@ -71,6 +81,9 @@ class ComfyQPreferences(bpy.types.AddonPreferences):
             col.label(text=f"Running on {mcp.STATE['url']} · connection file {mcp.info_path()}", icon="CHECKMARK")
             launcher = Path(__file__).parent / "mcp" / "launcher.py"
             col.label(text="Agents run:  python " + str(launcher).replace("\\", "/"), icon="CONSOLE")
+        row = col.row()
+        row.enabled = self.mcp_enabled
+        row.prop(self, "mcp_teacher")
         col.separator()
         col.label(text=f"Profiles file: {config_path()}", icon="FILE_TEXT")
         if not bpy.app.online_access:

@@ -30,6 +30,13 @@ class Tool:
     description: str
     schema: dict
     fn: Callable[[dict], Any]
+    # None = always offered. Otherwise the tool is listed and callable only while this returns True
+    # (teacher tools behind a preference; agents re-read tools/list when they reconnect).
+    enabled: Callable[[], bool] | None = None
+    off_message: str = ""
+
+    def on(self) -> bool:
+        return self.enabled is None or bool(self.enabled())
 
 
 def obj(props: dict | None = None, required: tuple[str, ...] = ()) -> dict:
@@ -73,11 +80,13 @@ class Dispatcher:
             return {}
         if method == "tools/list":
             return {"tools": [{"name": t.name, "description": t.description, "inputSchema": t.schema}
-                              for t in self.tools.values()]}
+                              for t in self.tools.values() if t.on()]}
         if method == "tools/call":
             tool = self.tools.get(params.get("name", ""))
             if tool is None:
                 raise ValueError(f"Unknown tool: {params.get('name')}")
+            if not tool.on():
+                return _text({"error": tool.off_message or f"{tool.name} is turned off"}, True)
             args = params.get("arguments") or {}
             unknown = set(args) - set(tool.schema.get("properties", {}))
             missing = [k for k in tool.schema.get("required", []) if k not in args]

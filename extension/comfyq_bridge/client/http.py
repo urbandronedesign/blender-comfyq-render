@@ -21,14 +21,18 @@ class ComfyQError(RuntimeError):
 
 
 class Http:
-    def __init__(self, base_url: str, token: str = "", timeout_s: float = 30.0):
+    def __init__(self, base_url: str, token: str = "", timeout_s: float = 30.0, admin_password: str = ""):
         self.base = base_url.rstrip("/")
         self.token = token
+        self.admin_password = admin_password
         self.timeout = timeout_s
         self.session = requests.Session()
 
-    def _headers(self) -> dict[str, str]:
-        return {"x-access-token": self.token} if self.token else {}
+    def _headers(self, admin: bool = False) -> dict[str, str]:
+        h = {"x-access-token": self.token} if self.token else {}
+        if admin and self.admin_password:
+            h["x-admin-password"] = self.admin_password
+        return h
 
     def _check(self, r: requests.Response) -> Any:
         if r.ok:
@@ -51,9 +55,17 @@ class Http:
             raise ComfyQError(f"Cannot reach ComfyQ at {self.base}: {e.__class__.__name__}") from e
         return self._check(r)
 
-    def post_json(self, path: str, body: dict[str, Any]) -> Any:
+    def post_json(self, path: str, body: dict[str, Any], admin: bool = False, timeout: float | None = None) -> Any:
         try:
-            r = self.session.post(self.base + path, json=body, headers=self._headers(), timeout=self.timeout)
+            r = self.session.post(self.base + path, json=body, headers=self._headers(admin),
+                                  timeout=timeout or self.timeout)
+        except requests.RequestException as e:
+            raise ComfyQError(f"Cannot reach ComfyQ at {self.base}: {e.__class__.__name__}") from e
+        return self._check(r)
+
+    def delete(self, path: str, admin: bool = False, timeout: float | None = None) -> Any:
+        try:
+            r = self.session.delete(self.base + path, headers=self._headers(admin), timeout=timeout or self.timeout)
         except requests.RequestException as e:
             raise ComfyQError(f"Cannot reach ComfyQ at {self.base}: {e.__class__.__name__}") from e
         return self._check(r)

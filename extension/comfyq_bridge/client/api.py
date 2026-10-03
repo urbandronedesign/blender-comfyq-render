@@ -22,7 +22,7 @@ UPLOAD_MAX_LONG, UPLOAD_MAX_SHORT = 1920, 1080
 class ComfyQClient:
     def __init__(self, profile: Profile, transport: ComfyQTransport | None = None):
         self.profile = profile
-        self.http = Http(profile.url, profile.token, profile.timeout_s)
+        self.http = Http(profile.url, profile.token, profile.timeout_s, profile.admin_password)
         self._transport = transport
 
     # -- connection --------------------------------------------------------------
@@ -68,6 +68,27 @@ class ComfyQClient:
 
     def served_ids(self) -> set[str]:
         return {l.workflow_id for l in self.lanes()}
+
+    # -- teacher: what the GPU serves (ComfyQ admin routes; the admin password when one is set) --------
+    def server_lanes(self) -> dict[str, Any]:
+        """GET /admin/lanes: {lanes, card: {vramGb, usedGb}, fit: {workflow id: {ok, reason, needGb…}}}."""
+        return self.http.get("/admin/lanes") or {}
+
+    def open_lane(self, workflow_id: str, force: bool = False) -> dict[str, Any]:
+        """Serve alongside the main workflow (no restart). Refused (409, with `fit`) when it does not fit."""
+        return self.http.post_json("/admin/lanes", {"workflowId": workflow_id, "force": force},
+                                   admin=True, timeout=1800) or {}
+
+    def close_lane(self, workflow_id: str) -> None:
+        self.http.delete(f"/admin/lanes/{workflow_id}", admin=True, timeout=300)
+
+    def activate(self, workflow_id: str) -> dict[str, Any]:
+        """Make it the main served workflow. ComfyQ restarts (~1–2 min); the socket reconnects by itself."""
+        return self.http.post_json("/admin/activate-workflow", {"workflowId": workflow_id}, admin=True) or {}
+
+    def calibrate(self, workflow_id: str) -> dict[str, Any]:
+        """Measure VRAM peak / duration on ComfyQ's benchmark inputs (minutes; the GPU is busy)."""
+        return self.http.post_json(f"/workflows/{workflow_id}/calibrate", {}, admin=True, timeout=3600) or {}
 
     def params(self, workflow_id: str) -> list[ParamSpec]:
         data = self.http.get(f"/workflows/{workflow_id}/parameters")

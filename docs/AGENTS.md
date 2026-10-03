@@ -53,6 +53,27 @@ args = ["C:/Users/<you>/AppData/Roaming/Blender Foundation/Blender/5.2/extension
 | `comfyq_describe_workflow` | A workflow's parameters |
 | `comfyq_submit` | Book a job: settings, local files for media inputs, prompt → job id |
 | `comfyq_job_status` / `comfyq_wait` / `comfyq_cancel` / `comfyq_outputs` | Follow, wait (≤ 120 s per call), cancel, download results |
+| `comfyq_server_status` | What the GPU serves (main workflow + lanes, busy, VRAM), card/used GB, what fits alongside now, the running serve/calibrate task |
+
+### Teacher tools: loading models from the agent
+Off by default, and **hidden** from the agent while off. Turn them on only on the teacher's PC:
+**Preferences › Add-ons › ComfyQ Bridge › Teacher tools: agents may load models**, then reconnect the
+agent (`/mcp` in Claude Code). They use ComfyQ's own admin routes, so ComfyQ's code is unchanged.
+
+| Tool | Does |
+|---|---|
+| `comfyq_serve` | Load a workflow's models. `how="alongside"`: a lane next to the main workflow (no restart; must fit in VRAM). `how="main"`: replaces the main workflow — **ComfyQ restarts (~1–2 min) for the whole class**; refused while a job runs unless `force`. `"auto"` (default): alongside if it fits, else main. Returns after `wait_s` (≤ 120 s) and keeps going in the background |
+| `comfyq_unserve` | Stop a lane (frees its VRAM). Not the main workflow |
+| `comfyq_calibrate` | Measure VRAM peak and duration on ComfyQ's benchmark inputs (GPU busy for minutes) |
+
+ComfyQ's admin password, when one is set, comes from `COMFYQ_ADMIN_PASSWORD` or the profile
+(`admin_password`, `admin_password_env` or `admin_password_file` in `profiles.toml`), never from the .blend.
+
+**What actually keeps students out is ComfyQ, not this preference.** Checked 2026-10-04: this ComfyQ has
+no admin password (`config.json` `auth.adminPasswordHash` is empty), so the admin gate is off and any PC
+on the LAN can open lanes or calibrate by calling ComfyQ directly. `POST /admin/activate-workflow` has no
+admin gate at all, even when a password is set. For a class: set an admin password in ComfyQ (part of
+P1.0), and ask b2renger to gate `activate-workflow`.
 
 The server's instructions tell the agent the usual round trip: scene info → served workflows →
 render → submit → wait → outputs → import (or: preset → prompt → run → status in the graph).

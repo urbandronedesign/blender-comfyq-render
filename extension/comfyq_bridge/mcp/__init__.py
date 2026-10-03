@@ -15,7 +15,7 @@ from pathlib import Path
 from ..client.profile import config_path
 
 _SERVER = [None]
-STATE = {"error": "", "url": ""}
+STATE = {"error": "", "url": "", "teacher": False}   # teacher = preference "Teacher tools" (read by tools)
 
 
 def info_path() -> Path:
