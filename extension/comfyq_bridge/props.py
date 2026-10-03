@@ -20,6 +20,19 @@ from bpy.props import (
 from .passes.render import STYLES
 from .runtime.session import SESSION
 
+
+def _relative_ok() -> set[str]:
+    """Paths the user may write as "//…" (next to the .blend): Blender 5.2 warns unless the property
+    says so; older versions do not know the option."""
+    try:
+        StringProperty(options={"PATH_SUPPORTS_BLEND_RELATIVE"})
+        return {"PATH_SUPPORTS_BLEND_RELATIVE"}
+    except TypeError:
+        return set()
+
+
+REL_PATH = _relative_ok()
+
 # Fixed numbers so the stored value means the same source whatever list a kind shows.
 _SRC = {
     "STRUCTURE": ("Scene render", "Workbench render of the scene camera", "SCENE", 0),
@@ -104,7 +117,7 @@ class ComfyQParamValue(bpy.types.PropertyGroup):
     randomize: BoolProperty(name="Random", default=True, description="New random seed for every job")
     source: EnumProperty(name="", items=_source_items)
     image: PointerProperty(name="", type=bpy.types.Image)
-    path: StringProperty(name="", subtype="FILE_PATH")
+    path: StringProperty(name="", subtype="FILE_PATH", options=REL_PATH)
 
     def value(self):
         """Current value as sent to ComfyQ (prompt text blocks win over the one-line field)."""

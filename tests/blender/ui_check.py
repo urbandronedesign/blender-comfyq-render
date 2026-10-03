@@ -666,6 +666,31 @@ def _graph_n3(tree, wf):
           and any(x.is_linked for x in wnode.inputs), f"{res} {[x.bl_idname for x in added]}")
     shot("09f_open_as_graph")
     yield from _graph_n4(tree)
+    yield from _graph_n5(tree)
+
+
+def _graph_n5(tree):
+    """N5: class presets from the header's Presets menu; Save Graph as Preset (into a test folder)."""
+    import os
+    gpo = ext("graph.preset_ops")
+    before = len(tree.nodes)
+    res = click("graph_preset", graph_area, preset="keyframe_v2v")
+    yield (lambda: len(tree.nodes) > before), 30
+    added = list(tree.nodes)[before:]
+    wnodes = [n for n in added if n.bl_idname == "ComfyQWorkflowNode"]
+    check("N5: Presets › AI keyframe → video builds the graph from what ComfyQ serves",
+          res == {"FINISHED"} and len(wnodes) == 2 and all(lk.is_valid for lk in tree.links),
+          f"{res} {[n.workflow_id for n in wnodes]} · {S().status_note}")
+    yield 1.5
+    shot("09h_preset")
+    os.environ["COMFYQ_BRIDGE_PRESETS"] = str(OUT / "presets")
+    shutil.rmtree(OUT / "presets", ignore_errors=True)
+    with ctx(graph_area):
+        res = bpy.ops.comfyq.graph_save_preset("EXEC_DEFAULT", name="UI check class", shared=True)
+    listed = [h["label"] for _f, h in gpo.saved_presets()]
+    check("N5: Save Graph as Preset writes a preset the Presets menu lists", res == {"FINISHED"}
+          and "UI check class" in listed, listed)
+    del os.environ["COMFYQ_BRIDGE_PRESETS"]
 
 
 def _graph_n4(tree):

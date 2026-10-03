@@ -237,3 +237,19 @@ Phase-2 ComfyQ PRs that help: `outputs` in meta/`/workflows`, `job_deps`.
   smoke (import/replace, save naming, when-ready once per result, source-only Generate, text viewer,
   reroutes incl. refusal, history/Use); ui_check N4 steps; `-Book`: B's result → Viewer / Import / Save,
   then Generate on the Viewer books nothing.
+
+## 16. N5 results (2026-10-03, Blender 5.2.2 LTS)
+- **Built-in class presets** (`graph/presets.py`, bpy-free): roles instead of workflow ids
+  (`Role(categories, needs, prefer, avoid)`), `pick()` = takes the needed inputs, served first, then
+  preference. Unit-tested on the 66 workflows (best picks: LTX 2.5 IC-LoRA union, Qwen 2.1 control
+  depth, Trellis2 textured mesh, SeedVR2 7B image upscale; a served workflow of the role wins).
+- `graph/preset_ops.py`: loads the candidates' parameters, then builds (scene matching on workflow
+  nodes, the workflow's example prompt in the shared Prompt node, *enable* switches a start image on,
+  unused sources dropped). **Saved presets**: the graph as JSON (nodes, models, settings, prompts,
+  frames, links), read from `%APPDATA%\comfyq-bridge\presets` and `COMFYQ_BRIDGE_PRESETS` (shared).
+- Header **Presets** menu; teacher guide **docs/CLASS.md**.
+- Fixed on the way: Blender 5.2 warns on `//` paths unless the property has
+  `PATH_SUPPORTS_BLEND_RELATIVE` (`props.REL_PATH`, used by the Save folder and file paths).
+- Verified: unit (pick + catalogue), headless smoke (all 5 presets built on the live ComfyQ, keyframe
+  feeds the switched-on start image, one prompt → both, saved preset round trip from a shared folder),
+  `smoke_test.ps1 -Ui` **92 / 92**.

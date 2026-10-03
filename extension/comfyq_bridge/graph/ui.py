@@ -627,8 +627,8 @@ class COMFYQ_OT_open_as_graph(bpy.types.Operator):
         return {"FINISHED"}
 
 
-def _frame_graph_soon() -> None:
-    """Fit the view to the graph once its editor is open and laid out."""
+def _frame_graph_soon(selected: bool = False) -> None:
+    """Fit the view to the graph (or to the selected nodes) once its editor is open and laid out."""
     tries = {"n": 0}
 
     def step():
@@ -638,7 +638,10 @@ def _frame_graph_soon() -> None:
         if region is None or region.width < 50:
             return 0.1 if tries["n"] < 40 else None
         with bpy.context.temp_override(window=w, screen=w.screen, area=area, region=region):
-            bpy.ops.node.view_all()
+            if selected:
+                bpy.ops.node.view_selected()
+            else:
+                bpy.ops.node.view_all()
         return None
     bpy.app.timers.register(step, first_interval=0.1)
 
@@ -648,9 +651,9 @@ def _frame_graph_soon() -> None:
 # minus the selector and the overlay buttons: about (width - 200) / 2 - 200 px (measured in Blender 5.2).
 # Rather than letting Blender truncate every label ("Sce…", "Ima…"), the toolbar steps down:
 # labels → icons (names in the tooltips) → one Add menu.
-_LABELS_NEED = 770          # px at UI scale 1: 8 labelled menus + search + Run Graph + Clear (610 truncated)
-_RUN_LABEL_NEED = 300       # 9 icon menus (~19 px each) + search + labelled Run Graph + Clear
-_ICONS_NEED = 180           # same with an icon-only Run
+_LABELS_NEED = 850          # px at UI scale 1: 8 labelled menus + search + Run Graph + Clear (610 truncated)
+_RUN_LABEL_NEED = 320       # 9 icon menus (~19 px each) + search + labelled Run Graph + Clear
+_ICONS_NEED = 200           # same with an icon-only Run
 
 
 def header_room(context) -> float:
@@ -680,6 +683,7 @@ def _header(self, context):
         labels = room >= _LABELS_NEED
         row.menu(COMFYQ_MT_graph_scene.bl_idname, text="Scene" if labels else "", icon="SCENE_DATA")
         row.menu(COMFYQ_MT_graph_output.bl_idname, text="Output" if labels else "", icon="HIDE_OFF")
+        row.menu("COMFYQ_MT_graph_presets", text="Presets" if labels else "", icon="PRESET")
         for m in TAB_MENUS:
             row.menu(m.bl_idname, text=m.bl_label if labels else "", icon=m.comfyq_icon)
         row.operator(COMFYQ_OT_graph_add_search.bl_idname, text="", icon="VIEWZOOM")
@@ -696,6 +700,7 @@ def _add_menu(self, context):
     layout = self.layout
     layout.menu(COMFYQ_MT_graph_scene.bl_idname, icon="SCENE_DATA")
     layout.menu(COMFYQ_MT_graph_output.bl_idname, icon="HIDE_OFF")
+    layout.menu("COMFYQ_MT_graph_presets", icon="PRESET")
     for m in TAB_MENUS:
         layout.menu(m.bl_idname, icon=m.comfyq_icon)
     layout.operator(COMFYQ_OT_graph_add_search.bl_idname, text="Any Workflow…", icon="VIEWZOOM")

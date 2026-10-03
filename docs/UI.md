@@ -8,7 +8,7 @@ is checked. The checks run in a visible Blender on a copy of a real scene:
 .\tools\smoke_test.ps1 -Ui -Book    # also Generate (booked, cancelled) and a live graph chain A → B (2 short jobs)
 ```
 
-Last full runs, 2026-10-03, on `testV2V_clean.mixar` in **Blender 5.2.2 LTS**: **86 / 86** without GPU (after N3) and,
+Last full runs, 2026-10-03, on `testV2V_clean.mixar` in **Blender 5.2.2 LTS**: **92 / 92** without GPU (after N5) and,
 with `-Book`, the live part (graph chain A → B, B given A's result, *Generate again* reuses A, ✕ cancels);
 no drawing errors. Earlier the same checks passed in Mixar 4.2.0 (uninstalled since).
 
@@ -201,6 +201,7 @@ the window opens if needed). Saved with the file.
 | Header **Scene** | Adds a source node: Scene Animation (clay video), Scene Render (still, first/last/current frame), Selection Mask, Image, Video File, Audio File, Prompt | `toolbar › Scene › Scene Animation adds the node` |
 | Header **Image · Video · 3D · Splats · Audio · Tools** | Adds a workflow node (served first, VRAM badge). Same entries in Shift+A | `toolbar › Video › … adds a node with its inputs as sockets` |
 | Header 🔍 (and Shift+A › *Any Workflow…*) | Search every workflow by name and add it | — |
+| Header **Presets** | Class presets: *Scene render → image*, *Clay animation → video*, *AI keyframe → video*, *Image → 3D model*, *Image → upscale* — built from the workflows ComfyQ serves now (served first, then the best match), added right of the graph; then presets **Saved** by the teacher; **Save Graph as Preset…**, **Open Presets Folder**. Teacher guide: [CLASS.md](CLASS.md) | `N5: Presets › AI keyframe → video builds the graph…`, `N5: Save Graph as Preset…`; smoke `preset “…”: built from …`, `saved preset rebuilds the same graph` |
 | Header **Output** | Adds a **Viewer**, **Import to Scene** or **Save** node, or Blender's **Frame** (notes / groups) and **Reroute** | `N4: toolbar › Output adds Viewer, Save, Import to Scene, Reroute and Frame` |
 | **Viewer** node | Shows what is linked (thumbnail; text as text) and, with *Show when ready* (on), plays each new result in the ComfyQ viewer. **Show** shows it now | `N4: Viewer fed by Scene Animation shows the clay video…`; live `N4 live: the Viewer shows B's result` |
 | **Import to Scene** node | **Import**: image → Image Editor, video/audio → *ComfyQ Results* scene, GLB/PLY → collection, text → a Text. *Replace previous import* (on) removes the strips/objects it imported last time. *Import when ready* (off) | smoke `Import to Scene: imports, and Replace replaces`; live `Import when ready brought B's result…` |

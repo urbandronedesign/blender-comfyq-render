@@ -55,13 +55,15 @@ extension/comfyq_bridge/
   ui/panel.py            panels: View3D sidebar, Image Editor sidebar, Queue popover, dialog (Ctrl+Shift+Q), header buttons
   ui/player.py           video player for the ComfyQ window (independent of the scene timeline)
   graph/                 node graph (Moodboard-style, docs/plans/node-graph.md): kinds.py + engine.py (bpy-free),
-                         tree.py (nodes), ui.py (toolbar/operators/timer sync), run.py (running the graph)
+                         tree.py (nodes), ui.py (toolbar/operators/timer sync), run.py (running the graph),
+                         outputs.py (Viewer/Import/Save), presets.py (bpy-free) + preset_ops.py (class presets)
 tests/unit/              pytest, no bpy (params, match, models/profile, submit)
 tests/contract/          against the live ComfyQ (read-only + a no-GPU booking 1 day ahead, then deleted)
 tests/blender/smoke.py   headless inside Mixar/Blender (run via tools/smoke_test.ps1)
 tests/blender/ui_check.py VISIBLE Blender (or Mixar): presses every button in its real window/area/region,
                          graph steps, live chain with -Book (smoke_test.ps1 -Ui [-Book])
 docs/UI.md               user-facing reference of every control, mapped to the ui_check checks
+docs/CLASS.md            teacher guide: class setup, presets, sharing presets
 tests/fixtures/cube.glb  committed fixture (Mixar's glTF exporter crashes at exit in -b)
 tools/smoke_test.ps1     build zip -> install into an ISOLATED profile -> run smoke (-Book: one real GPU job)
 tools/comfyq.ps1         client CLI with Mixar's Python: doctor | workflows | params | submit | fetch
@@ -187,16 +189,19 @@ change that session: the user must reinstall from the UI or restart Mixar.
   (… when ready, Replace previous import, Generate upstream then act), Reroute + Frame, result history +
   sidebar **ComfyQ** tab (job details, *Use* an earlier result). `smoke_test.ps1 -Ui -Book` green in
   Blender 5.2 (chain A → B → Viewer / Import / Save, Generate on the Viewer books nothing when up to date).
+- **Done — N5** (plan §16): class presets (built in by role: render → image, clay → video, AI keyframe →
+  video, image → 3D, image → upscale; saved by the teacher as JSON, shared folder via
+  `COMFYQ_BRIDGE_PRESETS`), header **Presets** menu, teacher guide **docs/CLASS.md**. `-Ui` 92/92.
 - **Not verified live:** image workflow → V2V start image in the graph (no image workflow served).
-- **Not done:** N5 of the graph plan; P1.0 (server hardening — user postponed); P1.4 MCP; P1.5 sweep of
+- **Not done:** P1.0 (server hardening — user postponed); P1.4 MCP; P1.5 sweep of
   the 66 workflows (41 without VRAM measurement); phase 2 (ComfyQ REST/SSE/MCP, direct-control bundles,
   quotas, `outputs` in meta.json).
 - **Known gaps:** the dialog doesn't live-redraw job progress; job cards can't be removed from the list;
   videos have no thumbnail in nodes (Blender makes no movie previews).
 
 ## Next steps
-1. **N3/N4 sign-off:** ask the user to try graph mode + output nodes and compare with their Moodboard
-   screenshot; adjust what they point at.
-2. N5 (docs, class presets: *Clay animation → V2V*, *Keyframe → V2V*, *Image → 3D*, *Image → upscale*).
+1. **Graph sign-off (N3–N5 done):** ask the user to try graph mode, output nodes and presets, and to
+   compare with their Moodboard screenshot; adjust what they point at.
+2. Then (user's choice): P1.5 sweep of the 66 workflows, P1.4 MCP, P1.0 server hardening, phase 2.
 3. After any UI change: `smoke_test.ps1 -Ui` and update docs/UI.md. Install into the user's Blender 5.2
    profile only when asked, with the command above (not `--factory-startup`). Ask before committing.

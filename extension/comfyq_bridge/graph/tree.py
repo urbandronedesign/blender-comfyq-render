@@ -15,7 +15,7 @@ from bpy.props import BoolProperty, CollectionProperty, EnumProperty, FloatPrope
 from .. import match as scene_match
 from ..client.params import is_disabled
 from ..passes.render import STYLES
-from ..props import ComfyQParamValue, tab_of
+from ..props import REL_PATH, ComfyQParamValue, tab_of
 from ..runtime.session import SESSION
 from . import kinds
 
@@ -304,7 +304,7 @@ class _FileNode(_Node):
     bl_width_default = 300
     comfyq_kind = ""
 
-    filepath: StringProperty(name="File", subtype="FILE_PATH")
+    filepath: StringProperty(name="File", subtype="FILE_PATH", options=REL_PATH)
 
     def init(self, context):
         self.outputs.new(SOCKET_IDNAME[self.comfyq_kind], kinds.SOCKETS[self.comfyq_kind][0])
@@ -687,7 +687,7 @@ class ComfyQSaveNode(_OutputNode, bpy.types.Node):
 
     auto: BoolProperty(name="Save when ready", default=False,
                        description="Save each new result as soon as it arrives")
-    folder: StringProperty(name="Folder", subtype="DIR_PATH", default="//comfyq/",
+    folder: StringProperty(name="Folder", subtype="DIR_PATH", default="//comfyq/", options=REL_PATH,
                            description="Where copies go (// = next to the .blend)")
     pattern: StringProperty(name="Name", default="{source}_{date}_{time}",
                             description="File name: {node} {date} {time} {job} {workflow} {source}; "

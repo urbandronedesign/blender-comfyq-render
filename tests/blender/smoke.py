@@ -6,6 +6,8 @@ bpy.app.timers do not fire in background mode, so this script pumps the
 session itself. Without --book it stops before sending a job (no GPU use).
 The detached window and the dialog need a real screen: check those by hand.
 """
+import json
+import os
 import shutil
 import struct
 import sys
@@ -546,6 +548,62 @@ for extra in [n for n in tree.nodes if n not in n_before_n4]:
 wnode.result, wnode.result_hash, wnode.job_id = "", "", ""
 wnode.history.clear()
 shutil.rmtree(save_dir, ignore_errors=True)
+
+# N5: class presets (built in: workflows picked from what is served; saved: exact graphs)
+from bl_ext.user_default.comfyq_bridge.graph import preset_ops as gpo
+from bl_ext.user_default.comfyq_bridge.graph import presets as gpresets
+
+keep_tree = None
+for p in gpresets.BUILTIN:
+    for r in [n.role for n in p.nodes if n.role]:
+        for wf_id in gpresets.candidates(r, SESSION.workflows):
+            if wf_id not in SESSION.specs:
+                SESSION.specs[wf_id] = SESSION.client.params(wf_id)
+    pt = bpy.data.node_groups.new(f"smoke preset {p.id}", gtree_mod.TREE)
+    choice = gpo.choose(p)
+    made = gpo.build_builtin(p, pt, scene, choice)
+    wnodes = [n for n in made if n.bl_idname == "ComfyQWorkflowNode"]
+    videos_fed = all(x.is_linked for n in wnodes for x in n.inputs if x.enabled and socket_kind(x) == "video")
+    check(all(choice.values()) and len(wnodes) == sum(1 for n in p.nodes if n.role)
+          and all(lk.is_valid for lk in pt.links) and videos_fed
+          and all(any(o.is_linked for o in n.outputs) for n in wnodes),
+          f"preset “{p.label}”: built from {list(choice.values())} ({len(pt.nodes)} nodes, {len(pt.links)} links)")
+    if p.id == "keyframe_v2v":
+        video = next(n for n in wnodes if any(socket_kind(x) == "video" for x in n.inputs))
+        start = next(x for x in video.inputs if socket_kind(x) == "image")
+        check(start.enabled and start.is_linked and start.links[0].from_node.bl_idname == "ComfyQWorkflowNode",
+              "preset AI keyframe → video: the keyframe feeds the start image (switched on)")
+        prompts = [n for n in made if n.bl_idname == "ComfyQPromptNode"]
+        check(len(prompts) == 1 and len(prompts[0].outputs[0].links) == 2 and bool(prompts[0].text),
+              "preset AI keyframe → video: one prompt feeds both workflows (starts from an example)")
+        keep_tree = pt
+        continue
+    bpy.data.node_groups.remove(pt)
+# saved presets: the graph as a file, read back the same; listed from the shared folder
+os.environ["COMFYQ_BRIDGE_PRESETS"] = str(tmp / "shared_presets")
+shared = gpresets.folders()[1]
+shared.mkdir(parents=True, exist_ok=True)
+wkey = next(n for n in keep_tree.nodes if n.bl_idname == "ComfyQWorkflowNode")
+fkey = next((it for it in wkey.params if it.workflow_id == wkey.workflow_id and it.kind == "float"), None)
+if fkey is not None:
+    fkey.f = 0.73
+frame_n = keep_tree.nodes.new("NodeFrame")
+frame_n.label = "Step 1"
+data = gpo.serialize(keep_tree, "Smoke class", "for the smoke test")
+(shared / "smoke_class.json").write_text(json.dumps(data), encoding="utf-8")
+listed = [h["label"] for _f, h in gpo.saved_presets()]
+check("Smoke class" in listed, f"saved preset listed from the shared folder {listed}")
+back = bpy.data.node_groups.new("smoke preset back", gtree_mod.TREE)
+gpo.build_saved(json.loads((shared / "smoke_class.json").read_text(encoding="utf-8")), back)
+same_types = sorted(n.bl_idname for n in back.nodes) == sorted(n.bl_idname for n in keep_tree.nodes)
+wb = next(n for n in back.nodes if n.bl_idname == "ComfyQWorkflowNode" and n.workflow_id == wkey.workflow_id)
+check(same_types and len(back.links) == len(keep_tree.links) and all(lk.is_valid for lk in back.links)
+      and (fkey is None or abs(wb.item(fkey.key).f - 0.73) < 1e-5),
+      f"saved preset rebuilds the same graph ({len(back.nodes)} nodes, {len(back.links)} links, settings kept)")
+for t in (keep_tree, back):
+    bpy.data.node_groups.remove(t)
+shutil.rmtree(shared, ignore_errors=True)
+del os.environ["COMFYQ_BRIDGE_PRESETS"]
 
 graph_file = tmp / "graph.blend"
 bpy.ops.wm.save_as_mainfile(filepath=str(graph_file), copy=True)
