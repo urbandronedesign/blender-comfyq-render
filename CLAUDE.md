@@ -17,7 +17,7 @@ Git: local repo, branch `main`, no remote. Commit author = repo-local `urbandron
 ## Environment (this machine)
 | Thing | Where |
 |---|---|
-| **Blender 5.2.2 LTS** (Python 3.13.13) — the host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (N3 build), Allow Online Access on. Theme = Mixar's **"Mixar Forest"** with Input node colour changed from #ff284d to #3d4640 (calmer graph headers) (exported from `%APPDATA%\Mixar\Mixar\5.2\config\mixar_userpref.blend`, preset `scripts\presets\interface_theme\mixar_forest.xml`; previous prefs backed up as `config\userpref.before_mixar_theme.blend`) Default of `smoke_test.ps1` and `comfyq.ps1` |
+| **Blender 5.2.2 LTS** (Python 3.13.13) — the host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (build of commit `bccc544`: graph N0–N5, MCP, clay MP4 with sound), Allow Online Access on, **AI agents (MCP server) ON** (port 8790). Theme = Mixar's **"Mixar Forest"** with Input node colour changed from #ff284d to #3d4640 (calmer graph headers) (exported from `%APPDATA%\Mixar\Mixar\5.2\config\mixar_userpref.blend`, preset `scripts\presets\interface_theme\mixar_forest.xml`; previous prefs backed up as `config\userpref.before_mixar_theme.blend`) Default of `smoke_test.ps1` and `comfyq.ps1` |
 | Mixar 4.2.0 | **uninstalled 2026-10-03** (was `C:\Program Files\Mixar\mixar.exe`, profile `%APPDATA%\Mixar\Mixar\5.2`) |
 | ComfyQ server (Node, Socket.IO, SQLite) | `F:\ComfyQ`, http://127.0.0.1:3000 — user works with b2renger, full control of its code |
 | ComfyUI 0.37, torch 2.8 cu128, RTX 5090 32 GB | `F:\ComfyUI_windows_portable_nvidia\…`, :8188 (listens on 0.0.0.0 — P1.0 issue) |
@@ -169,71 +169,73 @@ change that session: the user must reinstall from the UI or restart Mixar.
     and `Node.color_tag` is read-only in 5.2 (probed: class attributes and NodeCustomGroup change nothing).
     `bl_use_group_interface = False` on the tree hides Blender's group panels/menus. Movie thumbnails:
     `bpy.utils.previews` `load(name, path, "MOVIE")` (works; `icon_id` stays 0 in background mode).
+26. After `screen.area_split` both areas keep stale `x`/`width` until the next draw: decide which part is
+    which from a timer (`ops.workflow.set_graph_mode`).
 27. Property definitions are evaluated by Blender in its own namespace (string annotations with
     `from __future__ import annotations`): a `lambda` as `update=` cannot see the module's functions
     (NameError at the first change). Use a named function defined before the class.
-26. After `screen.area_split` both areas keep stale `x`/`width` until the next draw: decide which part is
-    which from a timer (`ops.workflow.set_graph_mode`).
+28. **Sweeps / long GPU runs:** run `smoke_test.ps1 -Sweep …` with `run_in_background` and NO `*>` redirect
+    (PowerShell 5.1 writes UTF-16 and `Out-Host` lines never reach the file); watch the task's output file
+    with Monitor (`grep "\] <id> → |restored|RESTORE|DONE"`). `Get-Process blender` once missed a running
+    headless Blender: check with `Get-CimInstance Win32_Process` (command line contains sweep.py).
+29. **Switching ComfyQ's main workflow** (`POST /admin/activate-workflow`) restarts the ComfyQ server: it
+    touches its own index.js so **nodemon** respawns it; port 3000 is down ~1–2 min while ComfyUI loads the
+    model. The sweep closes and reconnects its session (`serve_main`) and keeps base URL/headers from the
+    first connection. Extra lanes (`POST /admin/lanes`) need peaks to fit in card − 2 GB: on the 5090
+    nothing heavy pairs (LTX/Flux Dev ~30 GB each; even Qwen t2i 14.6 + Klein 17.3 is over).
+30. **"ok" in the sweep = job completed + result downloaded + imported.** It is not "looks right": look at
+    the images (Read tool) — black outputs happen with some ComfyUI flag mixes (the sweep flags mean < 0.02),
+    and a workflow given an unsuitable input can echo it back (Krea character sheet on a cubes scene).
 
-## Status (2026-10-03, last commit `d4f3e42`)
-- **Host:** Blender 5.2.2 LTS (user's profile has the latest build, Allow Online Access on). Mixar uninstalled.
+## Status (2026-10-04; code last changed in `bccc544`, then docs/gitignore up to `e7e97a5` + this update)
+- **Host:** Blender 5.2.2 LTS (user's profile has the latest build). Mixar uninstalled. ComfyQ serves
+  **LTX 2.5 IC-LoRA canny** (`video_edit_ltx2_5_iclora_canny_control`) — the state to restore after any test.
 - **Done — bar & tools:** P1.1 client + Socket.IO transport + CLI; P1.2 extension MVP; P1.3 imports
-  (image/video/GLB/PLY/audio), reattach after reload, per-workflow settings; animation → V2V (clay MP4,
-  always re-rendered at Generate, scene/workflow matching, start/last frame); AI-keyframe chain in the bar
-  (**never run end-to-end**: needs an image + a video workflow served together); Moodboard-style bar
-  (sidebar + Ctrl+Shift+Q dialog + detached ComfyQ window: Image Editor/player/Text Editor); multi-line
-  prompts; player; job cards; grayscale clay; Clean up; prompt also sent as the job's prompt; cancelled
-  jobs read as Cancelled. Every control documented in **docs/UI.md** with the check that covers it.
-- **Done — node graph N0–N2** (docs/plans/node-graph.md §11–13): graph in the Node Editor (bar icon),
-  category toolbar, source nodes (Scene Animation / Scene Render / Selection Mask / Image / Video File /
-  Audio File / Prompt), workflow nodes built from ComfyQ's parameters (sockets = inputs, chips = settings,
-  Change model, "+" sources, multi-line prompts), **running** (Generate per node, Run Graph, chains, reuse
-  of up-to-date results via `render.scene_fingerprint`, cancel, results on the node).
-- **Done — N3 look** (plan §14, committed + installed; not yet compared with Moodboard by the user): graph mode of the ComfyQ
-  window (graph left, viewer + bar right, prompt below; **Graph** switch in the window's bar; the viewer
-  follows the selected node), **Open as Graph** (bar › Actions), video thumbnails, no group panels, header
-  steps labels → icons → + menu, 🔍 search of all workflows. Headers stay maroon (Blender limit, gotcha 25).
-  `smoke_test.ps1 -Ui` 86/86 in Blender 5.2.
-- **Verified live:** bar job `78193cf8` traced through ComfyQ + ComfyUI; the user's 5 s project from a
-  node (job `f71fdd3a`, user: "it's working"); in Blender 5.2: `smoke_test.ps1 -Ui` 78/78 + live part
-  (chain A → B, *Generate again* reuses A, cancel). Headless smoke passes on Blender 5.2 (and passed on
-  Mixar 4.2 / Blender 5.1).
-- **Done — N4** (plan §15, committed + installed): Viewer / Import to Scene / Save output nodes
-  (… when ready, Replace previous import, Generate upstream then act), Reroute + Frame, result history +
-  sidebar **ComfyQ** tab (job details, *Use* an earlier result). `smoke_test.ps1 -Ui -Book` green in
-  Blender 5.2 (chain A → B → Viewer / Import / Save, Generate on the Viewer books nothing when up to date).
-- **Done — N5** (plan §16): class presets (built in by role: render → image, clay → video, AI keyframe →
-  video, image → 3D, image → upscale; saved by the teacher as JSON, shared folder via
-  `COMFYQ_BRIDGE_PRESETS`), header **Presets** menu, teacher guide **docs/CLASS.md**. `-Ui` 92/92.
-- **Not verified live:** image workflow → V2V start image in the graph (no image workflow served).
-- **Done — P1.4 MCP** (docs/AGENTS.md): MCP server inside the extension (off by default, preferences;
-  127.0.0.1 + token in `%APPDATA%\comfyq-bridge\mcp.json`), 16 tools (`blender_*`, `blender_graph_*`,
-  `comfyq_*`), stdio launcher `mcp/launcher.py`, `.mcp.json`, skill `.claude/skills/blender-comfyq-roundtrip`.
-  Round trip by **Claude Code** verified (`tools\agent_roundtrip.ps1`, job `86924b46`). Codex not tested.
-- **P1.5 started** (docs/workflow-matrix.md, `tests/blender/sweep.py`): LTX 2.5 family done 2026-10-03 —
-  canny / pose / union / i2v / t2v / flf2v ok from Blender (VRAM ~30 GB each, 12–33 s with the cheapest
-  settings); deblur-upscale ok too since the clay MP4 has a sound track (AAC, scene sound or silence);
-  union's calibration fails in ComfyQ (missing bench input `comfyq__bench-vi__sports_car.png`: tell b2renger).
-  Two LTX models never fit side by side (32 GB card): test them by switching the main workflow.
-  Flux 2 family done 2026-10-03: all 8 ok (t2i Klein/Dev, edit, edit+ref, depth control, inpaint prompt/ref; mask
-  convention verified visually). VRAM: Klein 17–20 GB, Dev 29.5–30.2 GB. Results looked at, none black.
-  Qwen Image 2.1 done 2026-10-03: all 5 ok (t2i, viggle turbo, control canny/depth, image edit — not black
-  despite Sage; the sweep now flags black images itself). VRAM 14.6–23.4 GB; control_depth calibration fails
-  in ComfyQ (missing bench input `comfyq__bench-im__sports_car.png`, same bug as union).
-  Krea 2 done 2026-10-03: 4 run ok (t2i lora, style reference, quadview, character sheet), VRAM 17.3–21.9 GB;
-  the character sheet only returned its input (no character in the test scene): retest with a character image.
-  Switching the main workflow for a sweep: done when the user names a family to test (LTX 2.5, Flux 2 so far);
-  canny is always restored at the end.
-- **Not done:** the rest of P1.5 (42 workflows); Codex / `codex --oss` round trip (needs the Codex CLI);
-  P1.0 (server hardening — user postponed); phase 2 (ComfyQ REST/SSE/MCP, direct-control bundles,
-  quotas, `outputs` in meta.json).
+  (image/video/GLB/PLY/audio), reattach after reload, per-workflow settings; animation → V2V (clay MP4 with
+  a sound track, always re-rendered at Generate, scene/workflow matching, start/last frame); AI-keyframe
+  chain in the bar (**never run end-to-end**); Moodboard-style bar (sidebar + Ctrl+Shift+Q dialog +
+  detached ComfyQ window); multi-line prompts; player; job cards; Clean up. Every control in **docs/UI.md**.
+- **Done — node graph N0–N5** (docs/plans/node-graph.md §11–16): Node Editor graph (sources, workflow
+  nodes from ComfyQ's parameters, running with chains/reuse/cancel), N3 look (graph mode of the ComfyQ
+  window, Open as Graph, video thumbnails, adaptive header), N4 outputs (Viewer / Import / Save, Reroute,
+  Frame, result history, sidebar ComfyQ tab), N5 class presets (5 built in by role + teacher presets in
+  JSON, shared via `COMFYQ_BRIDGE_PRESETS`; teacher guide **docs/CLASS.md**). `smoke_test.ps1 -Ui` 92/92,
+  `-Ui -Book` green. **Not yet compared with the Moodboard screenshot by the user.**
+- **Done — P1.4 MCP** (docs/AGENTS.md): server inside the extension (off by default; ON in the user's
+  prefs), 127.0.0.1 + token in `%APPDATA%\comfyq-bridge\mcp.json`, 16 tools, stdio launcher
+  `mcp/launcher.py` (shipped), repo `.mcp.json`, skill `.claude/skills/blender-comfyq-roundtrip`. Round trip
+  by **Claude Code** verified (`tools\agent_roundtrip.ps1`). Codex not tested (no Codex CLI on this PC).
+- **P1.5 in progress — 24 / 66 tested** (`docs/workflow-matrix.md`, generated by `tools/sweep_matrix.py`
+  from `live_check/sweep/*.json`; sweep = `tests/blender/sweep.py` via `smoke_test.ps1 -Sweep`):
+  - **LTX 2.5** 7/7 ok (VRAM 29.6–30.1 GB; deblur-upscale needed the clay MP4 sound track, fixed).
+  - **Flux 2** 8/8 ok (Klein 17.3–20.4 GB, Dev 29.5–30.2 GB; inpaint mask convention verified visually).
+  - **Qwen Image 2.1** 5/5 ok (14.6–23.4 GB; image edit not black despite Sage).
+  - **Krea 2** 4/4 run (17.3–21.9 GB); the character sheet echoed its input (cubes scene, no character):
+    retest with a character image.
+  - ComfyQ bugs for b2renger: calibration of LTX union and Qwen control depth fails — benchmark inputs
+    `comfyq__bench-vi__sports_car.png` / `comfyq__bench-im__sports_car.png` missing in ComfyUI/input.
+  - Method (user-approved per family): `--switch=<ids> --restore=video_edit_ltx2_5_iclora_canny_control`
+    (calibrate + run each as the main workflow, canny restored at the end). Lanes side by side don't fit.
+- **Multi-model orchestration page** (for the user and b2renger): https://claude.ai/artifact/C8EPx3vgnJVsRXvZNjB7ug
+  (private until the user shares it), local copy `docs/private/multi-model-orchestration.html` (gitignored).
+  Proposes: stage runner in the graph (group nodes by model, switch between stages), ComfyQ bundles for
+  fixed recipes, server-side chains via ComfyQ's `chainedInputs`, routing across several servers.
+- **Other:** Blender theme = Mixar Forest (calmer Input-node colour). P1.0 hardening postponed by the user.
+  Phase 2 not started (ComfyQ REST/SSE/MCP, direct-control bundles, quotas, `outputs` in meta.json).
 - **Known gaps:** the dialog doesn't live-redraw job progress; job cards can't be removed from the list;
-  videos have no thumbnail in nodes (Blender makes no movie previews).
+  "image workflow → V2V start image" never run live in the graph.
 
 ## Next steps
-1. **Graph sign-off (N3–N5 done):** ask the user to try graph mode, output nodes and presets, and to
-   compare with their Moodboard screenshot; adjust what they point at.
-2. Then (user's choice): P1.5 sweep of the 66 workflows (also fills the VRAM badges agents see), P1.0 server
-   hardening, a Codex round trip, phase 2 (a native ComfyQ /mcp replaces the comfyq_* proxy tools).
-3. After any UI change: `smoke_test.ps1 -Ui` and update docs/UI.md. Install into the user's Blender 5.2
-   profile only when asked, with the command above (not `--factory-startup`). Ask before committing.
+1. **Continue P1.5** with the family the user names next. Untested: Wan (animate2, idv2v restyle ×2,
+   wan21 scail2, wan22 4 key frames), MiniMax H3 (fun controlnet ×3, v2v reference, i2v 4-step, t2v turbo),
+   FastVideo FastH3 (i2v, t2v), LTX 2.3 (3dreal vid2vid, ia2v iclora, ic lora ingredients), LivePortrait,
+   Bernini (image edit ×2, video edit ×3), Ideogram 4 t2i, 3D (Pixal3D ×3, Trellis2, TripoSplat), SeedVR2
+   (image ×2, video ×2), PID upscale, Marigold depth/normals, SAM3 video segment, frame interpolation,
+   Gemma describe image/video, Stable Audio 3. Per family: list ids + inputs, `--switch=… --restore=<canny>`,
+   look at results, update CLAUDE.md status, ask to commit. Some need special inputs (audio for ia2v,
+   a character image for LivePortrait / Wan animate / character sheets, 4 key frames for wan22).
+2. Graph sign-off: the user tries graph mode / outputs / presets and compares with the Moodboard screenshot.
+3. Possible builds (from the orchestration page, user's choice): stage runner, bundles with b2renger,
+   server-side chains, multi-server routing; a Codex round trip when a Codex CLI exists.
+4. After any UI change: `smoke_test.ps1 -Ui` and update docs/UI.md. Install into the user's Blender 5.2
+   profile only when asked (command above, not `--factory-startup`). Ask before committing.
