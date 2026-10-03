@@ -7,7 +7,8 @@ Main use: **AI rendering** of a Mixar layout/animation (ControlNet, image edit, 
 Used in a **class on a local network**.
 
 Approved plan: `C:\Users\Ateliernum\.claude\plans\we-are-planning-a-effervescent-widget.md`.
-Git: repo initialised, **nothing committed yet** (ask the user before committing).
+Git: local repo, branch `main`, no remote. Commit author = repo-local `urbandronedesign <urbandronedesign@users.noreply.github.com>`
+(never the global identity). Ask the user before committing. **UI reference: `docs/UI.md`** (every button + its check).
 
 ## Environment (this machine)
 | Thing | Where |
@@ -47,11 +48,13 @@ extension/comfyq_bridge/
   ops/connection.py      connect / disconnect / refresh
   importers/media.py     image -> Image Editor; video/audio -> separate "ComfyQ Results" scene; GLB/PLY -> collection
   ui/studio.py           the Mixar-style bar (tabs, chips, prompt, scene strip, references, job cards with "Sent" rows)
-  ui/panel.py            panels: View3D sidebar, Image Editor sidebar, Queue popover, dialog (Ctrl+Shift+G), header buttons
+  ui/panel.py            panels: View3D sidebar, Image Editor sidebar, Queue popover, dialog (Ctrl+Shift+Q), header buttons
   ui/player.py           video player for the ComfyQ window (independent of the scene timeline)
 tests/unit/              pytest, no bpy (params, match, models/profile, submit)
 tests/contract/          against the live ComfyQ (read-only + a no-GPU booking 1 day ahead, then deleted)
 tests/blender/smoke.py   headless inside Mixar/Blender (run via tools/smoke_test.ps1)
+tests/blender/ui_check.py VISIBLE Mixar: presses every button in its real window/area/region (smoke_test.ps1 -Ui)
+docs/UI.md               user-facing reference of every control, mapped to the ui_check checks
 tests/fixtures/cube.glb  committed fixture (Mixar's glTF exporter crashes at exit in -b)
 tools/smoke_test.ps1     build zip -> install into an ISOLATED profile -> run smoke (-Book: one real GPU job)
 tools/comfyq.ps1         client CLI with Mixar's Python: doctor | workflows | params | submit | fetch
@@ -65,6 +68,8 @@ tools/late_open.py       start Mixar THEN open a file (workaround for the launch
 .\.venv\Scripts\python -m pytest -q tests\unit tests\contract     # unit + live contract (ComfyQ must run)
 .\.venv\Scripts\ruff check extension tests tools
 .\tools\smoke_test.ps1                  # Mixar, isolated profile, no GPU   (also: -App blender, -Book)
+.\tools\smoke_test.ps1 -Ui [-Book]      # VISIBLE Mixar (~3 min, tell the user): every button on a copy of
+                                        # testV2V_clean.mixar -> live_check\ui\report.json + screenshots
 .\tools\comfyq.ps1 doctor               # classroom health check
 # install the build into the USER's Mixar profile (only when asked):
 & "C:\Program Files\Mixar\mixar.exe" -b --factory-startup --online-mode --command extension install-file -r user_default -e dist\comfyq_bridge-0.1.0.zip
@@ -102,8 +107,9 @@ change that session: the user must reinstall from the UI or restart Mixar.
 8. Operator callbacks run later: capture `self.x` into locals before scheduling (`ReferenceError` otherwise).
 9. Region (sidebar) width is read-only in Blender 5.2; the user drags it. Properties-editor tabs can't host
    a clean full-width add-on panel (tried Scene/Tool tabs).
-10. A new window has no laid-out areas until drawn → window setup runs step by step from a timer;
-    `active_panel_category` must be retried until it reads back.
+10. A new window has no laid-out areas until drawn → window setup runs step by step from a timer.
+    `region.active_panel_category = "ComfyQ"` raises **AttributeError "read-only"** until the sidebar
+    has been drawn once (RNA says writable) → catch it and retry until it reads back.
 11. Mixar opens extra windows (agent bubble): identify our window by pointer, not "last window".
 12. Mixar's glTF *exporter* crashes Mixar at exit in background mode (import is fine).
 13. Background mode: `bpy.app.timers` don't run → tests pump `SESSION.pump()` themselves; `open_mainfile`
@@ -112,7 +118,20 @@ change that session: the user must reinstall from the UI or restart Mixar.
     Edit tool or Bash, never PS Set-Content.
 15. Float props are single precision: compare with tolerance (`_same()` in studio.py).
 16. Visible GUI tests: run Mixar with the sandbox env vars + a script that screenshots
-    (`bpy.ops.screen.screenshot`) and quits; tell the user a window will flash.
+    (`bpy.ops.screen.screenshot`) and quits; tell the user a window will flash. `smoke_test.ps1 -Ui` does it.
+    Screenshots show the user's account email (Mixar top bar): never commit or publish them.
+17. **Windows are saved in the .blend.** The ComfyQ window comes back on reopen with a new pointer →
+    it is marked by a custom property on its screen (`comfyq_window`); older files are matched by layout
+    (Image Editor + Text Editor). Never write ID data from draw code (marking happens in a timer).
+18. **Session state != file state.** Specs live in the session, param items in the .blend: after Connect,
+    Refresh, reconnect or file load, `ensure_loaded()` (called from the timer) reloads/syncs them, or the
+    bar shows "Loading…" and Generate stays greyed out.
+19. Shortcuts: Object Mode's keymap runs before "3D View" → Ctrl+Shift+G (add to collection) never
+    reached us. Use Ctrl+Shift+Q. Background mode has no populated keyconfigs: check clashes in the GUI.
+20. Bash heredoc → `python -` reads stdin in the ANSI code page: non-ASCII (⤢, ✕) breaks string matching.
+    Use `PYTHONUTF8=1` or a script file; Windows paths in such scripts need raw strings.
+21. Panel/Menu `draw` methods can't be monkeypatched with a plain wrapper (Blender calls them its own
+    way); tests read panel tracebacks from the console log instead.
 
 ## Status
 - **Done:** P1.1 client + Socket.IO transport + CLI; P1.2 extension MVP; P1.3 imports (image/video/GLB/PLY/
@@ -122,14 +141,15 @@ change that session: the user must reinstall from the UI or restart Mixar.
   Image Editor/player/Text Editor); multi-line prompts (Text blocks); player; job cards (Sent inputs,
   Show/Open/Save as…/Import, Download); grayscale clay; Clean up; prompt also sent as job prompt.
 - **Verified live:** job `78193cf8` on the user's scene — prompt + clay video traced through ComfyQ and
-  ComfyUI (run `ecad3950`).
+  ComfyUI (run `ecad3950`). **UI check 2026-10-03: 72/72** (`smoke_test.ps1 -Ui -Book`; Generate booked
+  job `2ac2b430` and cancelled it). Fixed that day: settings reload, saved-window recognition, sidebar tab,
+  shortcut, narrow layout (docs/UI.md §6).
 - **Not done:** P1.0 (server hardening — user postponed), P1.4 MCP (extension loopback MCP + Claude Code/Codex
   config), P1.5 workflow test sweep (66 workflows, 41 without VRAM measurement), phase 2 (ComfyQ REST/SSE/MCP,
-  direct-control bundles, quotas), commit.
-- **Known gaps:** dialog doesn't live-redraw job progress; "Sync scene frame" untested on screen;
+  direct-control bundles, quotas).
+- **Known gaps:** dialog doesn't live-redraw job progress; job cards can't be removed from the list;
   `ComfyQ animation pass.NNN` duplicates fixed in code (single datablock) but old files may hold copies.
 
 ## Next steps (when the user asks)
-1. User checks "Render & play clay animation" == camera preview in `testV2V_clean.mixar`, then Generate.
-2. Commit the milestone (ask first).
-3. P1.4 MCP, then P1.5 sweep, then phase-2 ComfyQ PRs.
+1. After any UI change: `smoke_test.ps1 -Ui` and update docs/UI.md. Reinstall into the user's profile only when asked.
+2. P1.4 MCP, then P1.5 sweep, then phase-2 ComfyQ PRs.

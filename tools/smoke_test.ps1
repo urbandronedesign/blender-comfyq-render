@@ -3,9 +3,13 @@
 #   .\tools\smoke_test.ps1                    # Mixar, no GPU job
 #   .\tools\smoke_test.ps1 -Book              # also books a short job on the served workflow
 #   .\tools\smoke_test.ps1 -App blender
+#   .\tools\smoke_test.ps1 -Ui [-Book]       # VISIBLE window: presses every ComfyQ button on a copy of
+#                                            # -Scene (default Desktop\testV2V_clean.mixar); report in live_check\ui
 param(
     [ValidateSet("mixar", "blender")] [string] $App = "mixar",
-    [switch] $Book
+    [switch] $Book,
+    [switch] $Ui,
+    [string] $Scene = (Join-Path $env:USERPROFILE "Desktop\testV2V_clean.mixar")
 )
 # Not "Stop": Mixar writes harmless warnings to stderr, which PowerShell 5.1 turns into errors.
 # Exit codes are checked explicitly instead.
@@ -40,6 +44,20 @@ $realAfter = if (Test-Path $real) { (Get-Item $real).LastWriteTime } else { $nul
 if ($realBefore -ne $realAfter) { Write-Error "Isolation failed: the real Mixar profile was modified"; exit 1 }
 if (-not (Test-Path (Join-Path $sandbox "extensions\user_default\comfyq_bridge"))) {
     Write-Error "Isolation failed: nothing was installed in the sandbox"; exit 1
+}
+if ($Ui) {
+    $out = Join-Path $root "live_check\ui"
+    if (Test-Path $out) { Remove-Item -Recurse -Force $out }
+    New-Item -ItemType Directory -Force $out | Out-Null
+    $uiArgs = @("--online-mode", "--python", (Join-Path $root "tests\blender\ui_check.py"), "--", $Scene, $out)
+    if ($Book) { $uiArgs += "--book" }
+    Start-Process -FilePath $exe -ArgumentList $uiArgs -Wait -NoNewWindow `
+        -RedirectStandardOutput (Join-Path $out "console.log") -RedirectStandardError (Join-Path $out "stderr.log")
+    Remove-Item Env:\BLENDER_USER_RESOURCES, Env:\MIXAR_USER_RESOURCES
+    Select-String -Path (Join-Path $out "console.log") -Pattern "^  (ok|FAIL) |^== " | ForEach-Object { $_.Line }
+    $report = Get-Content (Join-Path $out "report.json") -Raw | ConvertFrom-Json
+    if ($report.failed.Count -or $report.draw_errors.Count -or -not $report.finished) { exit 1 }
+    exit 0
 }
 $smokeArgs = @("-b", "--online-mode", "--python-exit-code", "1", "--python", (Join-Path $root "tests\blender\smoke.py"), "--",
                "--zip", $zip.FullName)

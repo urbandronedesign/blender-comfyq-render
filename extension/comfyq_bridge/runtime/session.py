@@ -42,6 +42,7 @@ class Session:
         self.status_note = ""                 # last user-facing event ("Booked 1a2b3c4d")
         self.workflows: list[Workflow] = []
         self.specs: dict[str, list[ParamSpec]] = {}
+        self._loading: dict[str, list[Callable[[list[ParamSpec]], None]]] = {}
         self.jobs: dict[str, JobView] = {}
         self.gpu: dict[str, Any] = {}
         self._pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="comfyq")
@@ -51,7 +52,7 @@ class Session:
 
     # -- threading ---------------------------------------------------------------
     def run(self, work: Callable[[], Any], done: Callable[[Any], None] | None = None,
-            label: str = "") -> None:
+            label: str = "", on_error: Callable[[str], None] | None = None) -> None:
         """Run `work` off the main thread; then `done(result)` on the main thread."""
         if label:
             self.busy = label
@@ -61,12 +62,12 @@ class Session:
                 result = work()
             except ComfyQError as e:
                 msg = str(e)          # `e` is unbound once the except block ends
-                self.later(lambda: self._fail(msg, label))
+                self.later(lambda: self._fail(msg, label, on_error))
                 return
             except Exception as e:  # noqa: BLE001 - shown to the user, full trace in the console
                 traceback.print_exc()
                 msg = f"{e.__class__.__name__}: {e}"
-                self.later(lambda: self._fail(msg, label))
+                self.later(lambda: self._fail(msg, label, on_error))
                 return
             def finish() -> None:
                 if label and self.busy == label:
@@ -80,10 +81,12 @@ class Session:
     def later(self, fn: Callable[[], None]) -> None:
         self._main.put(fn)
 
-    def _fail(self, msg: str, label: str) -> None:
+    def _fail(self, msg: str, label: str, on_error: Callable[[str], None] | None = None) -> None:
         self.error = msg
         if label and self.busy == label:
             self.busy = ""
+        if on_error:
+            on_error(msg)
 
     def pump(self) -> bool:
         """Apply queued results; return True when the UI should redraw."""
@@ -118,6 +121,7 @@ class Session:
             self.client = client
             self.workflows, self.gpu = result
             self.specs.clear()
+            self._loading.clear()
             self.status = f"Connected to {profile.url} as {profile.user or '?'}"
             client.transport.on_jobs(lambda jobs: self.later(lambda: self._jobs_changed(jobs)))
             client.transport.on_lanes(lambda lanes: self.later(lambda: None))  # just redraw
@@ -144,13 +148,25 @@ class Session:
         if workflow_id in self.specs:
             done(self.specs[workflow_id])
             return
+        waiting = self._loading.get(workflow_id)
+        if waiting is not None:              # already on its way: just wait for it too
+            waiting.append(done)
+            return
+        self._loading[workflow_id] = [done]
         client = self.client
 
         def finish(specs):
             self.specs[workflow_id] = specs
-            done(specs)
+            for cb in self._loading.pop(workflow_id, []):
+                cb(specs)
 
-        self.run(lambda: client.params(workflow_id), finish, label="Loading parameters")
+        def failed(msg):
+            self._loading.pop(workflow_id, None)
+
+        self.run(lambda: client.params(workflow_id), finish, label="Loading parameters", on_error=failed)
+
+    def loading(self, workflow_id: str) -> bool:
+        return workflow_id in self._loading
 
     # -- jobs ------------------------------------------------------------------------
     def track(self, job_id: str, workflow_id: str, callback: Callable[[JobView], None] | None = None) -> None:

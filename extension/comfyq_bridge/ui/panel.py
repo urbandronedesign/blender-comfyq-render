@@ -83,7 +83,7 @@ class COMFYQ_PT_queue(bpy.types.Panel):
 class COMFYQ_OT_studio(bpy.types.Operator):
     bl_idname = "comfyq.studio"
     bl_label = "ComfyQ"
-    bl_description = "Open the ComfyQ generation bar (Ctrl+Shift+G)"
+    bl_description = "Open the ComfyQ generation bar (Ctrl+Shift+Q)"
 
     def invoke(self, context, event):
         if SESSION.client is None and bpy.app.online_access:
@@ -120,9 +120,12 @@ def register_extras() -> None:
     bpy.types.VIEW3D_HT_header.append(_header_button)
     kc = bpy.context.window_manager.keyconfigs.addon
     if kc is not None:                      # None in background mode
-        km = kc.keymaps.new(name="3D View", space_type="VIEW_3D")
-        kmi = km.keymap_items.new(COMFYQ_OT_studio.bl_idname, "G", "PRESS", ctrl=True, shift=True)
-        _keymaps.append((km, kmi))
+        # Ctrl+Shift+Q ("Q" for ComfyQ): free in Blender and Mixar. Ctrl+Shift+G is taken by Object
+        # Mode's "Add to active collection", which runs before the 3D View keymap.
+        for name, space in (("3D View", "VIEW_3D"), ("Image", "IMAGE_EDITOR")):
+            km = kc.keymaps.new(name=name, space_type=space)
+            kmi = km.keymap_items.new(COMFYQ_OT_studio.bl_idname, "Q", "PRESS", ctrl=True, shift=True)
+            _keymaps.append((km, kmi))
 
 
 def unregister_extras() -> None:

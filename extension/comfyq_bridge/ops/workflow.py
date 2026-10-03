@@ -110,6 +110,43 @@ def select_workflow(scene: bpy.types.Scene, wf_id: str, role: str = "main") -> N
     SESSION.load_specs(wf_id, loaded)
 
 
+_ENSURE_AFTER: dict[str, float] = {}       # workflow id -> earliest time to try loading it again
+
+
+def ensure_loaded(scene: bpy.types.Scene) -> None:
+    """The scene's chosen workflows have their settings loaded and their fields in the scene.
+
+    Needed whenever the session's specs are missing or newer than the scene: after Connect,
+    Refresh, reconnecting, or opening a file. Without it the bar shows "Loading…" forever and
+    Generate stays greyed out until the model is chosen again. Called from the timer pump.
+    """
+    import time
+    if not SESSION.connected:
+        return
+    cq = scene.comfyq
+    known = {w.id for w in SESSION.workflows}
+    for wf_id in {cq.workflow_id, cq.keyframe_workflow_id} - {""}:
+        if wf_id not in known:
+            continue
+        specs = SESSION.specs.get(wf_id)
+        if specs is not None:
+            have = {(it.key, it.kind) for it in scene.comfyq.params if it.workflow_id == wf_id}
+            if not {(s.key, s.kind) for s in specs} <= have:
+                sync_params(scene, wf_id, specs)     # keeps the values already in the scene
+            continue
+        if time.monotonic() < _ENSURE_AFTER.get(wf_id, 0.0) or SESSION.loading(wf_id):
+            continue
+        _ENSURE_AFTER[wf_id] = time.monotonic() + 10.0      # a failed load is retried, not hammered
+        SESSION.load_specs(wf_id, lambda specs, wf_id=wf_id, name=scene.name: _loaded(name, wf_id, specs))
+
+
+def _loaded(scene_name: str, wf_id: str, specs: list[ParamSpec]) -> None:
+    _ENSURE_AFTER.pop(wf_id, None)
+    sc = bpy.data.scenes.get(scene_name)
+    if sc is not None:
+        sync_params(sc, wf_id, specs)
+
+
 class COMFYQ_OT_set_workflow(bpy.types.Operator):
     bl_idname = "comfyq.set_workflow"
     bl_label = "Use Workflow"
@@ -256,9 +293,9 @@ class COMFYQ_OT_preview_animation(bpy.types.Operator):
         self.report({"INFO"}, f"Animation pass: {p.frames} frames, {p.seconds:.1f} s, {p.size[0]}×{p.size[1]}")
         if self.play:
             from ..ui import player
-            area = player.viewer_area() if comfyq_window() is not None else None
+            area = player.viewer_area()                  # the ComfyQ window's viewer, else any Image Editor
             if area is None:
-                open_file(p.path)                      # no ComfyQ window: the system player
+                open_file(p.path)                      # no Image Editor open: the system player
             else:
                 img = bpy.data.images.get("ComfyQ animation pass")
                 if img is None:                          # one preview datablock, reloaded each time
@@ -341,11 +378,37 @@ class COMFYQ_OT_unlink_prompt(bpy.types.Operator):
 # so the bar lives in the Image Editor sidebar. A brand-new window has no usable areas until it
 # has been drawn, so the split runs from a timer, one step per tick.
 
-_WINDOW = [0]       # pointer of the last ComfyQ window (for tests and focus)
+_WINDOW = [0]       # pointer of the ComfyQ window (changes when a file is reopened)
+_MARK = "comfyq_window"   # custom property on the window's screen: survives saving and reopening the file
 
 
 def comfyq_window():
-    return next((w for w in bpy.context.window_manager.windows if w.as_pointer() == _WINDOW[0]), None)
+    windows = list(bpy.context.window_manager.windows)
+    win = next((w for w in windows if w.as_pointer() == _WINDOW[0]), None)
+    if win is None:
+        win = next((w for w in windows if w.screen.get(_MARK)), None) or _legacy_window(windows)
+        if win is not None:
+            _WINDOW[0] = win.as_pointer()
+    return win
+
+
+def _legacy_window(windows):
+    """A ComfyQ window saved before windows were marked: a second window with just an Image Editor
+    above a Text Editor (Mixar's own extra windows never have that pair)."""
+    for w in windows[1:]:
+        types = sorted(a.type for a in w.screen.areas)
+        if types == ["IMAGE_EDITOR", "TEXT_EDITOR"]:
+            return w            # not marked here: this also runs while drawing, where data is read-only
+    return None
+
+
+def adopt_saved_window() -> None:
+    """After a file loads: recognise its ComfyQ window and show the ComfyQ tab in its sidebar."""
+    _WINDOW[0] = 0
+    win = comfyq_window()
+    if win is not None:
+        win.screen[_MARK] = True
+        focus_comfyq_tab_soon(win.as_pointer())
 
 
 def open_comfyq_window(context, text_name: str = "") -> bool:
@@ -386,7 +449,9 @@ def _focus_comfyq_tab(area) -> bool:
                 region.active_panel_category = "ComfyQ"
                 area.tag_redraw()
                 return region.active_panel_category == "ComfyQ"
-            except (TypeError, ValueError, ReferenceError):
+            except (AttributeError, TypeError, ValueError, ReferenceError):
+                # "read-only" until the sidebar has been drawn once and knows its tabs: try again
+                area.tag_redraw()
                 return False
     return False
 
@@ -422,8 +487,14 @@ def _setup_step(ptr: int, text_name: str, state: dict):
         sp.text = text
     for a in areas:
         a.tag_redraw()
-    # The sidebar only knows its tabs after it has been drawn, and an early switch is silently
-    # ignored: keep asking for the ComfyQ tab until it reads back.
+    win.screen[_MARK] = True
+    focus_comfyq_tab_soon(ptr)
+    return None
+
+
+def focus_comfyq_tab_soon(ptr: int) -> None:
+    """Show the ComfyQ tab in the window's Image Editor sidebar. The sidebar only knows its tabs
+    after it has been drawn (until then the setter fails or is ignored): retry until it reads back."""
     tries = {"n": 0}
 
     def focus():
@@ -432,10 +503,11 @@ def _setup_step(ptr: int, text_name: str, state: dict):
         if w is None or tries["n"] > 40:
             return None
         area = next((a for a in w.screen.areas if a.type == "IMAGE_EDITOR"), None)
+        if area is not None:
+            area.spaces.active.show_region_ui = True
         return None if area is not None and _focus_comfyq_tab(area) else 0.15
 
     bpy.app.timers.register(focus, first_interval=0.15)
-    return None
 
 
 def _latest_comfyq_image():
@@ -462,6 +534,11 @@ class COMFYQ_OT_open_window(bpy.types.Operator):
         return context.window is not None
 
     def execute(self, context):
+        old = comfyq_window()
+        if old is not None and old != context.window:
+            # Blender cannot bring a window to the front: close the old one, open a fresh one on top.
+            with context.temp_override(window=old):
+                bpy.ops.wm.window_close()
         if not open_comfyq_window(context):
             self.report({"ERROR"}, "Could not open a window")
             return {"CANCELLED"}

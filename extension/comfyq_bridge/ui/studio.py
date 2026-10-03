@@ -50,13 +50,14 @@ def draw_studio(layout: bpy.types.UILayout, context, columns: int = 2, dialog: b
     _CHARS[0] = 110 if dialog else _chars_for(context)
 
     # -- tabs · window · library · queue ------------------------------------------------
+    narrow = columns == 1
     top = layout.row()
-    top.prop(cq, "tab", expand=True)
-    if columns == 1:                 # narrow sidebar: tools on their own row
+    top.prop(cq, "tab", expand=True, icon_only=narrow)       # narrow sidebar: icons, names as tooltips
+    if narrow:                       # tools on their own row
         top = layout.row()
     right = top.row(align=True)
     right.alignment = "RIGHT"
-    if not dialog:
+    if not dialog and context.window != wfops.comfyq_window():
         right.operator("comfyq.open_window", text="", icon="WINDOW")
     right.operator("comfyq.open_folder", text="Library", icon="FILE_FOLDER").job_id = ""
     active = sum(1 for v in SESSION.jobs.values() if not v.job.done)
@@ -112,7 +113,7 @@ def draw_studio(layout: bpy.types.UILayout, context, columns: int = 2, dialog: b
     if any(it.source == "MASK" for it in media_items):
         actions.operator("comfyq.preview_pass", text="Mask", icon="SELECT_SET").mask = True
     if not dialog:
-        gen = actions.row()
+        gen = box.row() if narrow else actions.row()       # narrow: Generate gets its own full row
         gen.scale_x, gen.scale_y = 1.6, 1.3
         gen.operator("comfyq.generate", icon="RENDER_STILL")
     _messages(layout)
@@ -243,10 +244,16 @@ def _draw_scene_strip(box, context, specs) -> None:
     current = {it.key: it.value() for it in workflow_items(scene, scene.comfyq.workflow_id)}
     mismatched = [k for k, v in m.values.items() if not _same(current.get(k), v)]
     strip = box.box()
-    head = strip.row(align=True)
     cam = scene.camera.name if scene.camera else "NO CAMERA"
-    head.label(text=f"Scene {facts.frame_start}–{facts.frame_end} · {facts.fps:g} fps · {facts.seconds:.1f} s · "
-                    f"{scene.render.resolution_x}×{scene.render.resolution_y} · {cam}", icon="CAMERA_DATA")
+    text = (f"Scene {facts.frame_start}–{facts.frame_end} · {facts.fps:g} fps · {facts.seconds:.1f} s · "
+            f"{scene.render.resolution_x}×{scene.render.resolution_y} · {cam}")
+    narrow = _CHARS[0] < 60
+    if narrow:                       # the facts on their own (wrapped) lines, the button below
+        _wrapped(strip, text, "CAMERA_DATA")
+        head = strip.row(align=True)
+    else:
+        head = strip.row(align=True)
+        head.label(text=text, icon="CAMERA_DATA")
     sub = head.row(align=True)
     sub.alert = bool(mismatched)
     sub.operator("comfyq.match_scene", text="Match to scene" if mismatched else "Matched",
@@ -258,13 +265,19 @@ def _draw_scene_strip(box, context, specs) -> None:
     edge = max((s.max_input_edge or 0 for s in specs if s.kind == "video"), default=0) or None
     ready = animation.current(scene, scene.comfyq.style, edge)
     col = strip.column(align=True)
-    col.label(text="Clay animation (what is sent) — rendered fresh on every Generate", icon="RENDER_ANIMATION")
+    _wrapped(col, "Clay animation (what is sent) — rendered fresh on every Generate", "RENDER_ANIMATION")
     row = col.row(align=True)
     op = row.operator("comfyq.preview_animation", text="Render & play clay animation", icon="PLAY")
     op.force, op.play = True, True
     if ready:
         op = row.operator("comfyq.preview_animation", text="Replay", icon="LOOP_BACK")
         op.force, op.play = False, True
+
+
+def _wrapped(layout, text: str, icon: str) -> None:
+    """A label that wraps to the width being drawn instead of being cut off."""
+    for n, line in enumerate(wrap(text, _CHARS[0], max_lines=3)):
+        layout.label(text=line, icon=icon if n == 0 else "BLANK1")
 
 
 def _same(a, b) -> bool:

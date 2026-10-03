@@ -7,6 +7,7 @@ Works in Mixar and plain Blender 5.x: public bpy only, never mixar.* internals.
 from __future__ import annotations
 
 import sys
+import traceback
 
 # Reinstalling or updating an enabled extension re-runs only this file; Python would keep the
 # old submodules (ops/, client/, ...) from sys.modules and the update would silently not apply.
@@ -26,6 +27,11 @@ _CLASSES = (*connection.classes, *workflow.classes, *generate.classes, *results.
 
 
 def _tick() -> float:
+    try:
+        for window in bpy.context.window_manager.windows:
+            workflow.ensure_loaded(window.scene)   # settings of the chosen workflows, after (re)connects/loads
+    except Exception:  # noqa: BLE001 - never let this stop the pump timer
+        traceback.print_exc()
     if SESSION.pump():
         for window in bpy.context.window_manager.windows:
             for area in window.screen.areas:
@@ -55,6 +61,8 @@ def _on_load(_dummy) -> None:
     SESSION.jobs.clear()
     if SESSION.client is not None:
         _reattach_all()
+    # A ComfyQ window saved in the file comes back with the file: find it again, show the ComfyQ tab.
+    bpy.app.timers.register(workflow.adopt_saved_window, first_interval=0.5)
 
 
 def register() -> None:
