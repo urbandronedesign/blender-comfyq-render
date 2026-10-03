@@ -1,0 +1,28 @@
+schema_version = "1.0.0"
+
+id = "comfyq_bridge"
+version = "0.1.0"
+name = "ComfyQ Bridge"
+tagline = "AI-render scene passes with ComfyQ workflows"
+maintainer = "Ateliernum"
+type = "add-on"
+tags = ["Render", "Import-Export", "Pipeline"]
+
+blender_version_min = "5.0.0"
+
+license = ["SPDX:GPL-3.0-or-later"]
+
+# Pure-Python; requests/urllib3/certifi are already bundled with Mixar and Blender.
+wheels = [
+  "./wheels/bidict-0.24.1-py3-none-any.whl",
+  "./wheels/python_engineio-4.14.0-py3-none-any.whl",
+  "./wheels/python_socketio-5.17.0-py3-none-any.whl",
+  "./wheels/websocket_client-1.9.2-py3-none-any.whl",
+]
+
+[permissions]
+network = "Send scene passes to a ComfyQ server and download results"
+files = "Save passes and downloaded results to a cache folder"
+
+[build]
+paths_exclude_pattern = ["__pycache__/", "/.git/", "*.part"]

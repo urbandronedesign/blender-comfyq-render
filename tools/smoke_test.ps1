@@ -1,0 +1,50 @@
+# Build the extension, install it into an ISOLATED user folder and run the headless smoke test.
+# Run after every Mixar update, before class. Your real Mixar/Blender setup is not touched.
+#   .\tools\smoke_test.ps1                    # Mixar, no GPU job
+#   .\tools\smoke_test.ps1 -Book              # also books a short job on the served workflow
+#   .\tools\smoke_test.ps1 -App blender
+param(
+    [ValidateSet("mixar", "blender")] [string] $App = "mixar",
+    [switch] $Book
+)
+# Not "Stop": Mixar writes harmless warnings to stderr, which PowerShell 5.1 turns into errors.
+# Exit codes are checked explicitly instead.
+$ErrorActionPreference = "Continue"
+$root = Split-Path -Parent $PSScriptRoot
+$exe = @{
+    mixar   = "C:\Program Files\Mixar\mixar.exe"
+    blender = "C:\Program Files\Blender Foundation\Blender 5.1\blender.exe"
+}[$App]
+if (-not (Test-Path $exe)) { Write-Error "$App not found at $exe"; exit 1 }
+
+$dist = Join-Path $root "dist"
+New-Item -ItemType Directory -Force $dist | Out-Null
+Get-ChildItem $dist -Filter "comfyq_bridge-*.zip" | Remove-Item -Force
+& $exe --command extension build --source-dir (Join-Path $root "extension\comfyq_bridge") --output-dir $dist
+$zip = Get-ChildItem $dist -Filter "comfyq_bridge-*.zip" | Select-Object -First 1
+if (-not $zip) { Write-Error "build produced no zip"; exit 1 }
+
+$sandbox = Join-Path $env:TEMP "comfyq_bridge_smoke_$App"
+if (Test-Path $sandbox) { Remove-Item -Recurse -Force $sandbox }
+New-Item -ItemType Directory -Force $sandbox | Out-Null
+# Mixar renames Blender's variables (MIXAR_USER_RESOURCES); set both so neither host touches the real profile.
+$env:BLENDER_USER_RESOURCES = $sandbox
+$env:MIXAR_USER_RESOURCES = $sandbox
+
+$real = Join-Path $env:APPDATA "Mixar\Mixar\5.2\extensions\user_default\comfyq_bridge"
+$realBefore = if (Test-Path $real) { (Get-Item $real).LastWriteTime } else { $null }
+& $exe -b --factory-startup --online-mode --command extension install-file -r user_default -e $zip.FullName 2>&1 |
+    Where-Object { "$_" -notmatch "SyntaxWarning|^\s*$" } | Out-Host
+if ($LASTEXITCODE -ne 0) { Write-Error "install failed ($LASTEXITCODE)"; exit 1 }
+$realAfter = if (Test-Path $real) { (Get-Item $real).LastWriteTime } else { $null }
+if ($realBefore -ne $realAfter) { Write-Error "Isolation failed: the real Mixar profile was modified"; exit 1 }
+if (-not (Test-Path (Join-Path $sandbox "extensions\user_default\comfyq_bridge"))) {
+    Write-Error "Isolation failed: nothing was installed in the sandbox"; exit 1
+}
+$smokeArgs = @("-b", "--online-mode", "--python-exit-code", "1", "--python", (Join-Path $root "tests\blender\smoke.py"), "--",
+               "--zip", $zip.FullName)
+if ($Book) { $smokeArgs += "--book" }
+& $exe @smokeArgs
+$code = $LASTEXITCODE
+Remove-Item Env:\BLENDER_USER_RESOURCES, Env:\MIXAR_USER_RESOURCES
+exit $code

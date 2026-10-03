@@ -1,0 +1,24 @@
+[project]
+name = "mixar-comfyq-bridge"
+version = "0.1.0"
+description = "Mixar / Blender extension that sends scene passes to ComfyQ workflows and imports the results"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+# The client is importable as the top-level package `client` (no bpy needed).
+pythonpath = ["extension/comfyq_bridge"]
+testpaths = ["tests"]
+markers = [
+    "live: needs a running ComfyQ (COMFYQ_URL, default http://127.0.0.1:3000)",
+    "gpu: books real jobs on the GPU (set COMFYQ_E2E=1)",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = ["extension/comfyq_bridge/wheels"]
+
+[tool.ruff.lint]
+# RUF012: `bl_options = {...}` on bpy classes is the Blender API idiom, not a shared mutable default.
+# C408: dict(...) with keywords reads better for saved-settings snapshots.
+ignore = ["RUF012", "C408"]
