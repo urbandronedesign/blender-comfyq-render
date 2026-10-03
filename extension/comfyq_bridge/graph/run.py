@@ -18,7 +18,7 @@ from ..passes import animation, render
 from ..props import INT_MAX
 from ..runtime.session import SESSION
 from . import engine, kinds
-from .tree import TREE, WORKFLOW_NODE, frame_number, socket_kind
+from .tree import TREE, WORKFLOW_NODE, frame_number, remember_result, socket_kind, upstream
 
 SCENE_SOURCES = {"ComfyQSceneRenderNode", "ComfyQMaskNode", "ComfyQSceneAnimationNode"}
 RUNS: dict[str, Run] = {}            # tree name -> the run in progress
@@ -26,13 +26,13 @@ RUNS: dict[str, Run] = {}            # tree name -> the run in progress
 
 # -- the graph as plain data -------------------------------------------------------------------------
 def _links_into(node) -> dict[str, object]:
-    """input key -> the node linked to it (valid, enabled inputs only)."""
+    """input key -> the node linked to it (through Reroutes; enabled inputs, right kinds only)."""
     out = {}
     for sock in node.inputs:
-        if sock.is_linked and sock.enabled:
-            link = sock.links[0]
-            if link.is_valid and kinds.can_link(socket_kind(link.from_socket), socket_kind(sock)):
-                out[sock.identifier] = link.from_node
+        if sock.enabled:
+            src, from_sock = upstream(sock)
+            if src is not None and kinds.can_link(socket_kind(from_sock), socket_kind(sock)):
+                out[sock.identifier] = src
     return out
 
 
@@ -78,7 +78,8 @@ def describe(tree, scene) -> dict[str, engine.GNode]:
 
 # -- a run -----------------------------------------------------------------------------------------------
 class Run:
-    def __init__(self, tree, scene, todo: list[str], nodes: dict[str, engine.GNode], selected: list[str]):
+    def __init__(self, tree, scene, todo: list[str], nodes: dict[str, engine.GNode], selected: list[str],
+                 after: list[str] | tuple = ()):
         self.tree_name, self.scene_name = tree.name, scene.name
         self.nodes = nodes
         self.pending = set(todo)
@@ -89,6 +90,7 @@ class Run:
         self.hashes = {name: engine.node_hash(nodes, name) for name in todo}
         self.renders: dict[tuple, Path] = {}          # one render per source per run (fan-out shares it)
         self.error = ""
+        self.after = list(after)                       # output nodes to act on at the end (their Generate)
 
     def tree(self):
         t = bpy.data.node_groups.get(self.tree_name)
@@ -105,8 +107,7 @@ class Run:
             if view is None or node is None or not view.job.done:
                 continue
             if view.job.ok and view.files:
-                node.result = str(pick_result(view.files, node.output_kind))
-                node.result_hash = self.hashes[name]
+                remember_result(node, job_id, str(pick_result(view.files, node.output_kind)), self.hashes[name])
                 self.pending.discard(name)
                 del self.booked[name]
             elif not view.job.ok:
@@ -117,7 +118,11 @@ class Run:
             if engine.ready(self.nodes, name, self.pending):
                 self._book(tree, scene, name)
         if not self.pending and not self.booking:
-            self._show_result(tree)
+            if self.after:
+                if not self.error:
+                    act_outputs(tree, scene, self.after)
+            else:
+                self._show_result(tree)
             return False
         return True
 
@@ -263,17 +268,31 @@ def _text(src) -> str:
 
 
 # -- starting and advancing runs -------------------------------------------------------------------------
-def start(tree, scene, targets: list[str], selected: list[str], force: bool = False) -> tuple[bool, str]:
-    """Plan and start a run; (ok, message)."""
+def act_outputs(tree, scene, names) -> list[str]:
+    from . import outputs
+    msgs = []
+    for name in names:
+        node = tree.nodes.get(name)
+        if node is not None:
+            msgs.append(outputs.act(node, scene, force=True) or f"{name}: nothing to {node.verb} yet")
+    return msgs
+
+
+def start(tree, scene, targets: list[str], selected: list[str], force: bool = False,
+          after: list[str] | tuple = ()) -> tuple[bool, str]:
+    """Plan and start a run; (ok, message). `after`: output nodes to act on once it is done (their
+    Generate: upstream results still up to date are reused, and then they just act)."""
     if not SESSION.connected:
         return False, "Connect to ComfyQ first"
     if tree.name in RUNS:
         return False, "This graph is already running (cancel its jobs first)"
     nodes = describe(tree, scene)
     try:
-        todo = engine.plan(nodes, targets, force=force)
+        todo = engine.plan(nodes, targets, force=force, reuse_targets=bool(after))
     except engine.CycleError as e:
         return False, f"The graph loops: {e}"
+    if not todo and after:
+        return True, "Up to date: " + "; ".join(act_outputs(tree, scene, after))
     if not todo:
         return False, "Nothing to run: add a workflow node"
     served = SESSION.served_ids()
@@ -288,12 +307,12 @@ def start(tree, scene, targets: list[str], selected: list[str], force: bool = Fa
         node = tree.nodes[name]
         specs = SESSION.specs[node.workflow_id]
         cur = node.current_values()
-        linked = {s.identifier for s in node.inputs if s.is_linked}
+        linked = set(_links_into(node))
         missing += [f"{name} › {s.label}" for s in specs
                     if s.is_media and s.required and s.key not in linked and not is_disabled(s, cur, specs)]
     if missing:
         return False, "Link these inputs first: " + "; ".join(missing)
-    run = Run(tree, scene, todo, nodes, selected)
+    run = Run(tree, scene, todo, nodes, selected, after)
     RUNS[tree.name] = run
     run.tick()
     reused = [n for n in engine.order(nodes, targets) if n not in todo]

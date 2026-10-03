@@ -6,6 +6,7 @@ bpy.app.timers do not fire in background mode, so this script pumps the
 session itself. Without --book it stops before sending a job (no GPU use).
 The detached window and the dialog need a real screen: check those by hand.
 """
+import shutil
 import struct
 import sys
 import time
@@ -459,6 +460,92 @@ want_fed = {s.key for s in SESSION.specs[wf] if s.is_media
 check(set(fed) >= {k for k in want_fed if param_item(scene, k, wf).source in ("STRUCTURE", "MASK", "ANIMATION")},
       f"Open as graph: each input is fed like in the bar {fed}")
 bpy.data.node_groups.remove(tmp_tree)
+
+# N4: output nodes (Viewer / Import / Save), Reroutes, result history
+
+from bl_ext.user_default.comfyq_bridge.graph import outputs as gout
+
+n_before_n4 = set(tree.nodes)
+clip = Path(str(ups[vid_key2]))
+gtree_mod.remember_result(wnode, "smokejob1", str(clip), "h1")
+viewer = tree.nodes.new("ComfyQViewerNode")
+imp = tree.nodes.new("ComfyQImportNode")
+save = tree.nodes.new("ComfyQSaveNode")
+rr = tree.nodes.new("NodeReroute")
+tree.links.new(wnode.outputs[0], viewer.inputs[0])
+tree.links.new(wnode.outputs[0], imp.inputs[0])
+tree.links.new(wnode.outputs[0], rr.inputs[0])
+tree.links.new(rr.outputs[0], save.inputs[0])
+tree.update()
+m = gout.linked(save)
+check(m is not None and m.path == str(clip) and m.kind == "video" and all(lk.is_valid for lk in tree.links),
+      "output nodes: Save sees the workflow result through a Reroute")
+res_scene = lambda: bpy.data.scenes.get("ComfyQ Results")
+n_strips = lambda: len(gout._snapshot(scene)["strips"])
+s0 = n_strips()
+gout.act(imp, scene, force=True)
+s1 = n_strips()
+gout.act(imp, scene, force=True)
+check(s1 == s0 + 1 and n_strips() == s1, f"Import to Scene: imports, and Replace replaces ({s0} → {s1} → {n_strips()})")
+imp.replace = False
+gout.act(imp, scene, force=True)
+check(n_strips() == s1 + 1, "Import to Scene: without Replace a second copy is added")
+gout.remove_imported(imp)
+save_dir = tmp / "saved_n4"
+shutil.rmtree(save_dir, ignore_errors=True)
+save.folder = str(save_dir)
+gout.act(save, scene, force=True)
+gout.act(save, scene, force=True)
+saved = sorted(p.name for p in save_dir.iterdir()) if save_dir.is_dir() else []
+check(len(saved) == 2 and all(p.endswith(".mp4") for p in saved), f"Save: copies with unique names {saved}")
+save.auto, save.handled = True, ""
+gout.tick(tree, scene)
+gout.tick(tree, scene)
+check(len(list(save_dir.iterdir())) == 3, "Save when ready: acts once per new result")
+time.sleep(0.05)
+clip.touch()
+gout.tick(tree, scene)
+check(len(list(save_dir.iterdir())) == 4, "Save when ready: a new result (file changed) is saved again")
+save.auto = False
+# Generate on an output node fed only by a source: acts right away, no job
+src_save = tree.nodes.new("ComfyQSaveNode")
+src_save.folder = str(save_dir)
+tree.links.new(anim.outputs[0], src_save.inputs[0])
+res = bpy.ops.comfyq.graph_run(tree=tree.name, node=src_save.name)
+check(res == {"FINISHED"} and not grun.RUNS and len(list(save_dir.iterdir())) == 5,
+      f"Save fed by Scene Animation: Generate saves the clay video, no job ({src_save.status[:50]})")
+# a text: Prompt → Viewer
+pr = tree.nodes.new("ComfyQPromptNode")
+pr.text = "smoke text"
+tree.links.new(pr.outputs[0], viewer.inputs[0])
+check(gout.linked(viewer).text == "smoke text", "Viewer: a prompt/text is shown as text")
+# workflow input fed through a Reroute
+b2 = tree.nodes.new("ComfyQWorkflowNode")
+b2.workflow_id = v2v
+b2.build(SESSION.specs[v2v])
+rr2 = tree.nodes.new("NodeReroute")
+tree.links.new(anim.outputs[0], rr2.inputs[0])
+tree.links.new(rr2.outputs[0], next(x for x in b2.inputs if socket_kind(x) == "video"))
+tree.update()
+check(grun.describe(tree, scene)[b2.name].inputs.get(vid_key2) == anim.name,
+      "Reroute: a run follows it (the workflow node is fed by the Scene Animation)")
+img_rr = tree.nodes.new("ComfyQImageNode")
+rr3 = tree.nodes.new("NodeReroute")
+tree.links.new(img_rr.outputs[0], rr3.inputs[0])
+bad = tree.links.new(rr3.outputs[0], next(x for x in b2.inputs if socket_kind(x) == "video"))
+tree.update()
+check(not bad.is_valid, "Reroute: an image through a reroute into a video input is still refused")
+# history
+gtree_mod.remember_result(wnode, "smokejob2", str(ups[vid_key2]).replace(".mp4", "_b.mp4"), "h2")
+check(len(wnode.history) == 2, "a workflow node keeps its earlier results")
+bpy.ops.comfyq.graph_use_result(tree=tree.name, node=wnode.name, key=str(clip))
+check(wnode.result == str(clip) and wnode.result_hash == "h1" and wnode.job_id == "smokejob1",
+      "sidebar › Use this result: an earlier result becomes current")
+for extra in [n for n in tree.nodes if n not in n_before_n4]:
+    tree.nodes.remove(extra)
+wnode.result, wnode.result_hash, wnode.job_id = "", "", ""
+wnode.history.clear()
+shutil.rmtree(save_dir, ignore_errors=True)
 
 graph_file = tmp / "graph.blend"
 bpy.ops.wm.save_as_mainfile(filepath=str(graph_file), copy=True)

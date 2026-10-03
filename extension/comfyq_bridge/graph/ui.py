@@ -3,6 +3,8 @@
 that keeps workflow nodes in step with what ComfyQ serves."""
 from __future__ import annotations
 
+import json
+
 import bpy
 from bpy.props import BoolProperty, EnumProperty, StringProperty
 
@@ -10,8 +12,9 @@ from .. import match as scene_match
 from ..importers.media import IMAGE_EXTS, VIDEO_EXTS
 from ..props import TABS, tab_of
 from ..runtime.session import SESSION
-from . import kinds
+from . import kinds, outputs
 from .tree import (
+    OUTPUT_NODES,
     SOURCE_FOR,
     SOURCE_NODES,
     TREE,
@@ -21,6 +24,7 @@ from .tree import (
     free_thumbnails,
     graph_trees,
     movie_thumbnail,
+    remember_result,
     socket_kind,
     tab_workflows,
 )
@@ -112,6 +116,22 @@ def _tab_menu(key: str, label: str, desc: str, icon: str):
 
 
 TAB_MENUS = [_tab_menu(key, label, desc, icon) for key, label, desc, icon, _n in TABS]
+
+
+class COMFYQ_MT_graph_output(bpy.types.Menu):
+    bl_idname = "COMFYQ_MT_graph_output"
+    bl_label = "Output"
+    bl_description = "Add an output node (Viewer, Import to Scene, Save) or a Frame / Reroute"
+
+    def draw(self, context):
+        from .tree import OUTPUT_CLASSES
+        for cls in OUTPUT_CLASSES:
+            self.layout.operator(COMFYQ_OT_graph_add.bl_idname, text=cls.bl_label, icon=cls.bl_icon).node_type = \
+                cls.bl_idname
+        self.layout.separator()
+        self.layout.operator(COMFYQ_OT_graph_add.bl_idname, text="Frame (note / group)",
+                             icon="OBJECT_HIDDEN").node_type = "NodeFrame"
+        self.layout.operator(COMFYQ_OT_graph_add.bl_idname, text="Reroute", icon="DECORATE").node_type = "NodeReroute"
 
 
 class COMFYQ_MT_graph_scene(bpy.types.Menu):
@@ -326,11 +346,126 @@ class COMFYQ_OT_graph_run(_NodeOp, bpy.types.Operator):
         if tree is None:
             return {"CANCELLED"}
         scene = context.scene
-        targets = [self.node] if self.node else engine.leaves(run.describe(tree, scene))
-        ok, msg = run.start(tree, scene, targets, [o.name for o in context.selected_objects], force=self.force)
+        node = tree.nodes.get(self.node) if self.node else None
+        after: list[str] = []
+        if node is not None and node.bl_idname in OUTPUT_NODES:
+            # an output node: run (only) what is out of date upstream, then show / import / save
+            after = [node.name]
+            targets = engine.feeding_workflows(run.describe(tree, scene), node.name)
+            if not targets:
+                msgs = run.act_outputs(tree, scene, after)
+                self.report({"INFO"}, "; ".join(msgs))
+                return {"FINISHED"}
+        else:
+            targets = [self.node] if self.node else engine.leaves(run.describe(tree, scene))
+        ok, msg = run.start(tree, scene, targets, [o.name for o in context.selected_objects], force=self.force,
+                            after=after)
         self.report({"INFO"} if ok else {"ERROR"}, msg)
         SESSION.status_note = msg
         return {"FINISHED"} if ok else {"CANCELLED"}
+
+
+class COMFYQ_OT_graph_output(_NodeOp, bpy.types.Operator):
+    bl_idname = "comfyq.graph_output"
+    bl_label = "Act"
+    bl_description = "Viewer: show it in the ComfyQ viewer · Import: bring it into the scene · Save: copy it to the folder"
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+
+    def execute(self, context):
+        from . import outputs
+        node = self.target_node()
+        if node is None:
+            return {"CANCELLED"}
+        try:
+            msg = outputs.act(node, context.scene, force=True)
+        except (OSError, RuntimeError) as e:
+            self.report({"ERROR"}, str(e))
+            return {"CANCELLED"}
+        self.report({"INFO"}, msg or "Nothing linked yet")
+        return {"FINISHED"} if msg else {"CANCELLED"}
+
+
+class COMFYQ_OT_graph_use_result(_NodeOp, bpy.types.Operator):
+    bl_idname = "comfyq.graph_use_result"
+    bl_label = "Use This Result"
+    bl_description = ("Make this earlier result the node's current one (what it shows and feeds downstream). "
+                      "If the node's settings changed since, Generate makes a new one")
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+
+    def execute(self, context):
+        node = self.target_node()
+        rec = next((r for r in node.history if r.path == self.key), None) if node else None
+        if rec is None:
+            return {"CANCELLED"}
+        node.result, node.result_hash, node.job_id = rec.path, rec.made_hash, rec.job_id
+        return {"FINISHED"}
+
+
+# -- sidebar › ComfyQ: the selected node in full ---------------------------------------------------------
+class COMFYQ_PT_graph_node(bpy.types.Panel):
+    bl_space_type = "NODE_EDITOR"
+    bl_region_type = "UI"
+    bl_category = "ComfyQ"
+    bl_label = "Selected Node"
+
+    @classmethod
+    def poll(cls, context):
+        return _in_graph(context) and context.space_data.edit_tree is not None
+
+    def draw(self, context):
+        import time
+        from pathlib import Path
+
+        from ..ui.studio import PHASE_TEXT, wrap
+        from .tree import target, workflow_of
+        layout = self.layout
+        node = context.space_data.edit_tree.nodes.active
+        if node is None or node.bl_idname in ("NodeFrame", "NodeReroute"):
+            layout.label(text="Select a ComfyQ node", icon="INFO")
+            return
+        layout.label(text=node.label or (node.draw_label() if hasattr(node, "draw_label") else node.name),
+                     icon=getattr(node, "bl_icon", "NODE"))
+        if node.bl_idname != WORKFLOW_NODE:
+            node.draw_buttons(context, layout)
+            return
+        wf = workflow_of(node.workflow_id)
+        if wf is not None and wf.description:
+            col = layout.box().column(align=True)
+            for line in wrap(wf.description, 44, max_lines=12):
+                col.label(text=line)
+        node._draw(context, layout, columns=1)
+        # the job
+        view = SESSION.jobs.get(node.job_id) if node.job_id else None
+        if node.job_id:
+            box = layout.box().column(align=True)
+            box.label(text=f"Job {node.job_id[:8]}", icon="SORTTIME")
+            if view is not None:
+                j = view.job
+                box.label(text=PHASE_TEXT.get(j.phase, j.phase) + (f" · {j.error}" if j.error else ""))
+                if j.started_at and j.finished_at:
+                    box.label(text=f"Took {(j.finished_at - j.started_at) / 1000:.0f} s")
+            rec = next((r for r in context.scene.comfyq.jobs if r.job_id == node.job_id), None)
+            if rec is not None and rec.inputs:
+                try:
+                    sent = json.loads(rec.inputs)
+                except ValueError:
+                    sent = {}
+                for key, path in sent.items():
+                    box.label(text=f"Sent {key}: {Path(path).name}", icon="EXPORT")
+        # earlier results
+        older = [r for r in reversed(node.history) if Path(r.path).is_file()]
+        if older:
+            layout.label(text=f"Results of this node ({len(older)})", icon="FILE_FOLDER")
+            col = layout.column(align=True)
+            for r in older:
+                row = col.row(align=True)
+                current = r.path == node.result
+                when = time.strftime("%H:%M", time.localtime(r.when)) if r.when else ""
+                row.label(text=f"{when}  {Path(r.path).name}", icon="CHECKMARK" if current else "BLANK1")
+                row.operator("comfyq.show_media", text="", icon="PLAY").path = r.path
+                if not current:
+                    target(row.operator(COMFYQ_OT_graph_use_result.bl_idname, text="Use", icon="LOOP_BACK"),
+                           node, r.path)
 
 
 # -- opening the graph ------------------------------------------------------------------------------
@@ -513,9 +648,9 @@ def _frame_graph_soon() -> None:
 # minus the selector and the overlay buttons: about (width - 200) / 2 - 200 px (measured in Blender 5.2).
 # Rather than letting Blender truncate every label ("Sce…", "Ima…"), the toolbar steps down:
 # labels → icons (names in the tooltips) → one Add menu.
-_LABELS_NEED = 700          # px at UI scale 1: 7 labelled menus + search + Run Graph + Clear (610 truncated)
-_RUN_LABEL_NEED = 280       # 8 icon menus (~19 px each) + search + labelled Run Graph + Clear
-_ICONS_NEED = 160           # same with an icon-only Run
+_LABELS_NEED = 770          # px at UI scale 1: 8 labelled menus + search + Run Graph + Clear (610 truncated)
+_RUN_LABEL_NEED = 300       # 9 icon menus (~19 px each) + search + labelled Run Graph + Clear
+_ICONS_NEED = 180           # same with an icon-only Run
 
 
 def header_room(context) -> float:
@@ -544,6 +679,7 @@ def _header(self, context):
     else:
         labels = room >= _LABELS_NEED
         row.menu(COMFYQ_MT_graph_scene.bl_idname, text="Scene" if labels else "", icon="SCENE_DATA")
+        row.menu(COMFYQ_MT_graph_output.bl_idname, text="Output" if labels else "", icon="HIDE_OFF")
         for m in TAB_MENUS:
             row.menu(m.bl_idname, text=m.bl_label if labels else "", icon=m.comfyq_icon)
         row.operator(COMFYQ_OT_graph_add_search.bl_idname, text="", icon="VIEWZOOM")
@@ -559,6 +695,7 @@ def _add_menu(self, context):
         return
     layout = self.layout
     layout.menu(COMFYQ_MT_graph_scene.bl_idname, icon="SCENE_DATA")
+    layout.menu(COMFYQ_MT_graph_output.bl_idname, icon="HIDE_OFF")
     for m in TAB_MENUS:
         layout.menu(m.bl_idname, icon=m.comfyq_icon)
     layout.operator(COMFYQ_OT_graph_add_search.bl_idname, text="Any Workflow…", icon="VIEWZOOM")
@@ -589,6 +726,7 @@ def sync_all() -> None:
             elif node.bl_idname == "ComfyQSceneAnimationNode" and animation_path():
                 movie_thumbnail(animation_path())
         _follow_active(tree)
+        outputs.tick(tree, bpy.context.scene)
     for name in ("ComfyQ render preview", "ComfyQ mask preview"):
         img = bpy.data.images.get(name)
         if img is not None and img.preview is None and graph_trees():
@@ -679,8 +817,7 @@ def _adopt_result(tree, node) -> None:
     if node.job_id and not run.running(tree.name, node.name):
         view = SESSION.jobs.get(node.job_id)
         if view is not None and view.job.ok and view.files and not node.result:
-            node.result = str(run.pick_result(view.files, node.output_kind))
-            node.result_hash = node.pending_hash
+            remember_result(node, node.job_id, str(run.pick_result(view.files, node.output_kind)), node.pending_hash)
     if node.result:
         p = Path(node.result)
         if p.suffix.lower() in VIDEO_EXTS and p.is_file():
@@ -696,7 +833,8 @@ def _adopt_result(tree, node) -> None:
 classes = (COMFYQ_OT_graph_add, *TAB_MENUS, COMFYQ_MT_graph_scene, COMFYQ_OT_graph_clear, COMFYQ_OT_open_graph,
            COMFYQ_OT_open_as_graph, COMFYQ_OT_graph_add_search, COMFYQ_MT_graph_all, COMFYQ_OT_graph_set_workflow,
            COMFYQ_OT_graph_add_source, COMFYQ_OT_graph_edit_text,
-           COMFYQ_OT_graph_unlink_text, COMFYQ_OT_graph_run)
+           COMFYQ_OT_graph_unlink_text, COMFYQ_OT_graph_run, COMFYQ_OT_graph_output, COMFYQ_OT_graph_use_result,
+           COMFYQ_MT_graph_output, COMFYQ_PT_graph_node)
 
 
 def register_extras() -> None:

@@ -73,3 +73,9 @@ def test_every_comfyq_workflow_gets_a_node_shape():
         for s in specs:
             sock = kinds.input_kind(s.kind)
             assert sock is None or sock in kinds.SOCKETS, (meta["id"], s.key, s.kind)
+
+
+def test_output_nodes_take_any_result():
+    for kind in ("image", "mask", "video", "audio", "text", "model", "splat"):
+        assert kinds.can_link(kind, "any")
+    assert not kinds.can_link("any", "image")       # an output node has no output

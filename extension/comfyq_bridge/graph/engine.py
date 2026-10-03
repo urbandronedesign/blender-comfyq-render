@@ -60,15 +60,17 @@ def order(nodes: dict[str, GNode], targets: list[str]) -> list[str]:
     return seen
 
 
-def plan(nodes: dict[str, GNode], targets: list[str], force: bool = False) -> list[str]:
-    """The workflow nodes to book, dependencies first. Up-to-date upstream results are reused."""
+def plan(nodes: dict[str, GNode], targets: list[str], force: bool = False,
+         reuse_targets: bool = False) -> list[str]:
+    """The workflow nodes to book, dependencies first. Up-to-date upstream results are reused; the
+    targets always run unless `reuse_targets` (an output node's Generate: up to date = just act)."""
     memo: dict[str, str] = {}
     runs: list[str] = []
     for name in order(nodes, targets):
         n = nodes[name]
         upstream_runs = any(_depends_on(nodes, name, r) for r in runs)
         stale = not n.has_result or n.result_hash != node_hash(nodes, name, memo)
-        if force or name in targets or stale or upstream_runs:
+        if force or (name in targets and not reuse_targets) or stale or upstream_runs:
             runs.append(name)
     return runs
 
@@ -94,6 +96,25 @@ def leaves(nodes: dict[str, GNode]) -> list[str]:
     """Workflow nodes whose result feeds no other workflow node (what "Run graph" runs)."""
     fed = {src for n in nodes.values() if n.workflow for src in n.inputs.values()}
     return [name for name, n in nodes.items() if n.workflow and name not in fed]
+
+
+def feeding_workflows(nodes: dict[str, GNode], name: str) -> list[str]:
+    """The nearest workflow nodes upstream of `name` (what an output node's Generate runs)."""
+    found: list[str] = []
+    seen: set[str] = set()
+
+    def visit(n: str) -> None:
+        for src in nodes[n].inputs.values():
+            if src in seen or src not in nodes:
+                continue
+            seen.add(src)
+            if nodes[src].workflow:
+                found.append(src)
+            else:
+                visit(src)
+    if name in nodes:
+        visit(name)
+    return found
 
 
 def settings_hash(*parts) -> str:

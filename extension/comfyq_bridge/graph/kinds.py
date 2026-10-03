@@ -17,6 +17,7 @@ SOCKETS: dict[str, tuple[str, tuple[float, float, float, float]]] = {
     "text": ("Text", (0.95, 0.80, 0.30, 1.0)),
     "model": ("3D Model", (0.95, 0.55, 0.25, 1.0)),
     "splat": ("Splat", (0.95, 0.45, 0.70, 1.0)),
+    "any": ("Result", (0.85, 0.85, 0.85, 1.0)),      # output nodes (Viewer / Import / Save) take anything
 }
 
 # Which kinds a socket of a given kind accepts (a mask input takes any image: the alpha is used).
@@ -28,6 +29,7 @@ ACCEPTS: dict[str, set[str]] = {
     "text": {"text"},
     "model": {"model"},
     "splat": {"splat"},
+    "any": {"image", "mask", "video", "audio", "text", "model", "splat"},
 }
 
 

@@ -89,3 +89,32 @@ def test_cycles_are_refused():
     g["keyframe"].inputs["loop"] = "upscale"
     with pytest.raises(engine.CycleError):
         plan(g, ["upscale"])
+
+
+# -- N4: output nodes (Viewer / Import / Save) and reroutes -------------------------------------------
+def with_outputs(**results):
+    g = graph(**results)
+    g["viewer"] = GNode("viewer", False, own="viewer", inputs={"result": "upscale"})
+    g["save"] = GNode("save", False, own="save", inputs={"result": "render"})       # a source's render
+    return g
+
+
+def test_output_nodes_never_book_and_are_not_leaves():
+    g = with_outputs()
+    assert leaves(g) == ["upscale"]
+    assert "viewer" not in plan(g, ["viewer"])  # an output node is not a job (what feeds it is)
+
+
+def test_output_generate_runs_the_workflow_feeding_it():
+    g = with_outputs()
+    assert engine.feeding_workflows(g, "viewer") == ["upscale"]
+    assert engine.feeding_workflows(g, "save") == []              # only a source: act right away
+    assert plan(g, ["upscale"], reuse_targets=True) == ["keyframe", "v2v", "upscale"]
+
+
+def test_output_generate_reuses_an_up_to_date_result():
+    g = with_outputs(keyframe=True, v2v=True, upscale=True)
+    assert plan(g, ["upscale"], reuse_targets=True) == []         # just show / import / save
+    assert plan(g, ["upscale"]) == ["upscale"]                    # the node's own Generate re-runs it
+    g["anim"].own = "edited"
+    assert plan(g, ["upscale"], reuse_targets=True) == ["v2v", "upscale"]

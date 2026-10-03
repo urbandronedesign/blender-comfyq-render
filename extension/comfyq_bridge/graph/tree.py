@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 
 import bpy
-from bpy.props import CollectionProperty, EnumProperty, PointerProperty, StringProperty
+from bpy.props import BoolProperty, CollectionProperty, EnumProperty, FloatProperty, PointerProperty, StringProperty
 
 from .. import match as scene_match
 from ..client.params import is_disabled
@@ -54,6 +54,29 @@ def socket_kind(sock) -> str:
     return _KIND_OF.get(sock.bl_idname, "")
 
 
+def upstream(sock):
+    """(node, output socket) feeding an input socket, looking through Reroutes; (None, None) if nothing.
+    Muted links feed nothing."""
+    for _hop in range(64):
+        if not sock.is_linked:
+            return None, None
+        link = sock.links[0]
+        if link.is_muted:
+            return None, None
+        if link.from_node.bl_idname == "NodeReroute":
+            sock = link.from_node.inputs[0]
+            continue
+        return link.from_node, link.from_socket
+    return None, None
+
+
+def link_source(link):
+    """(node, socket) a link really carries (through Reroutes)."""
+    if link.from_node.bl_idname == "NodeReroute":
+        return upstream(link.from_node.inputs[0])
+    return link.from_node, link.from_socket
+
+
 # -- the tree -------------------------------------------------------------------------------------
 class ComfyQGraphTree(bpy.types.NodeTree):
     """ComfyQ: wire scene passes, images and prompts into the workflows served by ComfyQ"""
@@ -69,7 +92,10 @@ class ComfyQGraphTree(bpy.types.NodeTree):
         if REGISTERING[0]:
             return
         for link in self.links:
-            ok = kinds.can_link(socket_kind(link.from_socket), socket_kind(link.to_socket))
+            if link.to_node.bl_idname == "NodeReroute":
+                continue                       # judged where the reroute's output arrives
+            _src, sock = link_source(link)
+            ok = sock is None or kinds.can_link(socket_kind(sock), socket_kind(link.to_socket))
             if link.is_valid != ok:
                 try:
                     link.is_valid = ok
@@ -335,6 +361,29 @@ def workflow_of(wf_id: str):
     return next((w for w in SESSION.workflows if w.id == wf_id), None)
 
 
+class ComfyQResultRecord(bpy.types.PropertyGroup):
+    """One result a workflow node has made (its history, newest last)."""
+    job_id: StringProperty()
+    path: StringProperty(subtype="FILE_PATH")
+    made_hash: StringProperty()             # inputs + settings it was made with
+    when: FloatProperty()
+
+
+HISTORY_MAX = 20
+
+
+def remember_result(node, job_id: str, path: str, made_hash: str) -> None:
+    """Set a node's current result and keep it in its history."""
+    import time
+    node.result, node.result_hash = path, made_hash
+    if any(r.path == path for r in node.history):
+        return
+    rec = node.history.add()
+    rec.job_id, rec.path, rec.made_hash, rec.when = job_id, path, made_hash, time.time()
+    while len(node.history) > HISTORY_MAX:
+        node.history.remove(0)
+
+
 class ComfyQWorkflowNode(_Node, bpy.types.Node):
     """A ComfyQ workflow: its inputs are sockets, its settings chips"""
     bl_idname = WORKFLOW_NODE
@@ -353,6 +402,7 @@ class ComfyQWorkflowNode(_Node, bpy.types.Node):
     result: StringProperty(subtype="FILE_PATH")   # its downloaded result (fed to linked nodes)
     result_hash: StringProperty()          # inputs + settings the result was made with
     pending_hash: StringProperty()         # same, for the job in progress
+    history: CollectionProperty(type=ComfyQResultRecord)    # earlier results (sidebar › Use this result)
 
     def init(self, context):
         self.use_custom_color = True
@@ -549,6 +599,109 @@ class ComfyQWorkflowNode(_Node, bpy.types.Node):
         op.job_id, op.path = self.job_id, str(path)
 
 
+# -- output nodes: act on what is linked into them (no job of their own) ------------------------------
+class _OutputNode(_Node):
+    bl_width_default = 300
+    auto_label = ""
+
+    handled: StringProperty()              # the result last acted on (path + mtime): acts once per result
+    status: StringProperty()               # what it last did
+
+    def init(self, context):
+        self.inputs.new(SOCKET_IDNAME["any"], "Result")
+
+    def draw_buttons(self, context, layout):
+        from . import outputs
+        media = outputs.linked(self)
+        if media is None:
+            layout.label(text="Link a result or a source here", icon="INFO")
+        else:
+            layout.label(text=media.label, icon=media.icon)
+        self.draw_body(context, layout, media)
+        row = layout.row(align=True)
+        row.prop(self, "auto", text=self.auto_label)
+        act = row.row(align=True)
+        act.enabled = media is not None
+        target(act.operator("comfyq.graph_output", text=self.verb.title(), icon=self.bl_icon), self)
+        target(layout.operator("comfyq.graph_run", text="Generate upstream, then " + self.verb, icon="RENDER_STILL"),
+               self)
+        if self.status:
+            layout.label(text=self.status, icon="CHECKMARK")
+
+    def draw_body(self, context, layout, media) -> None:
+        pass
+
+
+class ComfyQViewerNode(_OutputNode, bpy.types.Node):
+    """Shows what is linked here and plays it in the ComfyQ window's viewer"""
+    bl_idname = "ComfyQViewerNode"
+    bl_label = "Viewer"
+    bl_icon = "HIDE_OFF"
+    auto_label = "Show when ready"
+    verb = "show"
+
+    auto: BoolProperty(name="Show when ready", default=True,
+                       description="Show each new result in the ComfyQ viewer as soon as it arrives")
+
+    def draw_body(self, context, layout, media) -> None:
+        if media is None:
+            return
+        if media.text is not None:
+            from ..ui.studio import wrap
+            box = layout.box().column(align=True)
+            for line in wrap(media.text, 48, max_lines=12) or ["(empty)"]:
+                box.label(text=line)
+        elif media.kind == "video" and media.path:
+            _movie(layout, media.path)
+        elif media.kind in ("image", "mask") and media.path:
+            from pathlib import Path
+            _thumbnail(layout, bpy.data.images.get(Path(media.path).name))
+
+
+class ComfyQImportNode(_OutputNode, bpy.types.Node):
+    """Brings what is linked here into the scene: image → Image Editor, video/audio → “ComfyQ Results”
+    scene, 3D model / splat → a collection"""
+    bl_idname = "ComfyQImportNode"
+    bl_label = "Import to Scene"
+    bl_icon = "IMPORT"
+    auto_label = "Import when ready"
+    verb = "import"
+
+    auto: BoolProperty(name="Import when ready", default=False,
+                       description="Import each new result as soon as it arrives")
+    replace: BoolProperty(name="Replace previous import", default=True,
+                          description="Remove what this node imported last time (strips, objects) before importing")
+    imported: StringProperty()             # JSON: what the last import created (to replace it)
+
+    def draw_body(self, context, layout, media) -> None:
+        layout.prop(self, "replace")
+
+
+class ComfyQSaveNode(_OutputNode, bpy.types.Node):
+    """Copies what is linked here to a folder"""
+    bl_idname = "ComfyQSaveNode"
+    bl_label = "Save"
+    bl_icon = "FILE_TICK"
+    auto_label = "Save when ready"
+    verb = "save"
+
+    auto: BoolProperty(name="Save when ready", default=False,
+                       description="Save each new result as soon as it arrives")
+    folder: StringProperty(name="Folder", subtype="DIR_PATH", default="//comfyq/",
+                           description="Where copies go (// = next to the .blend)")
+    pattern: StringProperty(name="Name", default="{source}_{date}_{time}",
+                            description="File name: {node} {date} {time} {job} {workflow} {source}; "
+                                        "the extension is the result's")
+
+    def draw_body(self, context, layout, media) -> None:
+        col = layout.column(align=True)
+        col.prop(self, "folder", text="")
+        col.prop(self, "pattern", text="")
+
+
+OUTPUT_NODES = ("ComfyQViewerNode", "ComfyQImportNode", "ComfyQSaveNode")
+
+
 # Source node offered by the "+" of an unlinked input
 SOURCE_FOR = {"image": "ComfyQSceneRenderNode", "video": "ComfyQSceneAnimationNode", "mask": "ComfyQMaskNode",
               "audio": "ComfyQAudioFileNode", "text": "ComfyQPromptNode"}
@@ -556,7 +709,9 @@ SOURCE_LABEL = {"image": "Scene render", "video": "Scene animation", "mask": "Se
                 "audio": "Audio file", "text": "Prompt"}
 
 NODE_CLASSES = (ComfyQImageNode, ComfyQSceneRenderNode, ComfyQMaskNode, ComfyQSceneAnimationNode,
-                ComfyQVideoFileNode, ComfyQAudioFileNode, ComfyQPromptNode, ComfyQWorkflowNode)
+                ComfyQVideoFileNode, ComfyQAudioFileNode, ComfyQPromptNode, ComfyQWorkflowNode,
+                ComfyQViewerNode, ComfyQImportNode, ComfyQSaveNode)
+OUTPUT_CLASSES = (ComfyQViewerNode, ComfyQImportNode, ComfyQSaveNode)
 SOURCE_NODES = (ComfyQSceneAnimationNode, ComfyQSceneRenderNode, ComfyQMaskNode, ComfyQImageNode,
                 ComfyQVideoFileNode, ComfyQAudioFileNode, ComfyQPromptNode)
 

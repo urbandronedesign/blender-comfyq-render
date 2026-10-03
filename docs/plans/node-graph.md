@@ -220,3 +220,20 @@ Phase-2 ComfyQ PRs that help: `outputs` in meta/`/workflows`, `job_deps`.
 - Verified: headless smoke (thumbnail 256×144, Open as graph feeds each input like the bar) and
   `smoke_test.ps1 -Ui` **86 / 86** in Blender 5.2 (graph mode, switch both ways, thumbnail with an icon,
   viewer follows the node, Open as graph). Waiting for the user's side-by-side with Moodboard.
+
+## 15. N4 results (2026-10-03, Blender 5.2.2 LTS)
+- **Output nodes** (`graph/outputs.py`, socket kind `any`): Viewer (*Show when ready* on), Import to
+  Scene (*Replace previous import* on: removes the strips / objects / collections its last import made,
+  found by diffing before/after; images stay), Save (folder, name pattern, no overwrite). They act on a
+  workflow node's result or a source's last render (Scene Render / Mask preview, clay animation, image,
+  file, prompt text). *… when ready*: the timer acts once per new result (path + mtime kept on the node).
+- **Generate on an output node**: `engine.feeding_workflows` + `plan(..., reuse_targets=True)` → only what
+  is out of date upstream runs, then the node acts (`Run.after`); all up to date → it just acts.
+- **Reroute / Frame**: added from the Output menu; `tree.upstream()` / `link_source()` look through
+  reroutes (runs, type checks, outputs); muted links feed nothing.
+- **Result history** per workflow node (last 20) + sidebar **ComfyQ** tab (description, settings, job
+  details, files sent, earlier results with *Use*).
+- Tests: unit (output nodes never book, feeding workflows, reuse_targets, `any` accepts every kind);
+  smoke (import/replace, save naming, when-ready once per result, source-only Generate, text viewer,
+  reroutes incl. refusal, history/Use); ui_check N4 steps; `-Book`: B's result → Viewer / Import / Save,
+  then Generate on the Viewer books nothing.

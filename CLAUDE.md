@@ -183,17 +183,20 @@ change that session: the user must reinstall from the UI or restart Mixar.
   node (job `f71fdd3a`, user: "it's working"); in Blender 5.2: `smoke_test.ps1 -Ui` 78/78 + live part
   (chain A → B, *Generate again* reuses A, cancel). Headless smoke passes on Blender 5.2 (and passed on
   Mixar 4.2 / Blender 5.1).
+- **Done — N4** (plan §15, committed + installed): Viewer / Import to Scene / Save output nodes
+  (… when ready, Replace previous import, Generate upstream then act), Reroute + Frame, result history +
+  sidebar **ComfyQ** tab (job details, *Use* an earlier result). `smoke_test.ps1 -Ui -Book` green in
+  Blender 5.2 (chain A → B → Viewer / Import / Save, Generate on the Viewer books nothing when up to date).
 - **Not verified live:** image workflow → V2V start image in the graph (no image workflow served).
-- **Not done:** N4–N5 of the graph plan; P1.0 (server hardening — user postponed); P1.4 MCP; P1.5 sweep of
+- **Not done:** N5 of the graph plan; P1.0 (server hardening — user postponed); P1.4 MCP; P1.5 sweep of
   the 66 workflows (41 without VRAM measurement); phase 2 (ComfyQ REST/SSE/MCP, direct-control bundles,
   quotas, `outputs` in meta.json).
 - **Known gaps:** the dialog doesn't live-redraw job progress; job cards can't be removed from the list;
   videos have no thumbnail in nodes (Blender makes no movie previews).
 
 ## Next steps
-1. **N3 sign-off:** ask the user to compare graph mode with their
-   Moodboard screenshot; adjust what they point at.
-2. N4 (Viewer / Import / Save output nodes, tests), N5 (docs, class presets: *Clay animation → V2V*,
-   *Keyframe → V2V*, *Image → 3D*, *Image → upscale*).
+1. **N3/N4 sign-off:** ask the user to try graph mode + output nodes and compare with their Moodboard
+   screenshot; adjust what they point at.
+2. N5 (docs, class presets: *Clay animation → V2V*, *Keyframe → V2V*, *Image → 3D*, *Image → upscale*).
 3. After any UI change: `smoke_test.ps1 -Ui` and update docs/UI.md. Install into the user's Blender 5.2
    profile only when asked, with the command above (not `--factory-startup`). Ask before committing.

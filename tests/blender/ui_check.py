@@ -665,6 +665,52 @@ def _graph_n3(tree, wf):
           res == {"FINISHED"} and wnode is not None and wnode.workflow_id == bpy.context.scene.comfyq.workflow_id
           and any(x.is_linked for x in wnode.inputs), f"{res} {[x.bl_idname for x in added]}")
     shot("09f_open_as_graph")
+    yield from _graph_n4(tree)
+
+
+def _graph_n4(tree):
+    """N4 without GPU: output nodes from the toolbar, Viewer / Save on the clay animation, sidebar tab."""
+    gout = ext("graph.outputs")
+    anim = next((n for n in tree.nodes if n.bl_idname == "ComfyQSceneAnimationNode"), None)
+    added = {}
+    for idn in ("ComfyQViewerNode", "ComfyQSaveNode", "ComfyQImportNode", "NodeReroute", "NodeFrame"):
+        res = click("graph_add", graph_area, node_type=idn)
+        added[idn] = tree.nodes.active if res == {"FINISHED"} and tree.nodes.active.bl_idname == idn else None
+    check("N4: toolbar › Output adds Viewer, Save, Import to Scene, Reroute and Frame", all(added.values()),
+          {k: bool(v) for k, v in added.items()})
+    viewer, save, rr = added["ComfyQViewerNode"], added["ComfyQSaveNode"], added["NodeReroute"]
+    if anim is None or viewer is None or save is None or rr is None:
+        return
+    x, y = anim.location
+    viewer.location, rr.location, save.location = (x + 360, y + 380), (x + 330, y - 380), (x + 420, y - 420)
+    tree.links.new(anim.outputs[0], viewer.inputs[0])
+    tree.links.new(anim.outputs[0], rr.inputs[0])
+    tree.links.new(rr.outputs[0], save.inputs[0])
+    shutil.rmtree(OUT / "saved", ignore_errors=True)
+    save.folder = str(OUT / "saved")
+    yield 1.5                                            # the timer: Viewer shows it (Show when ready)
+    _w, view = img()
+    shown = view.spaces.active.image
+    check("N4: Viewer fed by Scene Animation shows the clay video in the ComfyQ viewer (Show when ready)",
+          shown is not None and bool(viewer.handled), f"{shown and shown.name} handled={bool(viewer.handled)}")
+    res = click("graph_output", graph_area, tree=tree.name, node=save.name)
+    files = list((OUT / "saved").glob("*.mp4"))
+    check("N4: Save (through a Reroute) copies the clay video to its folder", res == {"FINISHED"} and files,
+          f"{res} {[f.name for f in files]}")
+    tree.nodes.active = viewer
+    _w, area = graph_area()
+    area.spaces.active.show_region_ui = True
+    yield 0.5
+    for region in area.regions:
+        if region.type == "UI":
+            try:
+                region.active_panel_category = "ComfyQ"
+            except (AttributeError, TypeError):
+                pass
+    yield 1.0
+    check("N4: sidebar › ComfyQ tab shows the selected node", gout.linked(viewer) is not None)
+    shot("09g_outputs")
+    area.spaces.active.show_region_ui = False
 
 
 def _small(node, specs):
@@ -706,6 +752,14 @@ def step_graph_run():
     names = (a.name, b.name)
     tree.links.new(anim.outputs[0], next(x for x in a.inputs if gtree.socket_kind(x) == "video"))
     tree.links.new(a.outputs[0], next(x for x in b.inputs if gtree.socket_kind(x) == "video"))
+    # N4 on the GPU: B's result goes to a Viewer, an Import (when ready) and a Save (when ready)
+    viewer, imp, save = (tree.nodes.new(i) for i in ("ComfyQViewerNode", "ComfyQImportNode", "ComfyQSaveNode"))
+    for n, dy in ((viewer, 300), (imp, 0), (save, -300)):
+        n.location = (700, dy)
+        tree.links.new(b.outputs[0], n.inputs[0])
+    shutil.rmtree(OUT / "saved_live", ignore_errors=True)
+    imp.auto, save.auto, save.folder = True, True, str(OUT / "saved_live")
+    out_names = (viewer.name, imp.name, save.name)
     n_jobs = len(sc.comfyq.jobs)
     run_started = round(time.time(), 2)
     res = click("graph_run", graph_area, tree=tree.name, node=names[1])
@@ -728,6 +782,21 @@ def step_graph_run():
         click("open_graph", v3d)
         yield _graph_open, 8
     check("the graph editor is still open after the run", not report.get("graph_window_reopened"))
+    yield 2.0                                         # the timer acts on the new result
+    viewer, imp, save = (tree.nodes[n] for n in out_names)
+    shown = img()[1].spaces.active.image
+    check("N4 live: the Viewer shows B's result", shown is not None
+          and bpy.path.abspath(shown.filepath) == b.result, shown and shown.filepath)
+    check("N4 live: Import when ready brought B's result into the scene", "Imported" in imp.status
+          and imp.imported, imp.status)
+    check("N4 live: Save when ready copied B's result", list((OUT / "saved_live").glob("*.mp4")), save.status)
+    check("N4 live: B's result is in its history", any(r.path == b.result for r in b.history), len(b.history))
+    res = click("graph_run", graph_area, tree=tree.name, node=viewer.name)
+    check("N4 live: Generate on the Viewer with everything up to date books nothing, just shows",
+          res == {"FINISHED"} and tree.name not in grun.RUNS and S().status_note.startswith("Up to date"),
+          S().status_note)
+    for name in out_names:
+        tree.nodes.remove(tree.nodes[name])
     res = click("show_media", graph_area, path=b.result)
     yield 0.5
     shot("09e_graph_done")
