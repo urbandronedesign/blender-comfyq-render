@@ -86,6 +86,10 @@ tools/graph_send.py      build Scene Animation → served V2V node on a real fil
 .\tools\smoke_test.ps1                  # Blender 5.2, isolated profile, no GPU   (also: -Book, -App mixar)
 .\tools\smoke_test.ps1 -Ui [-Book]      # VISIBLE Mixar (~3 min, tell the user): every button on a copy of
                                         # testV2V_clean.mixar -> live_check\ui\report.json + screenshots
+.\tools\smoke_test.ps1 -Sweep           # P1.5 (GPU): calibrate + run every SERVED workflow from the scene,
+                                        # -> live_check\sweep\*.json + docs\workflow-matrix.md. With the user's OK:
+                                        # -SweepArgs "--lanes=a,b" (serve alongside) or "--switch=a,b --restore=c"
+                                        # (main workflow; ComfyQ restarts under nodemon each time)
 .\tools\comfyq.ps1 doctor               # classroom health check
 # install the build into the USER's Blender 5.2 profile (only when asked). NOT --factory-startup: it
 # saves factory preferences and turns the user's "Allow Online Access" off (seen 2026-10-03)
@@ -206,8 +210,14 @@ change that session: the user must reinstall from the UI or restart Mixar.
   127.0.0.1 + token in `%APPDATA%\comfyq-bridge\mcp.json`), 16 tools (`blender_*`, `blender_graph_*`,
   `comfyq_*`), stdio launcher `mcp/launcher.py`, `.mcp.json`, skill `.claude/skills/blender-comfyq-roundtrip`.
   Round trip by **Claude Code** verified (`tools\agent_roundtrip.ps1`, job `86924b46`). Codex not tested.
-- **Not done:** Codex / `codex --oss` round trip (needs the Codex CLI); P1.0 (server hardening — user postponed); P1.5 sweep of
-  the 66 workflows (41 without VRAM measurement); phase 2 (ComfyQ REST/SSE/MCP, direct-control bundles,
+- **P1.5 started** (docs/workflow-matrix.md, `tests/blender/sweep.py`): LTX 2.5 family done 2026-10-03 —
+  canny / pose / union / i2v / t2v / flf2v ok from Blender (VRAM ~30 GB each, 12–33 s with the cheapest
+  settings); deblur-upscale refused the clay MP4 (no sound track → fixed by giving it one, retest);
+  union's calibration fails in ComfyQ (missing bench input `comfyq__bench-vi__sports_car.png`: tell b2renger).
+  Two LTX models never fit side by side (32 GB card): test them by switching the main workflow.
+  The user approved lane/main switching for sweeps; ask again before doing it for other families.
+- **Not done:** the rest of P1.5 (59 workflows); Codex / `codex --oss` round trip (needs the Codex CLI);
+  P1.0 (server hardening — user postponed); phase 2 (ComfyQ REST/SSE/MCP, direct-control bundles,
   quotas, `outputs` in meta.json).
 - **Known gaps:** the dialog doesn't live-redraw job progress; job cards can't be removed from the list;
   videos have no thumbnail in nodes (Blender makes no movie previews).

@@ -5,10 +5,14 @@
 #   .\tools\smoke_test.ps1 -App mixar         # Mixar (uninstalled on 2026-10-03, kept for later)
 #   .\tools\smoke_test.ps1 -Ui [-Book]       # VISIBLE window: presses every ComfyQ button on a copy of
 #                                            # -Scene (default Desktop\testV2V_clean.mixar); report in live_check\ui
+#   .\tools\smoke_test.ps1 -Sweep [-SweepArgs "--only=a,b --no-calibrate"]   # P1.5: calibrate + run every
+#                                            # SERVED workflow on a copy of -Scene (GPU!) -> live_check\sweep
 param(
     [ValidateSet("mixar", "blender")] [string] $App = "blender",
     [switch] $Book,
     [switch] $Ui,
+    [switch] $Sweep,
+    [string] $SweepArgs = "",
     [string] $Scene = (Join-Path $env:USERPROFILE "Desktop\testV2V_clean.mixar")
 )
 # Not "Stop": Mixar writes harmless warnings to stderr, which PowerShell 5.1 turns into errors.
@@ -57,6 +61,18 @@ if ($Ui) {
     Select-String -Path (Join-Path $out "console.log") -Pattern "^  (ok|FAIL) |^== " | ForEach-Object { $_.Line }
     $report = Get-Content (Join-Path $out "report.json") -Raw | ConvertFrom-Json
     if ($report.failed.Count -or $report.draw_errors.Count -or -not $report.finished) { exit 1 }
+    exit 0
+}
+if ($Sweep) {
+    $out = Join-Path $root "live_check\sweep"
+    New-Item -ItemType Directory -Force $out | Out-Null
+    $copy = Join-Path $sandbox ("scene" + [IO.Path]::GetExtension($Scene))
+    Copy-Item $Scene $copy
+    $sw = @("-b", "--online-mode", "--python", (Join-Path $root "tests\blender\sweep.py"), "--", $copy, $out)
+    if ($SweepArgs) { $sw += $SweepArgs.Split(" ") }
+    & $exe @sw 2>&1 | Where-Object { "$_" -match "^\[sweep\]|Traceback|Error" } | Out-Host
+    Remove-Item Env:\BLENDER_USER_RESOURCES, Env:\MIXAR_USER_RESOURCES
+    & (Join-Path $root ".venv\Scripts\python.exe") (Join-Path $root "tools\sweep_matrix.py")
     exit 0
 }
 $smokeArgs = @("-b", "--online-mode", "--python-exit-code", "1", "--python", (Join-Path $root "tests\blender\smoke.py"), "--",
