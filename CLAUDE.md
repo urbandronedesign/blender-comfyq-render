@@ -17,7 +17,7 @@ Git: local repo, branch `main`, no remote. Commit author = repo-local `urbandron
 ## Environment (this machine)
 | Thing | Where |
 |---|---|
-| **Blender 5.2.2 LTS** (Python 3.13.13) — the host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (build of commit `bccc544`: graph N0–N5, MCP, clay MP4 with sound), Allow Online Access on, **AI agents (MCP server) ON** (port 8790). Theme = Mixar's **"Mixar Forest"** with Input node colour changed from #ff284d to #3d4640 (calmer graph headers) (exported from `%APPDATA%\Mixar\Mixar\5.2\config\mixar_userpref.blend`, preset `scripts\presets\interface_theme\mixar_forest.xml`; previous prefs backed up as `config\userpref.before_mixar_theme.blend`) Default of `smoke_test.ps1` and `comfyq.ps1` |
+| **Blender 5.2.2 LTS** (Python 3.13.13) — the host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (build of commit `a3786b2`: graph N0–N5, MCP + teacher tools, clay MP4 with sound), Allow Online Access on, **AI agents (MCP server) ON** (port 8790), **Teacher tools ON** (agents may load models; set 2026-10-04 by a startup script + `save_userpref`). Theme = Mixar's **"Mixar Forest"** with Input node colour changed from #ff284d to #3d4640 (calmer graph headers) (exported from `%APPDATA%\Mixar\Mixar\5.2\config\mixar_userpref.blend`, preset `scripts\presets\interface_theme\mixar_forest.xml`; previous prefs backed up as `config\userpref.before_mixar_theme.blend`) Default of `smoke_test.ps1` and `comfyq.ps1` |
 | Mixar 4.2.0 | **uninstalled 2026-10-03** (was `C:\Program Files\Mixar\mixar.exe`, profile `%APPDATA%\Mixar\Mixar\5.2`) |
 | ComfyQ server (Node, Socket.IO, SQLite) | `F:\ComfyQ`, http://127.0.0.1:3000 — user works with b2renger, full control of its code |
 | ComfyUI 0.37, torch 2.8 cu128, RTX 5090 32 GB | `F:\ComfyUI_windows_portable_nvidia\…`, :8188 (listens on 0.0.0.0 — P1.0 issue) |
@@ -187,7 +187,7 @@ change that session: the user must reinstall from the UI or restart Mixar.
     the images (Read tool) — black outputs happen with some ComfyUI flag mixes (the sweep flags mean < 0.02),
     and a workflow given an unsuitable input can echo it back (Krea character sheet on a cubes scene).
 
-## Status (2026-10-04; code last changed in `bccc544`, then docs/gitignore up to `e7e97a5` + this update)
+## Status (2026-10-04; code last changed in `a3786b2` — MCP teacher tools)
 - **Host:** Blender 5.2.2 LTS (user's profile has the latest build). Mixar uninstalled. ComfyQ serves
   **LTX 2.5 IC-LoRA canny** (`video_edit_ltx2_5_iclora_canny_control`) — the state to restore after any test.
 - **Done — bar & tools:** P1.1 client + Socket.IO transport + CLI; P1.2 extension MVP; P1.3 imports
@@ -230,6 +230,14 @@ change that session: the user must reinstall from the UI or restart Mixar.
   "image workflow → V2V start image" never run live in the graph.
 
 ## Next steps
+0. **User tests the MCP teacher tools tomorrow (2026-10-05)** from an agent connected to their Blender (choice made:
+   "agent drives Blender", not a chat panel inside Blender). Status at stop: Blender 5.2 running with the
+   `a3786b2` build, connected, 20 tools answering over HTTP (checked with a direct JSON-RPC call:
+   `comfyq_server_status` = LTX canny main, 29.96/32 GB, nothing fits alongside). Claude Code must reconnect
+   `blender-comfyq` (`/mcp`) to list the new tools. Every load = how='main' → ComfyQ restarts ~1–2 min for
+   everyone: say so first; offer to restore `video_edit_ltx2_5_iclora_canny_control` after. Never verified
+   live yet: a real `comfyq_serve` (main or alongside), `comfyq_unserve`, `comfyq_calibrate`, and the bar
+   following the switch after ComfyQ's restart (socket auto-reconnect).
 1. **Continue P1.5** with the family the user names next. Untested: Wan (animate2, idv2v restyle ×2,
    wan21 scail2, wan22 4 key frames), MiniMax H3 (fun controlnet ×3, v2v reference, i2v 4-step, t2v turbo),
    FastVideo FastH3 (i2v, t2v), LTX 2.3 (3dreal vid2vid, ia2v iclora, ic lora ingredients), LivePortrait,
