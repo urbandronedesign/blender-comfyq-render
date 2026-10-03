@@ -33,7 +33,7 @@ def cell(rec: dict | None) -> tuple[str, str, str, str]:
         return "not tested yet", "", "", "serve it, then run the sweep"
     res = rec.get("result", "?")
     mark = {"ok": "✅ ok", "ok (import issue)": "⚠️ ok, import issue",
-            "skipped": "⏭ not run (could not be served)"}.get(res, f"❌ {res}")
+            "skipped": "⏭ not run (could not be served)", "black output": "❌ black output"}.get(res, f"❌ {res}")
     secs = f"{rec['seconds']} s" if rec.get("seconds") else ""
     imp = "; ".join(rec.get("imported") or [])
     notes = [rec.get("error") or ""]

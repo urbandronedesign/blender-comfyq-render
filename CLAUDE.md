@@ -217,9 +217,12 @@ change that session: the user must reinstall from the UI or restart Mixar.
   Two LTX models never fit side by side (32 GB card): test them by switching the main workflow.
   Flux 2 family done 2026-10-03: all 8 ok (t2i Klein/Dev, edit, edit+ref, depth control, inpaint prompt/ref; mask
   convention verified visually). VRAM: Klein 17–20 GB, Dev 29.5–30.2 GB. Results looked at, none black.
+  Qwen Image 2.1 done 2026-10-03: all 5 ok (t2i, viggle turbo, control canny/depth, image edit — not black
+  despite Sage; the sweep now flags black images itself). VRAM 14.6–23.4 GB; control_depth calibration fails
+  in ComfyQ (missing bench input `comfyq__bench-im__sports_car.png`, same bug as union).
   Switching the main workflow for a sweep: done when the user names a family to test (LTX 2.5, Flux 2 so far);
   canny is always restored at the end.
-- **Not done:** the rest of P1.5 (51 workflows); Codex / `codex --oss` round trip (needs the Codex CLI);
+- **Not done:** the rest of P1.5 (46 workflows); Codex / `codex --oss` round trip (needs the Codex CLI);
   P1.0 (server hardening — user postponed); phase 2 (ComfyQ REST/SSE/MCP, direct-control bundles,
   quotas, `outputs` in meta.json).
 - **Known gaps:** the dialog doesn't live-redraw job progress; job cards can't be removed from the list;

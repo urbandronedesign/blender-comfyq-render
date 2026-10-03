@@ -82,6 +82,23 @@ def test_sound(path: Path, seconds: float = 3.0) -> Path:
     return path
 
 
+def image_means(files):
+    """Mean brightness of image results (0–1): black images come back from some ComfyUI flag mixes."""
+    out = []
+    for f in files:
+        if f.suffix.lower() not in (".png", ".jpg", ".jpeg", ".webp"):
+            continue
+        img = bpy.data.images.load(str(f), check_existing=True)
+        n = len(img.pixels)
+        if not n:
+            continue
+        step = max(4, (n // 4 // 20000) * 4)            # ~20k samples are enough
+        px = img.pixels[:]
+        vals = [px[i] + px[i + 1] + px[i + 2] for i in range(0, n - 3, step)]
+        out.append((f.name, sum(vals) / (3 * len(vals))))
+    return out
+
+
 def short_animation(scene, edge):
     keep = scene.frame_end
     fps = scene.render.fps / (scene.render.fps_base or 1.0)
@@ -119,11 +136,12 @@ def cheap_values(specs, group):
 
 
 def media_inputs(scene, specs, values, wf_id):
-    uploads, notes = {}, []
+    uploads, notes, renders = {}, [], {}
     cur = dict(values)
-    for s in specs:
-        if not s.is_media or is_disabled(s, cur, specs):
-            continue
+    media = [s for s in specs if s.is_media and not is_disabled(s, cur, specs)]
+    # required inputs; with none required, the first optional one (Qwen edit takes up to 16 images)
+    media = [s for s in media if s.required] or media[:1]
+    for s in media:
         edge = s.max_input_edge or 768
         if s.kind == "video":
             uploads[s.key] = short_animation(scene, min(edge, 768))
@@ -134,8 +152,10 @@ def media_inputs(scene, specs, values, wf_id):
             uploads[s.key] = render.mask_pass(scene, sel, "CLAY", min(edge, 1024),
                                               scene_match.frame_for(s, scene_facts(scene)))
         else:
-            uploads[s.key] = render.structure_pass(scene, "CLAY", min(edge, 1024),
-                                                   scene_match.frame_for(s, scene_facts(scene)))
+            key = (min(edge, 1024), scene_match.frame_for(s, scene_facts(scene)))
+            if key not in renders:
+                renders[key] = render.structure_pass(scene, "CLAY", *key)
+            uploads[s.key] = renders[key]
         notes.append(f"{s.key} ← {uploads[s.key].name}")
     return uploads, notes
 
@@ -263,6 +283,10 @@ def run_one(scene, wf):
         rec["imported"] = [f"import crashed: {e}"]
     bad = [m for m in rec["imported"] if "failed" in m or "no importer" in m or "crashed" in m]
     rec["result"] = "ok" if not bad else "ok (import issue)"
+    dark = [f"{n}: mean {m:.3f}" for n, m in image_means(v.files) if m < 0.02]
+    if dark:
+        rec.update(result="black output", error="; ".join(dark))
+    rec["brightness"] = {n: round(m, 3) for n, m in image_means(v.files)}
     return rec
 
 
