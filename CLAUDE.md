@@ -50,6 +50,7 @@ extension/comfyq_bridge/
   ui/studio.py           the Mixar-style bar (tabs, chips, prompt, scene strip, references, job cards with "Sent" rows)
   ui/panel.py            panels: View3D sidebar, Image Editor sidebar, Queue popover, dialog (Ctrl+Shift+Q), header buttons
   ui/player.py           video player for the ComfyQ window (independent of the scene timeline)
+  graph/                 node graph (Moodboard-style, docs/plans/node-graph.md): kinds.py (bpy-free), tree.py, ui.py
 tests/unit/              pytest, no bpy (params, match, models/profile, submit)
 tests/contract/          against the live ComfyQ (read-only + a no-GPU booking 1 day ahead, then deleted)
 tests/blender/smoke.py   headless inside Mixar/Blender (run via tools/smoke_test.ps1)
@@ -130,7 +131,11 @@ change that session: the user must reinstall from the UI or restart Mixar.
     reached us. Use Ctrl+Shift+Q. Background mode has no populated keyconfigs: check clashes in the GUI.
 20. Bash heredoc → `python -` reads stdin in the ANSI code page: non-ASCII (⤢, ✕) breaks string matching.
     Use `PYTHONUTF8=1` or a script file; Windows paths in such scripts need raw strings.
-21. Panel/Menu `draw` methods can't be monkeypatched with a plain wrapper (Blender calls them its own
+21. **Custom node trees + (re)registration crash Blender**: registering node classes updates the open
+    file's trees and calls our `NodeTree.update()` with half-registered socket types; touching sockets
+    there = access violation (seen on reinstall). Guard with `graph.tree.REGISTERING`; read socket kinds
+    from `bl_idname`, not Python attributes.
+22. Panel/Menu `draw` methods can't be monkeypatched with a plain wrapper (Blender calls them its own
     way); tests read panel tracebacks from the console log instead.
 
 ## Status
@@ -153,3 +158,4 @@ change that session: the user must reinstall from the UI or restart Mixar.
 ## Next steps (when the user asks)
 1. After any UI change: `smoke_test.ps1 -Ui` and update docs/UI.md. Reinstall into the user's profile only when asked.
 2. P1.4 MCP, then P1.5 sweep, then phase-2 ComfyQ PRs.
+3. Node graph (Moodboard-style UI): plan in `docs/plans/node-graph.md` — approved (Node Editor, bar kept, settings as chips only); **N0 done** (§11 of the plan); next N1.

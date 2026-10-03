@@ -45,8 +45,12 @@ def shared_budget() -> float | None:
 
 
 def sync_params(scene: bpy.types.Scene, wf_id: str, specs: list[ParamSpec]) -> None:
-    """Make the items of `wf_id` match `specs`; other workflows' values are left alone."""
-    coll = scene.comfyq.params
+    """Make the scene's items of `wf_id` match `specs`; other workflows' values are left alone."""
+    sync_items(scene.comfyq.params, wf_id, specs)
+
+
+def sync_items(coll, wf_id: str, specs: list[ParamSpec]) -> None:
+    """Same for any collection of ComfyQParamValue (the bar's scene store, or a graph node's)."""
     wanted = {s.key: s for s in specs}
     for idx in reversed(range(len(coll))):
         old = coll[idx]
@@ -120,7 +124,6 @@ def ensure_loaded(scene: bpy.types.Scene) -> None:
     Refresh, reconnecting, or opening a file. Without it the bar shows "Loading…" forever and
     Generate stays greyed out until the model is chosen again. Called from the timer pump.
     """
-    import time
     if not SESSION.connected:
         return
     cq = scene.comfyq
@@ -134,14 +137,28 @@ def ensure_loaded(scene: bpy.types.Scene) -> None:
             if not {(s.key, s.kind) for s in specs} <= have:
                 sync_params(scene, wf_id, specs)     # keeps the values already in the scene
             continue
-        if time.monotonic() < _ENSURE_AFTER.get(wf_id, 0.0) or SESSION.loading(wf_id):
-            continue
-        _ENSURE_AFTER[wf_id] = time.monotonic() + 10.0      # a failed load is retried, not hammered
-        SESSION.load_specs(wf_id, lambda specs, wf_id=wf_id, name=scene.name: _loaded(name, wf_id, specs))
+        request_specs(wf_id, lambda specs, wf_id=wf_id, name=scene.name: _loaded(name, wf_id, specs))
+
+
+def request_specs(wf_id: str, done=None) -> None:
+    """Load a workflow's parameters once (shared by the bar and the graph); a failed load is
+    retried after 10 s, not hammered."""
+    import time
+    if wf_id in SESSION.specs or not SESSION.connected or SESSION.loading(wf_id):
+        return
+    if wf_id not in {w.id for w in SESSION.workflows} or time.monotonic() < _ENSURE_AFTER.get(wf_id, 0.0):
+        return
+    _ENSURE_AFTER[wf_id] = time.monotonic() + 10.0
+
+    def loaded(specs):
+        _ENSURE_AFTER.pop(wf_id, None)
+        if done:
+            done(specs)
+
+    SESSION.load_specs(wf_id, loaded)
 
 
 def _loaded(scene_name: str, wf_id: str, specs: list[ParamSpec]) -> None:
-    _ENSURE_AFTER.pop(wf_id, None)
     sc = bpy.data.scenes.get(scene_name)
     if sc is not None:
         sync_params(sc, wf_id, specs)

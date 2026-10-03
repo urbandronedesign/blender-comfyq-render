@@ -1,0 +1,153 @@
+# Plan — ComfyQ node graph (Moodboard-style UI)
+
+Status: **N0 done** (2026-10-03), N1 next. Decisions: Node Editor (option A); the bar stays next to
+the graph; settings are chips inside each node only (no linkable setting sockets). Goal: the same way of working as Mixar's Moodboard
+(cards wired together: image → *Generate Video* → …) inside the bridge, with nodes built from what
+ComfyQ serves, exposing every input and parameter of each workflow.
+
+## 1. Where the graph lives — decision
+
+| Option | Look | Works in plain Blender | Risk | Verdict |
+|---|---|---|---|---|
+| **A. Blender Node Editor + our own node tree** (`bpy.types.NodeTree`) | Close: dot grid, wires, coloured sockets, big cards with previews; Blender's node frame and theme | Yes | Low: public API, stable since 2.8 | **Recommended** |
+| B. Custom canvas drawn with `gpu`/`blf` in an editor | Can copy the Moodboard exactly | Yes | High: we re-implement selection, drag, zoom, wires, text input, undo | Only if A is not close enough |
+| C. Plug into Mixar's Moodboard | Identical | **No** | Moodboard is Mixar's native `MIXIE` space + internal `mixar.modules.moodboard`; breaks on Mixar updates; against our "public bpy only" rule | Only with an extension API from Mixar's team |
+
+The Moodboard stays usable next to us. A later "Send to Moodboard" button would need a public
+operator from Mixar (to ask them; `mixar.render_camera_to_moodboard` exists but is internal).
+
+## 2. What it looks like (screenshot → Node Editor)
+
+| Moodboard | ComfyQ graph |
+|---|---|
+| Top bar *Image to 3D · Video Generation · Generate Image · Upscale Video · Generate Splat · +* | Node Editor header (only in the ComfyQ tree): one button per category (**Image · Video · 3D · Splats · Audio · Tools**) + **Scene** (sources) + **+** (everything). Each opens the workflow menu: *Served now* first, VRAM badge, never hidden. Adds the node at the view centre |
+| *Clear Moodboard* | **Clear graph** (header right, asks first) |
+| Left tools (open, text, draw…) | **Open image/video**, **Prompt**, **Note**; Blender's own annotate tool and frames for drawing/grouping |
+| Image card | **Image** node with a large thumbnail (Blender preview, ~256 px), Show / Open |
+| *Generate Video* card, "Describe what you want to create" | **Workflow** node: wide card, big prompt field (multi-line via Text block), coloured sockets left (image = cyan, video = teal, mask = grey, audio = purple, text = yellow), result socket right, Generate button, result thumbnail, progress |
+| Wire image → card | Native node links, type-checked |
+
+Limits (honest): Blender draws the node frame (rectangular header, user's theme); previews are
+thumbnail-sized; a video cannot play *inside* a node (thumbnail + ▶ plays it in the ComfyQ viewer).
+
+## 3. Node types
+
+**Sources** (rendered in Mixar, on the main thread)
+- **Scene Render** — style (clay/matcap/material), frame (start / end / current / number). Out: Image
+- **Scene Animation** — clay MP4 of the frame range through the camera. Out: Video
+- **Selection Mask** — render with the selected objects transparent. Out: Mask
+- **Image** / **Video** / **Audio** — Blender image or file. Out: matching kind
+- **Prompt** — text (multi-line). Out: Text
+- later (P2.3): **Exact Depth / Normal / Lines** passes
+
+**Workflow node** — one node class, content generated from the chosen workflow's parameters (`ParamSpec`):
+- *Inputs*: a socket per media parameter (image, mask, video, audio) and per prompt/text parameter
+  (unlinked text socket = inline field). Hidden live when the workflow's own rules disable them
+  (`is_disabled`), links kept.
+- *Settings*: numbers, lists, toggles, seed (+ random) drawn as chips in the node; all of them in the
+  sidebar for the selected node. Kept per workflow (switching model keeps tweaks).
+- *Outputs*: by result kind — Image / Video / 3D model / Splat / Audio / Text (see §5).
+- *Header*: name, ▶ served / red "not served", VRAM badge. *Body*: status (queued, progress bar, done,
+  failed), result thumbnail, **Generate**, **Cancel**, **Show**, **Import**, **Match to scene** when it has
+  timing/size settings.
+- *Model menu inside the node*: swap to another workflow; links stay where the kind still fits.
+
+**Outputs**
+- **Viewer** — shows/plays what is linked in the ComfyQ window player
+- **Import to Scene** — image → Image Editor, video/audio → *ComfyQ Results* scene, GLB/PLY → collection
+- **Save** — copy to a folder
+
+Native **Reroute** and **Frame** work as usual.
+
+## 4. Nodes follow what the server serves
+
+- Palette and node headers update on Connect, Refresh and every `state_patch` lane change
+  (served badge turns ▶ / red live).
+- Each workflow node stores a hash of its parameter list. When ComfyQ's workflow changes (parameter
+  added, removed, kind changed) the node rebuilds its sockets: links on parameters that still exist are
+  kept, dropped ones are reported on the node ("input removed by the workflow update").
+- Settings load through the same `ensure_loaded` mechanism as the bar (after connect / file load).
+- Before running a chain: list the nodes whose workflow is not served (run is refused by ComfyQ otherwise).
+
+## 5. Output kinds (workflows don't declare them yet)
+
+Phase 1: inferred from `category` + `tags` + id — `t2i / image-edit / i2i` → Image; `i2v / video-edit` →
+Video; `3d` → Model or Splat (tag/id `splat`, `gaussian`); `audio` → Audio; tools by id/tags (upscale
+video vs image, depth/normal → Image, describe → Text). Corrected and remembered from the first real result
+(file extension). Phase 2 (ComfyQ PR): add `outputs: [{kind, name}]` to `meta.json` and `GET /workflows`.
+
+## 6. Running a graph
+
+- **Generate on a node** runs it and whatever upstream is not up to date. **Run graph** runs every
+  output/leaf node.
+- Graph → dependency order. Sources render on the main thread; each workflow node = one ComfyQ job;
+  a downstream job is booked when its upstream results are downloaded (generalises today's AI-keyframe
+  chain). Independent branches book in parallel (ComfyQ queues them).
+- **Caching**: each node keeps job id, result files and a hash of its inputs + settings; unchanged nodes
+  are not re-run (same idea as the animation pass staleness), **Force** re-runs. Scene sources always
+  re-render at Generate (as today).
+- **Fan-out**: one result into several workflows (one keyframe → three video models) in one run.
+- **Type checks** at link time (image ↛ video input); later an *Extract frame* node for video → image.
+- **Cancel** on a node cancels its job and stops what waits on it.
+- Phase 2: ComfyQ `job_deps` so a chain continues server-side when Mixar is closed.
+
+## 7. Code reuse (no change to the ComfyQ client)
+
+- `client/` unchanged (Socket.IO phase 1). Execution engine in a bpy-free `graph.py` (order, dirty
+  hashes, type rules) → unit-tested like `match.py`.
+- Refactor `ops/generate.py`: `_collect` reads from a *parameter store* (the bar's scene store or a node's
+  store) and gets linked upstream files for media inputs. The bar and the graph share renders, upload,
+  booking, tracking, download, import.
+- Nodes store values with the existing `ComfyQParamValue` group; job records stay in `scene.comfyq.jobs`
+  (the job cards keep working) with a link to the node.
+- The **bar stays** (quick one-node use). **Open as graph** turns the current bar setup into nodes
+  (e.g. Scene Animation → V2V node with the prompt).
+
+## 8. ComfyQ window, graph mode
+
+```
+┌────────────────────────────────┬───────────────┐
+│ Node Editor (ComfyQ graph)     │ Viewer+Player │
+│                                ├───────────────┤
+│                                │ selected node │
+├────────────────────────────────┴───────────────┤
+│ Text Editor: prompt of the selected node        │
+└─────────────────────────────────────────────────┘
+```
+A *Bar / Graph* switch in the window; the graph is saved in the .blend (several graphs per file).
+
+## 9. Milestones
+
+| # | Scope | Done when |
+|---|---|---|
+| N0 spike (½–1 day) | Node tree + Image, Scene Animation, Workflow node built from the served V2V workflow; thumbnail in a node; header buttons | Visible and editable in **Mixar** (its Editor Type menu shows the ComfyQ graph) and Blender 5.1 |
+| N1 | All source nodes, workflow node generation, served-state updates, socket rebuild on workflow change, output kind inference | Every one of the 66 workflows becomes a node with the right sockets |
+| N2 | Engine: single node, chain, fan-out, caching, cancel, served check | Scene Animation → V2V and Scene Render → image → V2V (start image) run from the graph |
+| N3 | Look: category toolbar, socket colours, big cards, previews, Clear graph, graph mode of the ComfyQ window, *Open as graph* | Side-by-side with the Moodboard screenshot, accepted by the user |
+| N4 | Viewer / Import / Save nodes, sidebar for the selected node, tests (`graph.py` unit tests; `ui_check` adds nodes, links, runs and cancels) | `smoke_test.ps1 -Ui -Book` green |
+| N5 | docs/UI.md graph section; class presets: *Clay animation → V2V*, *Keyframe → V2V*, *Image → 3D*, *Image → upscale* | Teacher can start a class from a preset |
+
+Phase-2 ComfyQ PRs that help: `outputs` in meta/`/workflows`, `job_deps`.
+
+## 10. Decisions (user, 2026-10-03)
+1. Host: **Node Editor** (option A).
+2. The generation **bar stays** next to the graph.
+3. Settings: **chips inside each node only** (and in the sidebar for the selected node); no setting sockets.
+
+## 11. N0 results (2026-10-03)
+- Code: `extension/comfyq_bridge/graph/` — `kinds.py` (bpy-free: socket kinds, colours, link rules,
+  output-kind inference, parameter signature), `tree.py` (tree, 7 socket types, Image / Scene Render /
+  Scene Animation / Prompt / Workflow nodes), `ui.py` (header toolbar, Shift+A entries, add/clear/open
+  operators, timer `sync_all`). Bar: new graph icon (`comfyq.open_graph`).
+- Verified: unit tests (all 66 local workflows → 428 params map to 161 sockets + 267 chips, every
+  output kind known); headless smoke in **Mixar and Blender 5.1** (sockets in order, chips stored, link
+  rule, rebuild after a workflow change keeps links, saved/reloaded with the file, reinstall with a graph
+  open); GUI check in Mixar 75/75 (Mixar's Node Editor accepts the tree type, toolbar adds nodes, wiring,
+  Clear). Blender's *GUI* was not run (Node Editor is stock Blender there).
+- Found and fixed: reinstalling the add-on with a graph in the file **crashed Blender** (tree update
+  during class registration) → `tree.REGISTERING` guard; socket kinds read from `bl_idname`.
+- For N3 (look): node headers are drawn red by Mixar's theme for add-on nodes; the Node Editor sidebar
+  shows Blender's *Group / Group Sockets* panels for our tree; toolbar labels truncate when the header is
+  crowded; Blender draws input sockets below the node's settings (fixed layout).
+- Not yet: running from the graph (N2), multi-line prompts in nodes, model swap inside a node, the other
+  source kinds (mask, video/audio files).

@@ -59,6 +59,7 @@ def draw_studio(layout: bpy.types.UILayout, context, columns: int = 2, dialog: b
     right.alignment = "RIGHT"
     if not dialog and context.window != wfops.comfyq_window():
         right.operator("comfyq.open_window", text="", icon="WINDOW")
+    right.operator("comfyq.open_graph", text="", icon="NODETREE")
     right.operator("comfyq.open_folder", text="Library", icon="FILE_FOLDER").job_id = ""
     active = sum(1 for v in SESSION.jobs.values() if not v.job.done)
     right.popover("COMFYQ_PT_queue", text=f"Queue {active}" if active else "Queue", icon="SORTTIME")
@@ -119,11 +120,14 @@ def draw_studio(layout: bpy.types.UILayout, context, columns: int = 2, dialog: b
     _messages(layout)
 
 
-def draw_chips(grid, scene, wf_id: str, visible: list[ParamSpec]) -> None:
+def draw_chips(grid, scene, wf_id: str, visible: list[ParamSpec], get=None) -> None:
+    """Setting chips; `get(key)` returns the value item (default: the scene's store, i.e. the bar)."""
     for s in visible:
         if s.is_media or s.kind in ("prompt", "text"):
             continue
-        it = param_item(scene, s.key, wf_id)
+        it = get(s.key) if get else param_item(scene, s.key, wf_id)
+        if it is None:
+            continue
         short = scene_match.short_label(s.label)
         if s.kind == "seed":
             r = grid.row(align=True)

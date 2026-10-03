@@ -17,19 +17,21 @@ for _name in [m for m in sys.modules if m.startswith(__name__ + ".")]:
 
 import bpy
 
-from . import prefs, props
+from . import graph, prefs, props
 from .ops import connection, generate, results, workflow
 from .passes import animation
 from .runtime.session import PUMP_INTERVAL_S, SESSION
 from .ui import panel, player
 
-_CLASSES = (*connection.classes, *workflow.classes, *generate.classes, *results.classes, *panel.classes)
+_CLASSES = (*connection.classes, *workflow.classes, *generate.classes, *results.classes, *panel.classes,
+            *graph.classes)
 
 
 def _tick() -> float:
     try:
         for window in bpy.context.window_manager.windows:
             workflow.ensure_loaded(window.scene)   # settings of the chosen workflows, after (re)connects/loads
+        graph.sync_all()                           # graph nodes follow the workflows' parameters
     except Exception:  # noqa: BLE001 - never let this stop the pump timer
         traceback.print_exc()
     if SESSION.pump():
@@ -68,10 +70,15 @@ def _on_load(_dummy) -> None:
 def register() -> None:
     prefs.register()
     props.register()
-    for c in _CLASSES:
-        bpy.utils.register_class(c)
+    graph.tree.REGISTERING[0] = True
+    try:
+        for c in _CLASSES:
+            bpy.utils.register_class(c)
+    finally:
+        graph.tree.REGISTERING[0] = False
     player.register()
     panel.register_extras()
+    graph.register_extras()
     animation.register()
     SESSION.on_job_done = generate.on_job_done
     SESSION.on_connected = _reattach_all
@@ -85,13 +92,18 @@ def unregister() -> None:
         bpy.app.timers.unregister(_tick)
     animation.unregister()
     panel.unregister_extras()
+    graph.unregister_extras()
     player.unregister()
     if _on_load in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.remove(_on_load)
     SESSION.close()
     SESSION.on_job_done = None
     SESSION.on_connected = None
-    for c in reversed(_CLASSES):
-        bpy.utils.unregister_class(c)
+    graph.tree.REGISTERING[0] = True
+    try:
+        for c in reversed(_CLASSES):
+            bpy.utils.unregister_class(c)
+    finally:
+        graph.tree.REGISTERING[0] = False
     props.unregister()
     prefs.unregister()

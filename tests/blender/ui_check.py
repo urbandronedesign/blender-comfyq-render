@@ -520,6 +520,71 @@ def step_keyframe():
     it.source = keep
 
 
+def graph_area():
+    for w in bpy.context.window_manager.windows:
+        for a in w.screen.areas:
+            if a.type == "NODE_EDITOR" and a.spaces.active.tree_type == "ComfyQGraphTree":
+                return w, a
+    raise RuntimeError("no ComfyQ graph editor open")
+
+
+def _graph_open():
+    try:
+        graph_area()
+        return True
+    except RuntimeError:
+        return False
+
+
+def step_graph():
+    """N0: the node graph opens in Mixar's Node Editor, nodes are built from the served workflow."""
+    gtree = ext("graph.tree")
+    sc = bpy.context.scene
+    res = click("open_graph", v3d)
+    yield _graph_open, 8
+    check("bar › graph icon opens the ComfyQ graph in a Node Editor (Mixar accepts the tree type)",
+          res == {"FINISHED"} and _graph_open(), res)
+    if not _graph_open():
+        return
+    w, area = graph_area()
+    tree = area.spaces.active.node_tree
+    check("the graph editor shows the ComfyQ Graph", tree is not None and tree.bl_idname == gtree.TREE,
+          tree and tree.name)
+    tree.nodes.clear()
+    wf = sc.comfyq.workflow_id
+    r1 = click("graph_add", graph_area, node_type="ComfyQSceneAnimationNode")
+    r2 = click("graph_add", graph_area, node_type="ComfyQWorkflowNode", workflow_id=wf)
+    yield 0.5
+    anim = next((n for n in tree.nodes if n.bl_idname == "ComfyQSceneAnimationNode"), None)
+    node = next((n for n in tree.nodes if n.bl_idname == "ComfyQWorkflowNode"), None)
+    check("toolbar › Scene › Scene Animation adds the node", r1 == {"FINISHED"} and anim is not None, r1)
+    want = [s.key for s in S().specs[wf] if ext("graph.kinds").input_kind(s.kind)]
+    check(f"toolbar › Video › {wf} adds a node with its inputs as sockets",
+          r2 == {"FINISHED"} and node is not None and [x.identifier for x in node.inputs] == want,
+          node and [x.identifier for x in node.inputs])
+    vid = next(x for x in node.inputs if gtree.socket_kind(x) == "video")
+    tree.links.new(anim.outputs[0], vid)
+    anim.location = (node.location.x - 360, node.location.y)
+    node.select = True
+    tree.nodes.active = node
+    with bpy.context.temp_override(window=w, area=area,
+                                   region=next(r for r in area.regions if r.type == "WINDOW")):
+        bpy.ops.node.view_all()
+    yield 1.0
+    check("Scene Animation wired into the video input", all(link.is_valid for link in tree.links)
+          and len(tree.links) == 1)
+    funcs = getattr(bpy.types.NODE_HT_header.draw, "_draw_funcs", [])
+    check("graph toolbar (Scene · Image · Video · 3D · Splats · Audio · Tools · Clear) in the header",
+          any(f.__name__ == "_header" for f in funcs))
+    shot("09b_graph")
+    with bpy.context.temp_override(window=w, area=area):
+        res = bpy.ops.comfyq.graph_clear("EXEC_DEFAULT")
+    check("Clear Graph", res == {"FINISHED"} and len(tree.nodes) == 0, res)
+    click("graph_add", graph_area, node_type="ComfyQSceneAnimationNode")
+    click("graph_add", graph_area, node_type="ComfyQWorkflowNode", workflow_id=wf)
+    yield 0.3
+
+
 def step_generate():
     sc = bpy.context.scene
     if not BOOK:
@@ -609,7 +674,7 @@ def step_extras():
 
 STEPS = [step_start, step_connect, step_refresh, step_tabs_and_menu, step_chips, step_prompt, step_match,
          step_render_scene, step_animation, step_player, step_library, step_cleanup, step_finished_job_card,
-         step_keyframe, step_generate, step_disconnect_reconnect, step_reload_file, step_extras]
+         step_keyframe, step_graph, step_generate, step_disconnect_reconnect, step_reload_file, step_extras]
 
 
 class Runner:

@@ -40,6 +40,7 @@ become icons (hover for the name), long lines wrap and **Generate** gets its own
 |---|---|---|
 | **Image / Video / 3D / Splats / Audio / Tools** tabs | Filters the model menu by category. Choosing a model also switches to its tab | `every tab lists workflows`, `tab follows the workflow` |
 | Window icon | Opens the ComfyQ window (see §1) | `window icon opens the ComfyQ window (one only), sidebar on the ComfyQ tab` |
+| Graph icon | Opens the **ComfyQ Graph** (node editor, Moodboard-style) in its own window — *first version: build and wire nodes; running from the graph comes next* (docs/plans/node-graph.md) | `bar › graph icon opens the ComfyQ graph…` |
 | **Library** | Opens the results folder `%LOCALAPPDATA%\comfyq-bridge\cache` in Explorer | `Library opens the results folder` |
 | **Queue N** | Popover with the last jobs; N = jobs not finished yet | `Queue popover draws without error` |
 | ⟳ (panel header) | **Refresh**: reloads the workflow list and what is served. The chosen workflow's settings reload by themselves | `Refresh button`, `settings still loaded after Refresh`, `Generate enabled after Refresh` |

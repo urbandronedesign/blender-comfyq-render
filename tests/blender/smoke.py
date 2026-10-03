@@ -260,6 +260,56 @@ if pick:
 bpy.ops.comfyq.set_workflow(workflow_id=wf)
 check(wait_params(wf, "served params") and scene.comfyq.workflow_id == wf, f"back on the served workflow {wf}")
 
+# -- node graph (N0): nodes built from the served workflow, link rules, rebuild, save/reload ----------
+from bl_ext.user_default.comfyq_bridge.graph import kinds as gkinds
+from bl_ext.user_default.comfyq_bridge.graph import sync_all
+from bl_ext.user_default.comfyq_bridge.graph.ui import ensure_graph
+
+tree = ensure_graph()
+wnode = tree.nodes.new("ComfyQWorkflowNode")
+wnode.workflow_id = v2v
+wnode.build(SESSION.specs[v2v])
+want = [s.key for s in SESSION.specs[v2v] if gkinds.input_kind(s.kind)]
+check([s.identifier for s in wnode.inputs] == want,
+      f"workflow node: one socket per input, in order ({len(want)}: {', '.join(want)})")
+check([s.comfyq_kind for s in wnode.outputs] == ["video"], "V2V node outputs a video")
+chips = [s.key for s in SESSION.specs[v2v] if not gkinds.input_kind(s.kind)]
+check({it.key for it in wnode.params} >= set(chips), f"settings stored on the node as chips ({len(chips)})")
+anim = tree.nodes.new("ComfyQSceneAnimationNode")
+img_node = tree.nodes.new("ComfyQImageNode")
+vid_sock = next(s for s in wnode.inputs if s.comfyq_kind == "video")
+good = tree.links.new(anim.outputs[0], vid_sock)
+tree.update()
+check(good.is_valid, "Scene Animation → video input is a valid link")
+img_sock = next((s for s in wnode.inputs if s.comfyq_kind == "image"), None)
+if img_sock is not None:
+    tree.links.new(img_node.outputs[0], img_sock)
+bad = tree.links.new(img_node.outputs[0], vid_sock)       # replaces the animation link: wrong kind
+tree.update()
+check(not bad.is_valid, "Image → video input is refused (drawn red)")
+tree.links.remove(bad)
+tree.links.new(anim.outputs[0], vid_sock)
+n_links = len(tree.links)
+vid_key = vid_sock.identifier                     # never keep socket refs across socket changes
+wnode.signature = "stale"                                  # as if ComfyQ changed the workflow
+victim = next((s for s in wnode.inputs if s.identifier != vid_key), None)
+if victim is not None:
+    wnode.inputs.remove(victim)
+sync_all()
+check([s.identifier for s in wnode.inputs] == want and wnode.signature == gkinds.spec_signature(SESSION.specs[v2v]),
+      "a changed workflow rebuilds the node's sockets")
+check(any(link.to_socket.identifier == vid_key for link in tree.links),
+      f"links on inputs that still exist are kept ({n_links} → {len(tree.links)})")
+graph_file = tmp / "graph.blend"
+bpy.ops.wm.save_as_mainfile(filepath=str(graph_file), copy=True)
+bpy.ops.wm.open_mainfile(filepath=str(graph_file))
+scene = bpy.context.scene
+t2 = bpy.data.node_groups.get("ComfyQ Graph")
+check(t2 is not None and len(t2.nodes) == 3 and len(t2.links) >= 1, "the graph is saved with the file")
+w2 = next(n for n in t2.nodes if n.bl_idname == "ComfyQWorkflowNode")
+check(w2.workflow_id == v2v and len(w2.inputs) == len(want), "workflow node reloads with its sockets")
+graph_file.unlink(missing_ok=True)
+
 if BOOK:
     bpy.ops.comfyq.match_scene()                       # 2 s scene → duration / clip length / fps
     for s in SESSION.specs[wf]:                        # keep the GPU job short: smallest size settings
