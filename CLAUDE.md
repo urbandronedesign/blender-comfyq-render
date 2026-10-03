@@ -57,6 +57,9 @@ extension/comfyq_bridge/
   graph/                 node graph (Moodboard-style, docs/plans/node-graph.md): kinds.py + engine.py (bpy-free),
                          tree.py (nodes), ui.py (toolbar/operators/timer sync), run.py (running the graph),
                          outputs.py (Viewer/Import/Save), presets.py (bpy-free) + preset_ops.py (class presets)
+  mcp/                   MCP server for AI agents (P1.4, off by default): server.py (bpy-free JSON-RPC over
+                         HTTP, 127.0.0.1 + token), tools.py (blender_* / comfyq_* tools, on_main), launcher.py
+                         (stdio launcher agents run; ships with the extension)
 tests/unit/              pytest, no bpy (params, match, models/profile, submit)
 tests/contract/          against the live ComfyQ (read-only + a no-GPU booking 1 day ahead, then deleted)
 tests/blender/smoke.py   headless inside Mixar/Blender (run via tools/smoke_test.ps1)
@@ -64,12 +67,15 @@ tests/blender/ui_check.py VISIBLE Blender (or Mixar): presses every button in it
                          graph steps, live chain with -Book (smoke_test.ps1 -Ui [-Book])
 docs/UI.md               user-facing reference of every control, mapped to the ui_check checks
 docs/CLASS.md            teacher guide: class setup, presets, sharing presets
+docs/AGENTS.md           AI agents: turning the MCP server on, Claude Code / Codex config, the tools
 tests/fixtures/cube.glb  committed fixture (Mixar's glTF exporter crashes at exit in -b)
 tools/smoke_test.ps1     build zip -> install into an ISOLATED profile -> run smoke (-Book: one real GPU job)
 tools/comfyq.ps1         client CLI with Mixar's Python: doctor | workflows | params | submit | fetch
 tools/live_check.py      run from Mixar's Text Editor on the user's open scene; writes live_check/report.json + window.png
 tools/open_and_send.py   `mixar <file> --python tools/open_and_send.py -- [--no-send] [--cleanup]`
 tools/late_open.py       start Mixar THEN open a file (workaround for the launch crash), then runs open_and_send
+tools/blender_mcp.py     repo wrapper of mcp/launcher.py (used by .mcp.json)
+tools/agent_roundtrip.ps1  sandbox Blender + MCP on + `claude -p` doing render → submit → wait → import
 tools/graph_send.py      build Scene Animation → served V2V node on a real file, Generate on the node, trace it
 ```
 
@@ -159,6 +165,9 @@ change that session: the user must reinstall from the UI or restart Mixar.
     and `Node.color_tag` is read-only in 5.2 (probed: class attributes and NodeCustomGroup change nothing).
     `bl_use_group_interface = False` on the tree hides Blender's group panels/menus. Movie thumbnails:
     `bpy.utils.previews` `load(name, path, "MOVIE")` (works; `icon_id` stays 0 in background mode).
+27. Property definitions are evaluated by Blender in its own namespace (string annotations with
+    `from __future__ import annotations`): a `lambda` as `update=` cannot see the module's functions
+    (NameError at the first change). Use a named function defined before the class.
 26. After `screen.area_split` both areas keep stale `x`/`width` until the next draw: decide which part is
     which from a timer (`ops.workflow.set_graph_mode`).
 
@@ -193,7 +202,11 @@ change that session: the user must reinstall from the UI or restart Mixar.
   video, image → 3D, image → upscale; saved by the teacher as JSON, shared folder via
   `COMFYQ_BRIDGE_PRESETS`), header **Presets** menu, teacher guide **docs/CLASS.md**. `-Ui` 92/92.
 - **Not verified live:** image workflow → V2V start image in the graph (no image workflow served).
-- **Not done:** P1.0 (server hardening — user postponed); P1.4 MCP; P1.5 sweep of
+- **Done — P1.4 MCP** (docs/AGENTS.md): MCP server inside the extension (off by default, preferences;
+  127.0.0.1 + token in `%APPDATA%\comfyq-bridge\mcp.json`), 16 tools (`blender_*`, `blender_graph_*`,
+  `comfyq_*`), stdio launcher `mcp/launcher.py`, `.mcp.json`, skill `.claude/skills/blender-comfyq-roundtrip`.
+  Round trip by **Claude Code** verified (`tools\agent_roundtrip.ps1`, job `86924b46`). Codex not tested.
+- **Not done:** Codex / `codex --oss` round trip (needs the Codex CLI); P1.0 (server hardening — user postponed); P1.5 sweep of
   the 66 workflows (41 without VRAM measurement); phase 2 (ComfyQ REST/SSE/MCP, direct-control bundles,
   quotas, `outputs` in meta.json).
 - **Known gaps:** the dialog doesn't live-redraw job progress; job cards can't be removed from the list;
@@ -202,6 +215,7 @@ change that session: the user must reinstall from the UI or restart Mixar.
 ## Next steps
 1. **Graph sign-off (N3–N5 done):** ask the user to try graph mode, output nodes and presets, and to
    compare with their Moodboard screenshot; adjust what they point at.
-2. Then (user's choice): P1.5 sweep of the 66 workflows, P1.4 MCP, P1.0 server hardening, phase 2.
+2. Then (user's choice): P1.5 sweep of the 66 workflows (also fills the VRAM badges agents see), P1.0 server
+   hardening, a Codex round trip, phase 2 (a native ComfyQ /mcp replaces the comfyq_* proxy tools).
 3. After any UI change: `smoke_test.ps1 -Ui` and update docs/UI.md. Install into the user's Blender 5.2
    profile only when asked, with the command above (not `--factory-startup`). Ask before committing.

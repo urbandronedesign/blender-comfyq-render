@@ -300,8 +300,9 @@ def on_job_done(view: JobView) -> None:
     """Session hook (main thread): auto-import into scenes that booked this job, once."""
     for sc in bpy.data.scenes:
         rec = next((r for r in sc.comfyq.jobs if r.job_id == view.job.id), None)
-        # keyframes and graph results feed other jobs; graph nodes show and import their own results
-        if rec is None or rec.imported or rec.purpose in ("keyframe", "graph") or not sc.comfyq.auto_import:
+        # keyframes and graph results feed other jobs; graph nodes show and import their own results;
+        # agents import with blender_import when they want to
+        if rec is None or rec.imported or rec.purpose in ("keyframe", "graph", "agent") or not sc.comfyq.auto_import:
             continue
         msgs = import_files(view.files, view.job.id, view.job.workflow_id, sc)
         rec.imported, view.imported = True, True

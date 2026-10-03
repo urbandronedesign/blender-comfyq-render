@@ -615,6 +615,87 @@ w2 = next(n for n in t2.nodes if n.bl_idname == "ComfyQWorkflowNode")
 check(w2.workflow_id == v2v and len(w2.inputs) == len(want), "workflow node reloads with its sockets")
 graph_file.unlink(missing_ok=True)
 
+# P1.4: the MCP server for AI agents, called over HTTP like an agent would (the test pumps the main thread)
+import threading
+import urllib.error
+import urllib.request
+
+from bl_ext.user_default.comfyq_bridge import mcp as bmcp
+
+os.environ["COMFYQ_BRIDGE_CONFIG"] = str(tmp / "agent_cfg" / "profiles.toml")      # not the user's mcp.json
+check(bmcp.start(0) and bmcp.info_path().is_file(), f"MCP server starts ({bmcp.STATE['url']})")
+_info = json.loads(bmcp.info_path().read_text(encoding="utf-8"))
+
+
+def mcp_rpc(method, params=None, token=None):
+    box = {}
+
+    def work():
+        req = urllib.request.Request(_info["url"], method="POST", data=json.dumps(
+            {"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}}).encode(), headers={
+            "Content-Type": "application/json", "Authorization": f"Bearer {token or _info['token']}"})
+        try:
+            with urllib.request.urlopen(req, timeout=600) as r:
+                box["v"] = json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            box["v"] = e.code
+    t = threading.Thread(target=work)
+    t.start()
+    while t.is_alive():
+        SESSION.pump()
+        time.sleep(0.02)
+    return box["v"]
+
+
+def mcp_tool(name, **args):
+    res = mcp_rpc("tools/call", {"name": name, "arguments": args})["result"]
+    return res["isError"], json.loads(res["content"][0]["text"])
+
+
+check(mcp_rpc("ping", token="wrong") == 401, "MCP: a wrong token is refused")
+names = [t["name"] for t in mcp_rpc("tools/list")["result"]["tools"]]
+check(len(names) == 16 and "comfyq_submit" in names and "blender_graph_run" in names, f"MCP: {len(names)} tools")
+err, info = mcp_tool("blender_scene_info")
+check(not err and info["camera"] and info["frames"] == [scene.frame_start, scene.frame_end],
+      f"MCP blender_scene_info: {info.get('scene')} {info.get('frames')} camera {info.get('camera')}")
+err, wfs = mcp_tool("comfyq_list_workflows")
+check(not err and {w["id"] for w in wfs} == SESSION.served_ids() and all(w["served"] for w in wfs),
+      f"MCP comfyq_list_workflows: served {[w['id'] for w in wfs]}")
+err, desc = mcp_tool("comfyq_describe_workflow", workflow_id=wf)
+check(not err and any(p["kind"] == "prompt" for p in desc["parameters"]), "MCP comfyq_describe_workflow")
+err, still = mcp_tool("blender_render", kind="still", max_edge=512)
+check(not err and Path(still["path"]).is_file(), f"MCP blender_render still → {Path(still['path']).name}")
+err, short = mcp_tool("blender_render", kind="animation", max_edge=256, max_seconds=0.5)
+fps_ = scene.render.fps / scene.render.fps_base
+check(not err and short["frames"] == max(1, round(0.5 * fps_)) and scene.frame_end == info["frames"][1],
+      f"MCP blender_render animation max_seconds: {short.get('frames')} frames, scene range kept")
+err, out = mcp_tool("comfyq_submit", workflow_id=unserved or "x", prompt="no")
+check(err and "not served" in out["error"], "MCP comfyq_submit refuses a workflow that is not served")
+err, g = mcp_tool("blender_graph_describe")
+wnode_name = next(n["name"] for n in g["nodes"] if n["type"] == "Workflow")
+err2, s = mcp_tool("blender_graph_set", node=wnode_name, key="prompt", value="set by an agent")
+check(not err and not err2 and bpy.data.node_groups["ComfyQ Graph"].nodes[wnode_name].current_values()
+      .get(prompt_key) == "set by an agent", f"MCP blender_graph_describe + blender_graph_set ({s})")
+err, st = mcp_tool("blender_graph_status")
+check(not err and not st["running"] and st["nodes"], "MCP blender_graph_status")
+err, imp = mcp_tool("blender_import", path=still["path"])
+check(not err and imp["imported"], f"MCP blender_import: {imp.get('imported')}")
+bmcp.stop()
+check(not bmcp.info_path().exists(), "MCP server stops and removes its connection file")
+import socket as _socket
+
+with _socket.socket() as _s:
+    _s.bind(("127.0.0.1", 0))
+    free_port = _s.getsockname()[1]
+_p = bpy.context.preferences.addons["bl_ext.user_default.comfyq_bridge"].preferences
+_p.mcp_port = free_port
+_p.mcp_enabled = True
+check(bmcp.running() and bmcp.STATE["url"].endswith(f":{free_port}/mcp"),
+      f"Preferences › AI agents (MCP server) starts it ({bmcp.STATE})")
+_p.mcp_enabled = False
+check(not bmcp.running(), "… and unticking stops it")
+del os.environ["COMFYQ_BRIDGE_CONFIG"]
+
 if BOOK:
     bpy.ops.comfyq.match_scene()                       # 2 s scene → duration / clip length / fps
     for s in SESSION.specs[wf]:                        # keep the GPU job short: smallest size settings

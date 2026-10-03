@@ -156,7 +156,8 @@ Plays videos in the viewer **without moving the scene's timeline**.
 | Window icon (3D View header) | Opens the ComfyQ window | (same operator as §2.1) |
 | Preferences: **Student name** | Name on your jobs; you can only cancel jobs booked under it | — |
 | **Profile** / **Server URL override** | Which ComfyQ to use (`%APPDATA%\comfyq-bridge\profiles.toml`; tokens never go in the .blend) | — |
-| **Connect on startup** | Connects when Mixar starts | — |
+| **Connect on startup** | Connects when Blender starts | — |
+| **AI agents (MCP server)** + Port | Off by default. Lets AI agents on this PC (Claude Code, Codex) use the scene and ComfyQ through scoped tools; 127.0.0.1 only, new token each start. Shows the address and the launcher command to give the agent. See [AGENTS.md](AGENTS.md) | smoke `Preferences › AI agents (MCP server) starts it`, `MCP …`; `toolsgent_roundtrip.ps1` |
 
 The shortcut was **Ctrl+Shift+G** until 2026-10-03: in Object Mode Mixar/Blender run *Add to active
 collection* first, so it never reached ComfyQ.

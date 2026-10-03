@@ -17,7 +17,7 @@ for _name in [m for m in sys.modules if m.startswith(__name__ + ".")]:
 
 import bpy
 
-from . import graph, prefs, props
+from . import graph, mcp, prefs, props
 from .ops import connection, generate, results, workflow
 from .passes import animation
 from .runtime.session import PUMP_INTERVAL_S, SESSION
@@ -50,6 +50,16 @@ def _auto_connect() -> None:
     if p.auto_connect and bpy.app.online_access and SESSION.client is None:
         SESSION.connect(p.profile, p.student_name.strip(), p.url.strip())
     return
+
+
+def _start_mcp() -> None:
+    """The MCP server for AI agents, when the user turned it on (preferences)."""
+    try:
+        p = prefs.prefs()
+    except KeyError:
+        return
+    if p.mcp_enabled and not mcp.running():
+        mcp.start(p.mcp_port)
 
 
 def _reattach_all() -> None:
@@ -85,9 +95,11 @@ def register() -> None:
     bpy.app.handlers.load_post.append(_on_load)
     bpy.app.timers.register(_tick, first_interval=PUMP_INTERVAL_S, persistent=True)
     bpy.app.timers.register(_auto_connect, first_interval=1.0)
+    bpy.app.timers.register(_start_mcp, first_interval=1.0)
 
 
 def unregister() -> None:
+    mcp.stop()
     if bpy.app.timers.is_registered(_tick):
         bpy.app.timers.unregister(_tick)
     animation.unregister()

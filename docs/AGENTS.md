@@ -1,0 +1,72 @@
+# AI agents (MCP): Claude Code, Codex
+
+The ComfyQ bridge can let an AI agent on the same PC work with the open Blender scene and the
+classroom's ComfyQ: render passes, book jobs, import results, build and run the ComfyQ graph.
+It is an **MCP server inside Blender**, **off by default**.
+
+## Turning it on
+Blender › Edit › Preferences › Add-ons › **ComfyQ bridge** › tick **AI agents (MCP server)** (port 8790 by
+default). The line below it shows the address and the connection file. Blender must also be connected
+to ComfyQ (the bar's **Connect**) for the `comfyq_*` tools.
+
+Safety:
+- it listens on **127.0.0.1 only** (nothing on the network can reach it);
+- every request needs a **token**, new at every start, written to `%APPDATA%\comfyq-bridge\mcp.json`
+  (readable by this Windows user only) and deleted when the server stops;
+- requests from web pages are refused (browser `Origin` header, or a host other than localhost);
+- the tools are **scoped** (no "run any Python"); jobs go through ComfyQ's queue like the student's own,
+  under the student's name.
+
+## Connecting an agent
+Agents start a small launcher, `mcp/launcher.py` in the installed extension (standard-library Python;
+any Python 3.9+), which reads the connection file and forwards to Blender. The preferences show its
+full path. If Blender is not running, the agent still starts and its tool explains how to turn it on.
+
+**Claude Code** — `.mcp.json` in your project (this repository has one, using `tools/blender_mcp.py`):
+```json
+{ "mcpServers": { "blender-comfyq": {
+    "command": "python",
+    "args": ["C:/Users/<you>/AppData/Roaming/Blender Foundation/Blender/5.2/extensions/user_default/comfyq_bridge/mcp/launcher.py"]
+} } }
+```
+or `claude mcp add blender-comfyq -- python "<that path>"`.
+
+**Codex** (`~/.codex/config.toml`, also for `codex --oss` with a local model on the DGX Spark / A6000):
+```toml
+[mcp_servers.blender-comfyq]
+command = "python"
+args = ["C:/Users/<you>/AppData/Roaming/Blender Foundation/Blender/5.2/extensions/user_default/comfyq_bridge/mcp/launcher.py"]
+```
+
+## Tools
+| Tool | Does |
+|---|---|
+| `blender_scene_info` | File, frame range, fps, duration, resolution, camera, objects (animated?), selection |
+| `blender_select` | Select objects (what a mask repaints) |
+| `blender_render` | `still` / `mask` / `animation` pass through the camera (clay, matcap, material) → file |
+| `blender_import` | A result into Blender (image → Image Editor, video/audio → *ComfyQ Results*, GLB/PLY → collection) |
+| `blender_graph_describe` | The ComfyQ node graph: nodes, models, settings, prompts, links, results |
+| `blender_graph_add_preset` | Add a class preset (`render_image`, `clay_v2v`, `keyframe_v2v`, `image_3d`, `image_upscale`, or a saved one) |
+| `blender_graph_set` | Change a node: a setting or `prompt`, a source's style/frame/file, an output's options |
+| `blender_graph_run` / `blender_graph_status` | Run the graph (or one node) and follow it |
+| `comfyq_list_workflows` | Served workflows (or all): what they make, VRAM badge, description |
+| `comfyq_describe_workflow` | A workflow's parameters |
+| `comfyq_submit` | Book a job: settings, local files for media inputs, prompt → job id |
+| `comfyq_job_status` / `comfyq_wait` / `comfyq_cancel` / `comfyq_outputs` | Follow, wait (≤ 120 s per call), cancel, download results |
+
+The server's instructions tell the agent the usual round trip: scene info → served workflows →
+render → submit → wait → outputs → import (or: preset → prompt → run → status in the graph).
+
+## Checking it
+- `pytest tests/unit/test_mcp_server.py` — protocol, token, web-page refusal, launcher (online and offline).
+- `tools\smoke_test.ps1` — the tools called over HTTP inside a headless Blender.
+- `tools\agent_roundtrip.ps1` — a visible sandbox Blender driven by **Claude Code** (`claude -p`) through
+  the launcher: render the clay animation → book the served video workflow (cheapest settings) → wait →
+  download → import. One short GPU job; transcript in `live_check\agent\claude.json`.
+
+Verified 2026-10-03 (Blender 5.2.2, Claude Code 2.1): 10 agent turns, about 70 s. The clay animation was
+rendered at 512 px, LTX 2.5 IC-LoRA canny was booked with the cheapest settings (job `86924b46`), and
+the result was imported into *ComfyQ Results*. The agent's feedback led to three changes:
+`comfyq_submit` echoes what it sent (and which parameter the prompt fills), `comfyq_describe_workflow`
+gives each parameter's `step`, and `blender_render … max_seconds` renders short tests.
+Not verified here: Codex / `codex --oss` (same stdio launcher; config above).

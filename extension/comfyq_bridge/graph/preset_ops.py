@@ -301,45 +301,58 @@ class COMFYQ_OT_graph_preset(bpy.types.Operator):
         return (head.get("description") or "Saved preset") + "\nWorkflows: " + ", ".join(head.get("workflows", []))
 
     def execute(self, context):
-        tree, scene = context.space_data.edit_tree, context.scene
-        tree_name, scene_name = tree.name, scene.name
-        builtin = next((b for b in presets.BUILTIN if b.id == self.preset), None)
-        if builtin is not None:
-            roles = [n.role for n in builtin.nodes if n.role]
-            ids = [i for r in roles for i in presets.candidates(r, SESSION.workflows)]
-
-            def then():
-                t, sc = bpy.data.node_groups.get(tree_name), bpy.data.scenes.get(scene_name)
-                choice = choose(builtin)
-                missing = [k for k, v in choice.items() if not v]
-                if missing:
-                    SESSION.status_note = f"“{builtin.label}”: no workflow on this ComfyQ for " + ", ".join(missing)
-                    return
-                made = build_builtin(builtin, t, sc, choice)
-                served = SESSION.served_ids()
-                note = ", ".join(f"{k}: {v}" + ("" if v in served else " (not served)") for k, v in choice.items())
-                _finish(tree_name, [n.name for n in made], f"Preset “{builtin.label}” — {note}")
-            label = builtin.label
-        else:
-            path = Path(self.preset)
-            try:
-                data = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, ValueError) as e:
-                self.report({"ERROR"}, f"Cannot read {path.name}: {e}")
-                return {"CANCELLED"}
-            ids = [n.get("workflow_id", "") for n in data.get("nodes", [])]
-
-            def then():
-                made = build_saved(data, bpy.data.node_groups.get(tree_name))
-                _finish(tree_name, [n.name for n in made], f"Preset “{data.get('label') or path.stem}” added")
-            label = data.get("label") or path.stem
-
-        def fail(msg):
-            SESSION.status_note = msg
-        SESSION.status_note = f"Loading the workflows of “{label}”…"
-        when_specs(ids, then, fail)
+        label = add_preset(context.space_data.edit_tree.name, context.scene.name, self.preset)
+        if label is None:
+            self.report({"ERROR"}, SESSION.status_note)
+            return {"CANCELLED"}
         self.report({"INFO"}, SESSION.status_note)
         return {"FINISHED"}
+
+
+def add_preset(tree_name: str, scene_name: str, preset: str, done=None) -> str | None:
+    """Add a preset (built-in id or saved file) once its workflows' parameters are loaded.
+    `done(ok, message, node names)` is called at the end (main thread). None = could not start."""
+    def finish(ok: bool, msg: str, names=()):
+        SESSION.status_note = msg
+        if ok:
+            _finish(tree_name, list(names), msg)
+        if done is not None:
+            done(ok, msg, list(names))
+
+    builtin = next((b for b in presets.BUILTIN if b.id == preset), None)
+    if builtin is not None:
+        roles = [n.role for n in builtin.nodes if n.role]
+        ids = [i for r in roles for i in presets.candidates(r, SESSION.workflows)]
+
+        def then():
+            t, sc = bpy.data.node_groups.get(tree_name), bpy.data.scenes.get(scene_name)
+            choice = choose(builtin)
+            missing = [k for k, v in choice.items() if not v]
+            if missing:
+                finish(False, f"“{builtin.label}”: no workflow on this ComfyQ for " + ", ".join(missing))
+                return
+            made = build_builtin(builtin, t, sc, choice)
+            served = SESSION.served_ids()
+            note = ", ".join(f"{k}: {v}" + ("" if v in served else " (not served)") for k, v in choice.items())
+            finish(True, f"Preset “{builtin.label}” — {note}", [n.name for n in made])
+        label = builtin.label
+    else:
+        path = Path(preset)
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as e:
+            SESSION.status_note = f"Cannot read {path.name}: {e}"
+            return None
+        ids = [n.get("workflow_id", "") for n in data.get("nodes", [])]
+        label = data.get("label") or path.stem
+
+        def then():
+            made = build_saved(data, bpy.data.node_groups.get(tree_name))
+            finish(True, f"Preset “{label}” added", [n.name for n in made])
+
+    SESSION.status_note = f"Loading the workflows of “{label}”…"
+    when_specs(ids, then, lambda msg: finish(False, msg))
+    return label
 
 
 def _slug(name: str) -> str:
