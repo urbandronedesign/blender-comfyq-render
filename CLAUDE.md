@@ -220,9 +220,11 @@ change that session: the user must reinstall from the UI or restart Mixar.
   Qwen Image 2.1 done 2026-10-03: all 5 ok (t2i, viggle turbo, control canny/depth, image edit — not black
   despite Sage; the sweep now flags black images itself). VRAM 14.6–23.4 GB; control_depth calibration fails
   in ComfyQ (missing bench input `comfyq__bench-im__sports_car.png`, same bug as union).
+  Krea 2 done 2026-10-03: 4 run ok (t2i lora, style reference, quadview, character sheet), VRAM 17.3–21.9 GB;
+  the character sheet only returned its input (no character in the test scene): retest with a character image.
   Switching the main workflow for a sweep: done when the user names a family to test (LTX 2.5, Flux 2 so far);
   canny is always restored at the end.
-- **Not done:** the rest of P1.5 (46 workflows); Codex / `codex --oss` round trip (needs the Codex CLI);
+- **Not done:** the rest of P1.5 (42 workflows); Codex / `codex --oss` round trip (needs the Codex CLI);
   P1.0 (server hardening — user postponed); phase 2 (ComfyQ REST/SSE/MCP, direct-control bundles,
   quotas, `outputs` in meta.json).
 - **Known gaps:** the dialog doesn't live-redraw job progress; job cards can't be removed from the list;
