@@ -885,6 +885,48 @@ if "utility_video_segment_sam3" not in SESSION.served_ids():     # never books S
     check(err and "not served" in out["error"], "MCP blender_segment refuses while SAM3 is not served")
 err, out = mcp_tool("blender_task_status")
 check(not err and "task" in out, f"MCP blender_task_status ({(out.get('task') or {}).get('kind')})")
+# UX phase D1: a workflow with 16 reference images shows one free input, the rest behind "+ Add …"
+_qe = "image_qwen_image_2_1_image_edit"
+if any(w.id == _qe for w in SESSION.workflows):
+    SESSION.specs.setdefault(_qe, SESSION.client.params(_qe))
+    _dt = bpy.data.node_groups.new("D1 smoke", "ComfyQGraphTree")
+    _dn = _dt.nodes.new("ComfyQWorkflowNode")
+    _dn.workflow_id = _qe
+    _dn.build(SESSION.specs[_qe])
+    _dn.refresh_visibility(SESSION.specs[_qe])
+    _imgs = [x for x in _dn.inputs if x.bl_idname.endswith("Image")]
+    _vis = [x for x in _imgs if not x.hide]
+    _dn.extra_inputs += 1
+    _dn.refresh_visibility(SESSION.specs[_qe])
+    _vis2 = [x for x in _imgs if not x.hide]
+    _dt.links.new(_dt.nodes.new("ComfyQSceneRenderNode").outputs[0], _vis2[0])
+    _dn.refresh_visibility(SESSION.specs[_qe])
+    _vis3 = [x for x in _imgs if not x.hide]
+    check(len(_imgs) == 16 and len(_vis) == 1 and len(_vis2) == 2 and len(_vis3) == 3,
+          f"D1: 16 optional image inputs → 1 shown, +Add → 2, linking one shows the next ({len(_imgs)}: "
+          f"{len(_vis)}, {len(_vis2)}, {len(_vis3)})")
+    bpy.data.node_groups.remove(_dt)
+# UX phase D3: presets land in a Frame; Run Graph runs the selection (a Frame), else asks for several chains
+from bl_ext.user_default.comfyq_bridge.graph import preset_ops as _po3
+from bl_ext.user_default.comfyq_bridge.graph import run as _run3
+
+_t3 = bpy.data.node_groups.new("D3 smoke", "ComfyQGraphTree")
+_a3, _b3 = _t3.nodes.new("ComfyQWorkflowNode"), _t3.nodes.new("ComfyQWorkflowNode")
+_pa, _pb = _t3.nodes.new("ComfyQPromptNode"), _t3.nodes.new("ComfyQPromptNode")
+_a3.location, _pa.location, _b3.location, _pb.location = (0, 0), (-300, 0), (0, -600), (-300, -600)
+_fr = _po3.wrap_in_frame(_t3, [_a3.name, _pa.name], "Preset A")
+_kept = tuple(_a3.location_absolute) if hasattr(_a3, "location_absolute") else (0.0, 0.0)
+for _n in _t3.nodes:
+    _n.select = False
+_all, _from_sel = _run3.graph_targets(_t3, scene)
+_fr.select = True
+_one, _from_sel2 = _run3.graph_targets(_t3, scene)
+check(_fr is not None and _a3.parent == _fr and _fr.label == "Preset A" and abs(_kept[0]) < 1 and abs(_kept[1]) < 1
+      and sorted(_all) == sorted([_a3.name, _b3.name]) and not _from_sel and _one == [_a3.name] and _from_sel2
+      and _run3.chain_name(_t3, _a3.name) == "Preset A",
+      f"D3: a preset's nodes go in a labelled Frame (kept in place); Run Graph = the selected Frame "
+      f"({_one}), else every chain ({len(_all)})")
+bpy.data.node_groups.remove(_t3)
 # UX phase E: draw code never writes ID data; header buttons are never appended twice
 from bl_ext.user_default.comfyq_bridge.ui import player as _pl
 

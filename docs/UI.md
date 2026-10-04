@@ -189,6 +189,17 @@ collection* first, so it never reached ComfyQ.
 - The AI-keyframe chain has not run end to end on the server yet.
 - Job cards cannot be removed from the list yet (lower **Jobs shown** instead).
 
+## Layout (UX phase D)
+| Control | Does | Check |
+|---|---|---|
+| Bar sections **Settings · Prompt · Scene · Inputs** | Collapsible (Blender remembers each per sidebar); the model, Generate and the reason it is greyed out stay visible. Narrow sidebar: Results Folder / Graph / Window / Queue as icons (Queue shows its count), long model names cut at the end | GUI screenshots `01_*`, `04_*` |
+| Workflow node: **Add Reference Image (N Free)** | A model with more than 3 optional inputs of a kind (Qwen edit: 16 images) shows the next free one; the rest stay hidden (sockets too) until **Add** or until one is linked | smoke `D1: 16 optional image inputs → 1 shown…` |
+| Presets in a **Frame** | Every preset added (beside the graph) lands in a Frame named after it | smoke `D3: a preset's nodes go in a labelled Frame…` |
+| **Run Graph** scope | Runs the chains in the selection (selected nodes, or a selected Frame = one preset). Nothing selected and several chains: asks **"Run N Chains?"** first | smoke `D3: … Run Graph = the selected Frame` |
+| Graph mode of the ComfyQ window | The viewer's sidebar shows **Selected Node** (name · server, the node in full, status) instead of the bar; bar mode shows the bar again | GUI `D2: graph mode shows the selected node's panel…`, `D2: bar mode shows the bar again` |
+| Preferences sections **Student · Server · AI Agents · Teacher** | Student: Name, 3D View Header Buttons. Server: **Profile** menu (profiles file), Connect on Startup, **Test Connection** (answers in 4 s: "… answers: 66 models"), *Advanced* (Server Address, profiles file path). AI Agents: Allow, Port, Copy Agent Command. Teacher: Solo Mode, Agents May Load Models (locked without the admin password) | GUI `D4: the Preferences window opens…` (screenshot `14_preferences_win2.png`), `D4: Test Connection answers` |
+| **Ctrl+Shift+Q** | Also in the Node Editor (graph) | GUI `Ctrl+Shift+Q shortcut registered (Node Editor)` |
+
 ## Icons: one meaning each (UX phase C, Blender HIG)
 | Icon | Means | Where |
 |---|---|---|

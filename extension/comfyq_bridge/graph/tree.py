@@ -417,6 +417,7 @@ class ComfyQWorkflowNode(_Node, bpy.types.Node):
     result_hash: StringProperty()          # inputs + settings the result was made with
     pending_hash: StringProperty()         # same, for the job in progress
     history: CollectionProperty(type=ComfyQResultRecord)    # earlier results (sidebar › Use this result)
+    extra_inputs: IntProperty(default=0, min=0)  # optional inputs revealed by "+ Add …" (when there are many)
 
     def init(self, context):
         self.use_custom_color = True
@@ -494,14 +495,31 @@ class ComfyQWorkflowNode(_Node, bpy.types.Node):
                 tree.links.new(out, dest)
 
     def refresh_visibility(self, specs) -> None:
-        """Hide inputs the workflow's own rules switch off (e.g. start image when unticked)."""
+        """Hide inputs the workflow's own rules switch off (e.g. start image when unticked), and the free
+        optional inputs collapsed behind "+ Add …" (a workflow with 16 reference images shows one at a time)."""
         current = self.current_values()
         by_key = {s.key: s for s in specs}
+        shown = self.shown_optional(specs)
         for sock in self.inputs:
             s = by_key.get(sock.identifier)
             enabled = s is None or not is_disabled(s, current, specs)
             if sock.enabled != enabled:
                 sock.enabled = enabled
+            hide = s is not None and s.is_media and not s.required and not sock.is_linked                 and sock.identifier not in shown
+            if sock.hide != hide:
+                sock.hide = hide
+
+    COLLAPSE_OVER = 3            # more free optional inputs than this: show the next one, the rest behind "+ Add"
+
+    def shown_optional(self, specs) -> set[str]:
+        """Keys of the free (unlinked) optional media inputs to show."""
+        current = self.current_values()
+        linked = {sock.identifier for sock in self.inputs if sock.is_linked}
+        free = [s.key for s in specs if s.is_media and not s.required and s.key not in linked
+                and self.item(s.key) is not None and not is_disabled(s, current, specs)]
+        if len(free) <= self.COLLAPSE_OVER:
+            return set(free)
+        return set(free[:1 + self.extra_inputs])
 
     def draw_buttons(self, context, layout):
         self._draw(context, layout, columns=2)
@@ -560,14 +578,21 @@ class ComfyQWorkflowNode(_Node, bpy.types.Node):
             if s.kind in ("prompt", "text") and s.key not in linked:
                 draw_text_field(layout, self.item(s.key), "s", "text", self, s.key, s.kind == "prompt",
                                 scene_match.short_label(s.label, 60) or "Describe the image or video to create")
+        shown = self.shown_optional(specs)
+        hidden = [s for s in visible if s.is_media and not s.required and s.key not in linked and s.key not in shown]
         for s in visible:                   # unlinked inputs: say so, and offer the matching source
             kind = kinds.input_kind(s.kind)
-            if s.is_media and s.key not in linked:
+            if s.is_media and s.key not in linked and (s.required or s.key in shown):
                 row = layout.row(align=True)
                 row.alert = s.required
                 row.label(text=f"{scene_match.short_label(s.label, 28)}: not linked"
                                + (" (needed)" if s.required else ""), icon="ERROR" if s.required else "INFO")
                 target(row.operator("comfyq.graph_add_source", text=SOURCE_LABEL[kind], icon="ADD"), self, s.key)
+        if hidden:
+            noun = {"image": "Reference Image", "video": "Video", "audio": "Audio", "mask": "Mask"}.get(
+                hidden[0].kind, "Input")
+            target(layout.operator("comfyq.graph_more_inputs", text=f"Add {noun} ({len(hidden)} Free)", icon="ADD"),
+                   self)
         self._draw_run(context, layout)
 
     def _draw_run(self, context, layout) -> None:

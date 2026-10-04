@@ -87,9 +87,12 @@ def draw_studio(layout: bpy.types.UILayout, context, columns: int = 2, dialog: b
                        depress=graph_on).toggle = True
     else:
         right.operator("comfyq.open_graph", text="", icon="NODETREE")
-    right.operator("comfyq.open_folder", text="Results Folder", icon="FILE_FOLDER").job_id = ""
+    right.operator("comfyq.open_folder", text="" if narrow else "Results Folder", icon="FILE_FOLDER").job_id = ""
     active = sum(1 for v in SESSION.jobs.values() if not v.job.done)
-    right.popover("COMFYQ_PT_queue", text=f"Queue {active}" if active else "Queue", icon="SORTTIME")
+    if narrow:                       # a narrow sidebar cut "Queue" to "Qu…": the count is what matters
+        right.popover("COMFYQ_PT_queue", text=str(active) if active else "", icon="SORTTIME")
+    else:
+        right.popover("COMFYQ_PT_queue", text=f"Queue {active}" if active else "Queue", icon="SORTTIME")
 
     from ..ops.results import scene_has_result_strips
     if scene_has_result_strips(scene):
@@ -112,17 +115,22 @@ def draw_studio(layout: bpy.types.UILayout, context, columns: int = 2, dialog: b
     served = SESSION.served_ids()
     box = layout.box()
 
-    # -- model + settings chips ----------------------------------------------------------
-    grid = box.grid_flow(row_major=True, columns=columns, even_columns=True, align=False)
-    chip = grid.row(align=True)
+    # -- model (always visible) + settings chips (a section) ------------------------------------
+    chip = box.row(align=True)
     chip.alert = wf is not None and wf.id not in served
-    chip.menu("COMFYQ_MT_workflows", text=wf.name if wf else "Choose Model",
-              icon="CHECKMARK" if wf and wf.id in served else "DOWNARROW_HLT")
+    name = wf.name if wf else "Choose Model"
+    if wf and narrow and len(name) > 32:          # keep what tells models apart ("— image edit"); cut the end
+        name = name[:31] + "…"
+    chip.menu("COMFYQ_MT_workflows", text=name, icon="CHECKMARK" if wf and wf.id in served else "DOWNARROW_HLT")
     specs = SESSION.specs.get(cq.workflow_id) if wf else None
-    if wf and specs is None:
-        grid.label(text="Loading…", icon="SORTTIME")
     visible = _visible(scene, cq.workflow_id, specs or [])
-    draw_chips(grid, scene, cq.workflow_id, visible)
+    if wf and specs is None:
+        box.label(text="Loading…", icon="SORTTIME")
+    elif wf and any(not (s.is_media or s.kind in ("prompt", "text")) for s in visible):
+        body = _section(box, "comfyq_bar_settings", "Settings", dialog)
+        if body is not None:
+            grid = body.grid_flow(row_major=True, columns=columns, even_columns=True, align=False)
+            draw_chips(grid, scene, cq.workflow_id, visible)
     if wf and wf.id not in served:
         col = box.column(align=True)
         col.alert = True
@@ -131,14 +139,23 @@ def draw_studio(layout: bpy.types.UILayout, context, columns: int = 2, dialog: b
             col.label(text=line, icon="ERROR" if n == 0 else "BLANK1")
 
     # -- prompt ---------------------------------------------------------------------------------
-    draw_prompts(box, scene, cq.workflow_id, visible, big=True)
+    if any(s.kind in ("prompt", "text") for s in visible):
+        body = _section(box, "comfyq_bar_prompt", "Prompt", dialog)
+        if body is not None:
+            draw_prompts(body, scene, cq.workflow_id, visible, big=True)
 
     # -- scene ↔ workflow (timing, framing, animation pass) ---------------------------------
     if any(s.kind == "video" for s in visible) or scene_match.match(visible, wfops.scene_facts(scene)).values:
-        _draw_scene_strip(box, context, visible)
+        body = _section(box, "comfyq_bar_scene", "Scene", dialog)
+        if body is not None:
+            _draw_scene_strip(body, context, visible)
 
-    # -- references (+ AI keyframe step) and actions ---------------------------------------------
-    draw_media(box, context, cq.workflow_id, visible, columns)
+    # -- references (+ AI keyframe step) ---------------------------------------------------------
+    if any(s.is_media for s in visible):
+        body = _section(box, "comfyq_bar_inputs", "Inputs", dialog)
+        if body is not None:
+            draw_media(body, context, cq.workflow_id, visible, columns)
+    # -- actions (always visible) -----------------------------------------------------------------
     actions = box.row(align=True)
     media_items = [param_item(scene, s.key) for s in visible if s.is_media]
     actions.prop(cq, "style", text="")
@@ -159,6 +176,18 @@ def draw_studio(layout: bpy.types.UILayout, context, columns: int = 2, dialog: b
         for n, line in enumerate(wrap(why, _CHARS[0], max_lines=3)):
             col.label(text=line, icon="ERROR" if n == 0 else "BLANK1")
     _messages(layout)
+
+
+def _section(layout, idname: str, title: str, dialog: bool):
+    """A collapsible part of the bar (Blender remembers it per sidebar); None when collapsed. The
+    Ctrl+Shift+Q dialog has no remembered state: plain headed blocks there."""
+    if dialog:
+        col = layout.column()
+        col.label(text=title)
+        return col
+    header, body = layout.panel(idname, default_closed=False)
+    header.label(text=title)
+    return body
 
 
 def draw_chips(grid, scene, wf_id: str, visible: list[ParamSpec], get=None) -> None:

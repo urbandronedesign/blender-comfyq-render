@@ -288,10 +288,31 @@ def _header(path: Path) -> dict:
 
 
 # -- operators -----------------------------------------------------------------------------------------
-def _finish(tree_name: str, made_names: list[str], msg: str) -> None:
+def wrap_in_frame(tree, names: list[str], label: str):
+    """Put a preset's nodes in a Frame named after it (kept where they are), so presets added beside each
+    other stay apart and Run Graph can run one of them (select its Frame)."""
+    nodes = [tree.nodes[n] for n in names if n in tree.nodes and tree.nodes[n].parent is None]
+    if not nodes or all(n.bl_idname == "NodeFrame" for n in nodes):
+        return None
+    frame = tree.nodes.new("NodeFrame")
+    frame.label = label
+    frame.label_size = 28
+    frame.shrink = True
+    for n in nodes:
+        loc = tuple(getattr(n, "location_absolute", n.location))
+        n.parent = frame
+        if hasattr(n, "location_absolute"):
+            n.location_absolute = loc
+    return frame
+
+
+def _finish(tree_name: str, made_names: list[str], msg: str, label: str = "") -> None:
     from .ui import _frame_graph_soon
     tree = bpy.data.node_groups.get(tree_name)
     if tree is not None:
+        frame = wrap_in_frame(tree, made_names, label) if label else None
+        if frame is not None:
+            made_names = [*made_names, frame.name]
         for n in tree.nodes:
             n.select = n.name in made_names
     SESSION.status_note = msg
@@ -336,7 +357,7 @@ def add_preset(tree_name: str, scene_name: str, preset: str, done=None) -> str |
     def finish(ok: bool, msg: str, names=()):
         SESSION.status_note = msg
         if ok:
-            _finish(tree_name, list(names), msg)
+            _finish(tree_name, list(names), msg, label)
         if done is not None:
             done(ok, msg, list(names))
 

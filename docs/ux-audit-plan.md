@@ -67,7 +67,7 @@ Severity uses Nielsen's 0–4 scale (4 = must fix before class).
   - In menus, icons go only on the first entry of each section.
 - **Number display:** round values like "Clip length used 5.042" to "5.0 s".
 
-## Phase D — layout & structure (severity 2–3, effort M)
+## Phase D — layout & structure (severity 2–3, effort M) — DONE 2026-10-04 (D1 collapsed optional inputs; D2 graph mode = Selected Node panel; D3 presets in Frames + Run Graph scope/confirm; D4 preferences sections + Profile menu + Test Connection; D5 bar sections + narrow labels; D6 Ctrl+Shift+Q in the Node Editor + header-buttons preference)
 | # | Problem | Proposal |
 |---|---|---|
 | D1 | Workflow nodes list every optional input. Qwen edit shows "Image 2…16: not linked", 15 "+ Scene render" buttons and 16 sockets; beginners think all of them are required. | Show the required inputs and the linked ones only. Replace the rest with "+ Add Reference Image (15 free)". Unlinked optional sockets stay hidden. |

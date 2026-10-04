@@ -506,6 +506,37 @@ def solo_on() -> bool:
     return bool(p.solo_mode) and teacher_unlocked(p)
 
 
+def graph_targets(tree, scene) -> tuple[list[str], bool]:
+    """What Run Graph runs: the chains in the selection (selected nodes, and everything inside a selected
+    Frame) — or, with nothing usable selected, every last node of the graph. (targets, from_selection)."""
+    nodes = describe(tree, scene)
+    sel = {n.name for n in tree.nodes if n.select}
+    if sel:
+        frames = {n.name for n in tree.nodes if n.select and n.bl_idname == "NodeFrame"}
+        for n in tree.nodes:
+            p = n.parent
+            while p is not None:
+                if p.name in frames:
+                    sel.add(n.name)
+                    break
+                p = p.parent
+        leaves = engine.leaves({k: v for k, v in nodes.items() if k in sel})
+        if leaves:
+            return leaves, True
+    return engine.leaves(nodes), False
+
+
+def chain_name(tree, name: str) -> str:
+    """A chain's name for messages: its Frame's label (a preset), else the node's label."""
+    node = tree.nodes.get(name)
+    p = node.parent if node is not None else None
+    while p is not None:
+        if p.label:
+            return p.label
+        p = p.parent
+    return node.draw_label() if node is not None and hasattr(node, "draw_label") else name
+
+
 def models_to_load(tree, scene, targets: list[str], force: bool = False) -> list[str]:
     """Names of the models a solo run of `targets` would load (what ComfyQ does not serve now)."""
     try:

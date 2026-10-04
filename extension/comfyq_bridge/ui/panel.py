@@ -62,6 +62,12 @@ class COMFYQ_PT_image_main(_Main, bpy.types.Panel):
     bl_space_type = "IMAGE_EDITOR"
     bl_order = 1
 
+    @classmethod
+    def poll(cls, context):
+        # graph mode of the ComfyQ window: the selected node's panel replaces the bar (graph/ui.py)
+        from ..graph.ui import graph_mode_tree
+        return graph_mode_tree(context) is None
+
 
 class COMFYQ_PT_image_jobs(_Jobs, bpy.types.Panel):
     bl_space_type = "IMAGE_EDITOR"
@@ -108,6 +114,11 @@ class COMFYQ_OT_studio(bpy.types.Operator):
 
 
 def _header_button(self, context):
+    try:
+        if not prefs(context).header_buttons:
+            return
+    except KeyError:
+        pass
     row = self.layout.row(align=True)
     row.operator(COMFYQ_OT_studio.bl_idname, text="ComfyQ...")
     row.operator("comfyq.open_window", text="", icon="WINDOW")
@@ -125,7 +136,7 @@ def register_extras() -> None:
     if kc is not None:                      # None in background mode
         # Ctrl+Shift+Q ("Q" for ComfyQ): free in Blender and Mixar. Ctrl+Shift+G is taken by Object
         # Mode's "Add to active collection", which runs before the 3D View keymap.
-        for name, space in (("3D View", "VIEW_3D"), ("Image", "IMAGE_EDITOR")):
+        for name, space in (("3D View", "VIEW_3D"), ("Image", "IMAGE_EDITOR"), ("Node Editor", "NODE_EDITOR")):
             km = kc.keymaps.new(name=name, space_type=space)
             kmi = km.keymap_items.new(COMFYQ_OT_studio.bl_idname, "Q", "PRESS", ctrl=True, shift=True)
             _keymaps.append((km, kmi))

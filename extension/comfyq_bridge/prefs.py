@@ -7,6 +7,7 @@ stay in the profiles file or the environment (see client/profile.py).
 from __future__ import annotations
 
 import os
+from dataclasses import replace
 
 import bpy
 from bpy.props import BoolProperty, IntProperty, StringProperty
@@ -85,6 +86,9 @@ class ComfyQPreferences(bpy.types.AddonPreferences):
     url: StringProperty(
         name="Server Address", default="",
         description="Override the profile's server address, for example http://192.168.1.10:3000")
+    header_buttons: BoolProperty(name="3D View Header Buttons", default=True,
+                                 description="Show the ComfyQ and ComfyQ Window buttons in the 3D View header "
+                                             "(Ctrl+Shift+Q opens the bar either way)")
     auto_connect: BoolProperty(name="Connect on Startup", default=False,
                                 description="Connect when Blender starts (once a student name is set)")
     mcp_enabled: BoolProperty(
@@ -104,43 +108,126 @@ class ComfyQPreferences(bpy.types.AddonPreferences):
                     "calibrate). Agents see the change when they reconnect")
 
     def draw(self, context):
-        col = self.layout.column()
-        col.prop(self, "student_name")
-        row = col.row(align=True)
-        row.prop(self, "profile")
-        row.label(text="(" + ", ".join(_profiles()) + ")")
-        col.prop(self, "url")
-        col.prop(self, "auto_connect")
-        col.separator()
         from . import mcp
-        row = col.row(align=True)
-        row.prop(self, "mcp_enabled")
-        sub = row.row(align=True)
-        sub.enabled = not self.mcp_enabled
-        sub.prop(self, "mcp_port")
-        if mcp.STATE["error"]:
-            col.label(text=mcp.STATE["error"], icon="ERROR")
-        elif mcp.running():
-            col.label(text=f"Running on {mcp.STATE['url']} · connection file {mcp.info_path()}", icon="CHECKMARK")
-            col.operator("comfyq.copy_agent_command", icon="COPYDOWN")
-        col.separator()
-        box = col.box().column()
-        box.label(text="Teacher", icon="COMMUNITY")
-        if teacher_unlocked(self):
-            box.prop(self, "solo_mode")
-            if self.solo_mode:
-                box.label(text="Solo is on: this PC switches the model ComfyQ serves for everyone", icon="ERROR")
-            row = box.row()
-            row.enabled = self.mcp_enabled
-            row.prop(self, "mcp_teacher")
-        else:
-            box.label(text="Solo mode and the agents' teacher tools appear when the profile holds ComfyQ's "
-                           "admin password (admin_password in the profiles file)", icon="LOCKED")
-        col.separator()
-        col.label(text=f"Profiles file: {config_path()}", icon="FILE_TEXT")
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
         if not bpy.app.online_access:
-            col.label(text="Online access is disabled (Preferences › System); the bridge cannot connect",
+            row = layout.row()
+            row.alert = True
+            row.label(text="Online access is disabled (Preferences › System): the bridge cannot connect",
                       icon="ERROR")
+
+        def section(idname: str, title: str, closed: bool = False):
+            header, body = layout.panel(idname, default_closed=closed)
+            header.label(text=title)
+            return body
+
+        body = section("comfyq_prefs_student", "Student")
+        if body is not None:
+            body.prop(self, "student_name", text="Name")
+            body.prop(self, "header_buttons")
+
+        body = section("comfyq_prefs_server", "Server")
+        if body is not None:
+            split = body.split(factor=0.4, align=True)          # a label column like the properties' own
+            lab = split.row()
+            lab.alignment = "RIGHT"
+            lab.label(text="Profile")
+            split.menu("COMFYQ_MT_profiles", text=self.profile or f"Default ({_default_profile()})")
+            body.prop(self, "auto_connect")
+            body.operator("comfyq.test_connection", icon="LINKED")
+            if _TEST["msg"]:
+                sub = body.row()
+                sub.alert = not _TEST["ok"]
+                sub.label(text=_TEST["msg"], icon="CHECKMARK" if _TEST["ok"] else "ERROR")
+            header, adv = body.panel("comfyq_prefs_advanced", default_closed=True)
+            header.label(text="Advanced")
+            if adv is not None:
+                adv.prop(self, "url")
+                adv.label(text=f"Profiles file: {config_path()}", icon="FILE_TEXT")
+
+        body = section("comfyq_prefs_agents", "AI Agents")
+        if body is not None:
+            body.prop(self, "mcp_enabled", text="Allow AI Agents")
+            sub = body.row()
+            sub.enabled = not self.mcp_enabled
+            sub.prop(self, "mcp_port")
+            if mcp.STATE["error"]:
+                body.label(text=mcp.STATE["error"], icon="ERROR")
+            elif mcp.running():
+                body.label(text=f"Running on {mcp.STATE['url']}", icon="CHECKMARK")
+                body.operator("comfyq.copy_agent_command", icon="COPYDOWN")
+
+        body = section("comfyq_prefs_teacher", "Teacher")
+        if body is not None:
+            if teacher_unlocked(self):
+                body.prop(self, "solo_mode", text="Solo Mode")
+                if self.solo_mode:
+                    sub = body.row()
+                    sub.alert = True
+                    sub.label(text="This PC switches the model ComfyQ serves for everyone", icon="ERROR")
+                sub = body.row()
+                sub.enabled = self.mcp_enabled
+                sub.prop(self, "mcp_teacher", text="Agents May Load Models")
+            else:
+                body.label(text="Locked: needs ComfyQ's admin password in this PC's profile", icon="LOCKED")
+
+
+_TEST: dict = {"ok": False, "msg": ""}
+
+
+def _default_profile() -> str:
+    try:
+        return load_profile(None).name
+    except Exception:  # noqa: BLE001
+        return "local"
+
+
+class COMFYQ_MT_profiles(bpy.types.Menu):
+    bl_idname = "COMFYQ_MT_profiles"
+    bl_label = "Profile"
+    bl_description = "Choose the profile of the profiles file (server address, passwords)"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.operator("comfyq.set_profile", text=f"Default ({_default_profile()})").name = ""
+        for name in _profiles():
+            layout.operator("comfyq.set_profile", text=name).name = name
+
+
+class COMFYQ_OT_set_profile(bpy.types.Operator):
+    bl_idname = "comfyq.set_profile"
+    bl_label = "Use Profile"
+    bl_description = "Use this profile (reconnect to apply it)"
+    bl_options = {"INTERNAL"}
+    name: StringProperty(options={"HIDDEN"})
+
+    def execute(self, context):
+        prefs(context).profile = self.name
+        _TEST["msg"] = ""
+        return {"FINISHED"}
+
+
+class COMFYQ_OT_test_connection(bpy.types.Operator):
+    bl_idname = "comfyq.test_connection"
+    bl_label = "Test Connection"
+    bl_description = "Ask the ComfyQ server of this profile whether it answers, and what it serves"
+
+    def execute(self, context):
+        from .client.api import ComfyQClient
+        from .client.http import ComfyQError
+        p = prefs(context)
+        try:
+            prof = load_profile(p.profile or None)
+            prof = replace(prof, url=p.url.strip().rstrip("/") or prof.url, timeout_s=4.0)
+            client = ComfyQClient(prof)
+            n = len(client.workflows())
+            _TEST.update(ok=True, msg=f"{prof.url} answers: {n} models")
+        except (ComfyQError, OSError, ValueError) as e:
+            _TEST.update(ok=False, msg=str(e))
+        self.report({"INFO"} if _TEST["ok"] else {"ERROR"}, _TEST["msg"])
+        return {"FINISHED"}
 
 
 def _mcp_update(p) -> None:
@@ -156,9 +243,14 @@ def prefs(context: bpy.types.Context | None = None) -> ComfyQPreferences:
     return ctx.preferences.addons[__package__].preferences
 
 
+_CLASSES = (COMFYQ_MT_profiles, COMFYQ_OT_set_profile, COMFYQ_OT_test_connection, ComfyQPreferences)
+
+
 def register() -> None:
-    bpy.utils.register_class(ComfyQPreferences)
+    for c in _CLASSES:
+        bpy.utils.register_class(c)
 
 
 def unregister() -> None:
-    bpy.utils.unregister_class(ComfyQPreferences)
+    for c in reversed(_CLASSES):
+        bpy.utils.unregister_class(c)

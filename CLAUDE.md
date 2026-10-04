@@ -283,7 +283,11 @@ change that session: the user must reinstall from the UI or restart Mixar.
   (`wording.count`), verb-first tooltips, one icon one meaning (table in docs/UI.md), Copy Agent Command, model
   tooltips = ComfyQ descriptions. **Phase E done**: Player draw no longer loads a MovieClip (`peek_meta`,
   timer reads it); per-draw parsing cached; header/menu draw functions appended once (`ui.append_once`).
-  Next: phase D (layout: node inputs, graph mode without the bar, presets in Frames, prefs, sub-panels), then F.
+  **Phase D done**: optional inputs collapsed (`shown_optional`, "Add Reference Image (N Free)"); graph mode =
+  viewer's Selected Node panel (`graph_mode_tree`); presets wrapped in a Frame, Run Graph = selection (`graph_targets`)
+  or asks "Run N Chains?"; preferences in sections + Profile menu + Test Connection; bar in collapsible sections;
+  Ctrl+Shift+Q in the Node Editor. GUI -Ui 97/97. Next: phase F (non-blocking Cycles, teacher Server panel,
+  student help, shared presets folder) when the user asks.
 
 ## Next steps
 1. Whatever the user asks next. Open candidates: run the 16 never-run workflows (3D / upscale / audio /

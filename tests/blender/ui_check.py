@@ -582,6 +582,7 @@ def step_graph():
     feed = anim
     if vid is None:          # what ComfyQ serves changes (gotcha 32): an image model gets a Scene Render
         feed = tree.nodes.new("ComfyQSceneRenderNode")   # (the Scene Animation stays for the N4 output checks)
+        feed.location = (node.location.x - 360, node.location.y - 320)
         vid = next(x for x in node.inputs if gtree.socket_kind(x) in ("image", "mask"))
     tree.links.new(feed.outputs[0], vid)
     anim.location = (node.location.x - 360, node.location.y)
@@ -655,9 +656,18 @@ def _graph_n3(tree, wf):
     res = click("open_graph", img, toggle=True)
     yield (lambda: not _graph_open()), 5
     check("N3: window › Graph switch closes the graph (bar mode)", res == {"FINISHED"} and not _graph_open(), res)
+    with ctx(img):
+        bar_back = ext("ui.panel").COMFYQ_PT_image_main.poll(bpy.context)
+        node_gone = not ext("graph.ui").COMFYQ_PT_viewer_graph_node.poll(bpy.context)
+    check("D2: bar mode shows the bar again (no Selected Node panel)", bar_back and node_gone)
     res = click("open_graph", img, toggle=True)
     yield _graph_open, 5
     check("N3: window › Graph switch shows it again (graph mode)", res == {"FINISHED"} and _graph_open(), res)
+    with ctx(img):
+        bar_shown = ext("ui.panel").COMFYQ_PT_image_main.poll(bpy.context)
+        node_shown = ext("graph.ui").COMFYQ_PT_viewer_graph_node.poll(bpy.context)
+    check("D2: graph mode shows the selected node's panel instead of the bar", node_shown and not bar_shown,
+          f"bar={bar_shown} node={node_shown}")
     yield 0.5
     anim = next((n for n in tree.nodes if n.bl_idname == "ComfyQSceneAnimationNode"), None)
     if anim is not None and gtree.animation_path():
@@ -931,7 +941,7 @@ def step_reload_file():
 
 def step_extras():
     km = bpy.context.window_manager.keyconfigs
-    for name, space in (("3D View", "VIEW_3D"), ("Image", "IMAGE_EDITOR")):
+    for name, space in (("3D View", "VIEW_3D"), ("Image", "IMAGE_EDITOR"), ("Node Editor", "NODE_EDITOR")):
         ours = [k for k in km.addon.keymaps[name].keymap_items if k.idname == "comfyq.studio"]
         check(f"Ctrl+Shift+Q shortcut registered ({name})",
               bool(ours) and ours[0].ctrl and ours[0].shift and not ours[0].alt and ours[0].type == "Q")
@@ -958,9 +968,35 @@ def step_extras():
     shot("13_dialog")
 
 
+def step_preferences():
+    """D4: Blender's Preferences window on the ComfyQ add-on (Student · Server · Advanced · AI Agents ·
+    Teacher). Drawing errors land in the console log (checked at the end)."""
+    before = set(bpy.context.window_manager.windows)
+    bpy.ops.screen.userpref_show()
+    yield 1.0
+    prefs = bpy.context.preferences
+    prefs.active_section = "ADDONS"
+    bpy.context.window_manager.addon_search = "ComfyQ"
+    try:
+        bpy.ops.preferences.addon_expand(module=MOD)
+    except (RuntimeError, AttributeError) as e:
+        print("addon_expand:", e)
+    yield 1.5
+    shot("14_preferences")
+    new = [w for w in bpy.context.window_manager.windows if w not in before]
+    check("D4: the Preferences window opens on the ComfyQ add-on", bool(new))
+    with ctx(v3d):
+        res = bpy.ops.comfyq.test_connection()
+    check("D4: Test Connection answers", res == {"FINISHED"} and ext("prefs")._TEST["ok"], ext("prefs")._TEST["msg"])
+    for w in new:
+        with bpy.context.temp_override(window=w):
+            bpy.ops.wm.window_close()
+    yield 0.5
+
+
 STEPS = [step_start, step_connect, step_refresh, step_tabs_and_menu, step_chips, step_prompt, step_match,
          step_render_scene, step_animation, step_player, step_library, step_cleanup, step_finished_job_card,
-         step_keyframe, step_graph, step_graph_run, step_generate, step_disconnect_reconnect, step_reload_file, step_extras]
+         step_keyframe, step_graph, step_graph_run, step_generate, step_disconnect_reconnect, step_reload_file, step_extras, step_preferences]
 
 
 class Runner:
