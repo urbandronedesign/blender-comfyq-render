@@ -83,6 +83,11 @@ def linked(node) -> Media | None:
     if idn == WORKFLOW_NODE:
         m.job_id, m.workflow_id = src.job_id, src.workflow_id
         m.path = src.result
+    elif idn == "ComfyQSurfacesNode":
+        if m.kind == "text":
+            m.text = src.prompt()
+            return m
+        m.path = src.result
     elif idn == "ComfyQPromptNode":
         m.text = src.value()
         return m

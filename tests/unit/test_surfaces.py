@@ -29,3 +29,11 @@ def test_labels_from_text_or_list():
     assert labels_from(["sofa", " Rug "]) == ["sofa", "rug"]
     assert [label_name(x) for x in labels_from(None)[:3]] == ["floor", "wall", "ceiling"]
     assert labels_from(None)[1] == "wall|left wall|right wall"         # SAM3: one surface per phrase
+
+
+def test_parse_surfaces_lines_or_semicolons():
+    from surfaces import DEFAULT_SURFACES, materials_of, parse_surfaces
+    pairs = parse_surfaces("Floor: oak parquet\n# a comment\nwall | Left wall: white plaster; lamp\nfloor: again")
+    assert pairs == [("floor", "oak parquet"), ("wall|left wall", "white plaster"), ("lamp", "")]
+    assert materials_of(pairs) == {"floor": "oak parquet", "wall": "white plaster"}
+    assert [label_name(lab) for lab, _ in parse_surfaces(DEFAULT_SURFACES)][:3] == ["floor", "wall", "ceiling"]

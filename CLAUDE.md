@@ -261,7 +261,9 @@ change that session: the user must reinstall from the UI or restart Mixar.
 - **Architecture chain (docs/arch-render.md, 2026-10-04):** blocked-out room (`tools/make_arch_scene.py` →
   `E:\zaki\arch_room.blend`) → Cycles → SAM3 surfaces (`blender_segment`, `surfaces.py`, `passes/segment.py`,
   `runtime/segmentation.py`) → labelled prompt → **Qwen edit** (best of Klein edit / Qwen depth / Qwen edit) →
-  Klein inpaint of one surface (`blender_mask_image`) → **SeedVR2 4K ×2** (user rejected PiD ×4: squiggle pattern; SeedVR2 int8: grid; Qwen depth at 4 MP: blurred, layout lost). Driver
+  Klein inpaint of one surface (`blender_mask_image`) → **SeedVR2 4K ×2** (user rejected PiD ×4: squiggle pattern; SeedVR2 int8: grid; Qwen depth at 4 MP: blurred, layout lost). **Graph node `Surfaces (SAM3)`** (`graph/tree.py ComfyQSurfacesNode`, booked by `run._book_surfaces` as a
+  background task; Prompt output = found surfaces + the list's materials, masks reused on material edits; full
+  preset run verified headless 388 s). Driver
   `tools/arch_render.py` (steps); class preset *Architecture: Cycles → photoreal → 4K upscale (Qwen edit + SeedVR2)*. Not in the user's
   Blender yet (sandbox only) until installed.
 - **Other:** theme Mixar Forest; multi-model orchestration page https://claude.ai/artifact/C8EPx3vgnJVsRXvZNjB7ug

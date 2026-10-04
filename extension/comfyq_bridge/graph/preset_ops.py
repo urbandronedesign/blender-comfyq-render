@@ -150,6 +150,7 @@ _NODE_PROPS = {
     "ComfyQAudioFileNode": ("filepath",), "ComfyQPromptNode": ("text",),
     "ComfyQViewerNode": ("auto",), "ComfyQImportNode": ("auto", "replace", "place", "on_ground", "size"),
     "ComfyQSaveNode": ("auto", "folder", "pattern"),
+    "ComfyQSurfacesNode": ("intro", "outro", "threshold"),
 }
 
 
@@ -167,6 +168,8 @@ def serialize(tree, label: str, description: str) -> dict:
             d[k] = getattr(n, k)
         if n.bl_idname == "ComfyQPromptNode" and n.text_block is not None:
             d["text"] = n.text_block.as_string()
+        elif n.bl_idname == "ComfyQSurfacesNode":
+            d["text"] = n.value()                       # the surfaces list: "label: material" lines
         elif n.bl_idname == "ComfyQImageNode" and n.image is not None and n.image.filepath:
             d["image"] = bpy.path.abspath(n.image.filepath)
         elif n.bl_idname == WORKFLOW_NODE:
@@ -205,6 +208,11 @@ def build_saved(data: dict, tree, scene=None) -> list:
             txt = bpy.data.texts.new(f"ComfyQ prompt · {node.name}")
             txt.write(d["text"])
             node.text, node.text_block = "", txt
+        elif d["type"] == "ComfyQSurfacesNode" and d.get("text"):
+            if node.text_block is None:
+                node.text_block = bpy.data.texts.new(f"ComfyQ surfaces · {node.name}")
+            node.text_block.clear()
+            node.text_block.write(d["text"])
         elif d["type"] == "ComfyQImageNode" and d.get("image") and Path(d["image"]).is_file():
             node.image = bpy.data.images.load(d["image"], check_existing=True)
         elif d["type"] == WORKFLOW_NODE and d.get("workflow_id") in SESSION.specs:

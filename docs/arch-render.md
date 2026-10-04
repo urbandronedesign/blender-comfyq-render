@@ -50,8 +50,9 @@ For Qwen edit the prompt starts "Turn <image1>, a 3D render, into a real photogr
   `prompt`) → `comfyq_submit` Qwen edit with the Cycles render + `prompt` → `blender_mask_image` (render + a
   surface mask) → `comfyq_submit` Klein inpaint → `comfyq_submit` SeedVR2 4K → `blender_import`. Needs each model served
   (teacher tools / solo).
-- **Students (graph)**: class preset *Architecture: Cycles render → photoreal → 4K upscale (Qwen edit + SeedVR2)*
-  (edit the materials in its Prompt node).
+- **Students (graph)**: class preset *Architecture: Cycles render → photoreal → 4K upscale (Qwen edit + SeedVR2)*:
+  Scene Render (Cycles) → **Surfaces (SAM3)** node (list `label: material`, Before / After text) → its *Prompt*
+  output into Qwen edit → SeedVR2 4K. A material edit only rewrites the prompt; the masks are reused.
 - **Headless, step by step** (what produced the table): `tools/arch_render.py <scene> <out> base | segment |
   render | refine --from=<png> --labels=floor --material="…" | upscale --from=<png>`.
 
@@ -60,7 +61,6 @@ For Qwen edit the prompt starts "Turn <image1>, a 3D render, into a real photogr
   standard fix is a *tiled re-detail* workflow (Qwen / Klein re-rendering overlapping tiles at low denoise) —
   a new ComfyQ workflow, to ask b2renger for. Rendering bigger is not an option today: Qwen control breaks
   at 4 MP and ComfyQ's upload box (1920×1080) caps the edit workflows' input.
-- Segmentation is not in the graph yet (no SAM3 node): the prompt node is filled by hand or by an agent.
 - Qwen outputs 1920×1088 (over ComfyQ's 1920×1080 upload box): masks and uploads are shrunk to 1904×1080.
 - Blender knows the exact surfaces (object/material IDs): a Blender ID-mask pass would be exact and free;
   SAM3 is the right tool when the picture is not from Blender (photos, AI renders) or names are missing.

@@ -81,10 +81,12 @@ long list by lesson or task.
   background, whole object), TRELLIS2 turns it into a textured 3D model (~6 min), imported beside the scene, on
   the ground, 4.5 m long (Import node › Size). Two models: in class, both must be served (or use solo mode).
 - **Architecture: Cycles render → photoreal → 4K upscale (Qwen edit + SeedVR2)**: a Cycles render of a
-  blocked-out room made photoreal by Qwen Image 2.1 edit (keeps the geometry almost pixel for pixel), then
-  SeedVR2 4K (~×2, 4096 px; PiD and SeedVR2 int8 left repeating patterns). The Prompt node names each surface and its material ("The floor is …. The wall is …"): students
-  edit the materials. An agent can fill it from SAM3 (`blender_segment`) and repaint one surface with Klein
-  inpaint (`blender_mask_image`): see [arch-render.md](arch-render.md). Two models (Qwen edit, SeedVR2 4K).
+  blocked-out room → **Surfaces (SAM3)** node: SAM3 finds each surface of its list (floor, walls, ceiling,
+  window, door, sofa, table, rug, shelf, lamp) and writes the prompt naming them with their materials → Qwen
+  Image 2.1 edit (keeps the geometry almost pixel for pixel) → SeedVR2 4K (~×2, 4096 px). Students change the
+  materials in the Surfaces node's list (`floor: polished concrete`); that only rewrites the prompt. Three
+  models (SAM3, Qwen edit, SeedVR2 4K): in class, serve them, or use solo mode. Repainting one surface (Klein
+  inpaint with its SAM3 mask) is done by an agent (`blender_mask_image`): see [arch-render.md](arch-render.md).
 
 ### The workflow library (one preset per image / video workflow)
 `presets\library\` in this repository holds 48 ready-made graphs, one per workflow of ComfyQ's image and

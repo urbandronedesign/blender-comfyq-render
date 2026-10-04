@@ -7,7 +7,9 @@ advanced by the add-on timer (`tick_all`). Results stay on their nodes (saved wi
 """
 from __future__ import annotations
 
+import json
 import random
+import threading
 import time
 from pathlib import Path
 
@@ -20,7 +22,16 @@ from ..props import INT_MAX
 from ..runtime import serving
 from ..runtime.session import SESSION
 from . import engine, kinds
-from .tree import TREE, WORKFLOW_NODE, frame_number, remember_result, socket_kind, upstream
+from .tree import (
+    RUN_NODES,
+    SURFACES_NODE,
+    TREE,
+    WORKFLOW_NODE,
+    frame_number,
+    remember_result,
+    socket_kind,
+    upstream,
+)
 
 SCENE_SOURCES = {"ComfyQSceneRenderNode", "ComfyQMaskNode", "ComfyQSceneAnimationNode"}
 RUNS: dict[str, Run] = {}            # tree name -> the run in progress
@@ -63,6 +74,8 @@ def _own_hash(node, scene) -> str:
         return engine.settings_hash(idn, str(p), p.stat().st_mtime if p and p.is_file() else 0)
     if idn == "ComfyQPromptNode":
         return engine.settings_hash(idn, node.value())
+    if idn == SURFACES_NODE:          # the list (labels + materials), the text around it, the threshold
+        return engine.settings_hash(idn, node.value(), node.intro, node.outro, round(node.threshold, 3))
     return engine.settings_hash(idn, node.name)
 
 
@@ -71,7 +84,7 @@ def describe(tree, scene) -> dict[str, engine.GNode]:
     for node in tree.nodes:
         if node.bl_idname == "NodeReroute" or node.bl_idname == "NodeFrame":
             continue
-        wf = node.bl_idname == WORKFLOW_NODE
+        wf = node.bl_idname in RUN_NODES
         nodes[node.name] = engine.GNode(
             name=node.name, workflow=wf, own=_own_hash(node, scene),
             inputs={key: src.name for key, src in _links_into(node).items()},
@@ -185,7 +198,7 @@ class Run:
         if sw["state"] == "loading" and SESSION.connected and wf_id in SESSION.served_ids():
             self.switch, self.switched = None, True
             for node in tree.nodes:
-                if node.bl_idname == WORKFLOW_NODE and node.workflow_id == wf_id and node.name in self.pending:
+                if node.bl_idname in RUN_NODES and node.workflow_id == wf_id and node.name in self.pending:
                     node.note = ""
             SESSION.status_note = f"Solo: “{_wf_name(wf_id)}” loaded"
             return True
@@ -217,6 +230,9 @@ class Run:
     def _book(self, tree, scene, name: str) -> None:
         from ..ops.generate import book
         node = tree.nodes.get(name)
+        if node is not None and node.bl_idname == SURFACES_NODE:
+            self._book_surfaces(tree, scene, node)
+            return
         specs = SESSION.specs.get(node.workflow_id) if node else None
         if node is None or specs is None:
             self._fail(tree, name, "workflow settings not loaded")
@@ -246,6 +262,74 @@ class Run:
 
         book(scene, node.workflow_id, specs, values, uploads, purpose="graph",
              label=f"Graph · {node.draw_label()}", on_booked=booked, on_error=failed)
+
+    def _book_surfaces(self, tree, scene, node) -> None:
+        """SAM3 for each label of the list, in the background (one job per phrase); then the node's
+        Prompt output names what was found. Same picture, labels and threshold as last time = the masks
+        are reused (a material edit only rewrites the prompt)."""
+        from ..passes import segment as seg
+        from ..runtime import segmentation
+        from ..surfaces import parse_surfaces
+        name = node.name
+        src = _links_into(node).get("Image")
+        if src is None:
+            self._fail(tree, name, "Link a picture into Image (a Scene Render, an image, a workflow's result)")
+            return
+        try:
+            pic = self._file(scene, src, _PICTURE)
+        except RuntimeError as e:
+            self._fail(tree, name, str(e))
+            return
+        labels = [lab for lab, _m in parse_surfaces(node.value())]
+        if not labels:
+            self._fail(tree, name, "Write at least one surface (label: material)")
+            return
+        key = engine.settings_hash(labels, round(node.threshold, 3), engine.node_hash(self.nodes, src.name))
+        same = node.masks_key == key and node.found() and node.result and Path(node.result).is_file()
+        if same and all(Path(r["mask"]).is_file() for r in node.found()):
+            remember_result(node, "", node.result, self.hashes[name])
+            node.note = ""
+            self.pending.discard(name)
+            return
+        node.note, node.pending_hash = f"SAM3: {len(labels)} label(s)…", self.hashes[name]
+        self.booking.add(name)
+        client, thr = SESSION.client, node.threshold
+        out = seg.work_dir(f"graph_{segmentation.safe(name)}_{time.strftime('%Y%m%d_%H%M%S')}")
+        tree_name = tree.name
+
+        def note(msg):
+            def go():
+                t = bpy.data.node_groups.get(tree_name)
+                n = t.nodes.get(name) if t is not None else None
+                if n is not None:
+                    n.note = f"SAM3: {msg}"
+            SESSION.later(go)
+
+        def work():
+            return segmentation.segment(client, pic, labels, out, _on_main, thr, progress=note)
+
+        def done(res):
+            self.booking.discard(name)
+            t = self.tree()
+            n = t.nodes.get(name) if t is not None else None
+            if n is None:
+                self.pending.discard(name)
+                return
+            n.regions = json.dumps(segmentation.region_dicts(res["regions"]))
+            n.masks_key = key
+            missed = [r.label for r in res["regions"] if not r.found] + list(res["errors"])
+            n.note = f"Not found: {', '.join(missed)}" if missed else ""
+            if res["overlay"]:
+                remember_result(n, "", res["overlay"], self.hashes[name])
+                self.pending.discard(name)
+            else:
+                self._fail(t, name, "Failed: SAM3 found none of the surfaces")
+
+        def failed(msg):
+            t = self.tree()
+            if t is not None:
+                self._fail(t, name, f"Failed: {msg}")
+        SESSION.run(work, done, label="Finding surfaces", on_error=failed)
 
     def _collect(self, scene, node, specs) -> tuple[dict, dict[str, Path]]:
         current = node.current_values()
@@ -298,7 +382,7 @@ class Run:
             p = Path(bpy.path.abspath(src.filepath)) if src.filepath else None
             if p is None or not p.is_file():
                 raise RuntimeError(f"“{src.name}”: choose a file")
-        elif idn == WORKFLOW_NODE:
+        elif idn in RUN_NODES:
             p = Path(src.result) if src.result else None
             if p is None or not p.is_file():
                 raise RuntimeError(f"“{src.name}” has no result yet")
@@ -332,9 +416,40 @@ def pick_result(files: list[Path], kind: str) -> Path:
     return next((f for f in files if f.suffix.lower() in _EXTS.get(kind, ())), files[0])
 
 
+class _Picture:                     # what a Surfaces node asks of its Image input (any size: SAM3 has no limit)
+    max_input_edge = None
+    label = "Image"
+
+
+_PICTURE = _Picture()
+
+
+def _on_main(fn, timeout: float = 300.0):
+    """Run `fn` on Blender's main thread (from a worker) and return its result."""
+    if threading.current_thread() is threading.main_thread():
+        return fn()
+    done, box = threading.Event(), {}
+
+    def go():
+        try:
+            box["v"] = fn()
+        except Exception as e:  # noqa: BLE001 - re-raised in the worker
+            box["e"] = e
+        finally:
+            done.set()
+    SESSION.later(go)
+    if not done.wait(timeout):
+        raise RuntimeError("Blender did not answer in time")
+    if "e" in box:
+        raise box["e"]
+    return box["v"]
+
+
 def _text(src) -> str:
     if src.bl_idname == "ComfyQPromptNode":
         return src.value()
+    if src.bl_idname == SURFACES_NODE:
+        return src.prompt()
     if src.bl_idname == WORKFLOW_NODE and src.result and Path(src.result).is_file():
         return Path(src.result).read_text(encoding="utf-8", errors="replace").strip()
     return ""
@@ -381,7 +496,8 @@ def start(tree, scene, targets: list[str], selected: list[str], force: bool = Fa
     if not todo:
         return False, "Nothing to run: add a workflow node"
     served = SESSION.served_ids()
-    unloaded = [n for n in todo if tree.nodes[n].workflow_id not in SESSION.specs]
+    unloaded = [n for n in todo if tree.nodes[n].bl_idname == WORKFLOW_NODE
+                and tree.nodes[n].workflow_id not in SESSION.specs]
     if unloaded:
         return False, "Still loading the settings of: " + ", ".join(unloaded)
     unserved = [tree.nodes[n].draw_label() for n in todo if tree.nodes[n].workflow_id not in served]
@@ -396,6 +512,10 @@ def start(tree, scene, targets: list[str], selected: list[str], force: bool = Fa
     missing = []
     for name in todo:
         node = tree.nodes[name]
+        if node.bl_idname == SURFACES_NODE:
+            if "Image" not in _links_into(node):
+                missing.append(f"{name} › Image")
+            continue
         specs = SESSION.specs[node.workflow_id]
         cur = node.current_values()
         linked = set(_links_into(node))

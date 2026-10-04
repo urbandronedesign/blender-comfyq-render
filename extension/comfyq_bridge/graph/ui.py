@@ -143,6 +143,9 @@ class COMFYQ_MT_graph_scene(bpy.types.Menu):
         for cls in SOURCE_NODES:
             self.layout.operator(COMFYQ_OT_graph_add.bl_idname, text=cls.bl_label, icon=cls.bl_icon).node_type = \
                 cls.bl_idname
+        self.layout.separator()
+        self.layout.operator(COMFYQ_OT_graph_add.bl_idname, text="Surfaces (SAM3) → prompt",
+                             icon="MATERIAL").node_type = "ComfyQSurfacesNode"
 
 
 class COMFYQ_OT_graph_clear(bpy.types.Operator):
@@ -726,6 +729,8 @@ def sync_all() -> None:
                 _adopt_result(tree, node)
             elif node.bl_idname == "ComfyQImageNode" and node.image is not None and node.image.preview is None:
                 node.image.preview_ensure()
+            elif node.bl_idname == "ComfyQSurfacesNode" and node.result:
+                _overlay_preview(node.result)
             elif node.bl_idname == "ComfyQVideoFileNode" and node.filepath:
                 movie_thumbnail(bpy.path.abspath(node.filepath))
             elif node.bl_idname == "ComfyQSceneAnimationNode" and animation_path():
@@ -736,6 +741,21 @@ def sync_all() -> None:
         img = bpy.data.images.get(name)
         if img is not None and img.preview is None and graph_trees():
             img.preview_ensure()
+
+
+def _overlay_preview(path: str) -> None:
+    from pathlib import Path
+    p = Path(path)
+    if not p.is_file():
+        return
+    img = bpy.data.images.get(p.name)
+    if img is None:
+        try:
+            img = bpy.data.images.load(str(p), check_existing=True)
+        except RuntimeError:
+            return
+    if img.preview is None:
+        img.preview_ensure()
 
 
 _ACTIVE: dict[str, str] = {}        # tree name -> active node last shown in the viewer
@@ -761,7 +781,7 @@ def _follow_active(tree) -> None:
             _PLAY["on"] = False
             show_media(area, media)
     text = None
-    if node.bl_idname == "ComfyQPromptNode":
+    if node.bl_idname in ("ComfyQPromptNode", "ComfyQSurfacesNode"):
         text = node.text_block
     elif node.bl_idname == WORKFLOW_NODE:
         text = next((it.text for it in node.params if it.workflow_id == node.workflow_id and it.text is not None),
@@ -792,7 +812,7 @@ def _node_media(node):
     """The image/movie datablock a node shows (its result, render, file), loading files if needed."""
     from pathlib import Path
     path = ""
-    if node.bl_idname == WORKFLOW_NODE:
+    if node.bl_idname in (WORKFLOW_NODE, "ComfyQSurfacesNode"):
         path = node.result
     elif node.bl_idname == "ComfyQImageNode":
         return node.image

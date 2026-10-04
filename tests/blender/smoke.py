@@ -872,6 +872,55 @@ if "utility_video_segment_sam3" not in SESSION.served_ids():     # never books S
     check(err and "not served" in out["error"], "MCP blender_segment refuses while SAM3 is not served")
 err, out = mcp_tool("blender_task_status")
 check(not err and "task" in out, f"MCP blender_task_status ({(out.get('task') or {}).get('kind')})")
+# Surfaces node (SAM3 → prompt) in the graph: no SAM3 job here (found surfaces are faked)
+from bl_ext.user_default.comfyq_bridge.graph import outputs as _gout
+from bl_ext.user_default.comfyq_bridge.graph import preset_ops as _gpo
+from bl_ext.user_default.comfyq_bridge.graph import run as _grun
+
+_st = bpy.data.node_groups.new("Surfaces smoke", "ComfyQGraphTree")
+_sr, _sf, _sv = (_st.nodes.new(t) for t in ("ComfyQSceneRenderNode", "ComfyQSurfacesNode", "ComfyQViewerNode"))
+_st.links.new(_sr.outputs[0], _sf.inputs["Image"])
+_st.links.new(_sf.outputs["Prompt"], _sv.inputs[0])
+_sf.regions = json.dumps([
+    {"label": "wall", "found": True, "coverage_pct": 34.5, "where": "across the picture", "bbox": [0, 0, 1, 0.8],
+     "mask": str(_mpath)},
+    {"label": "floor", "found": True, "coverage_pct": 12.1, "where": "bottom", "bbox": [0, 0.7, 1, 1], "mask": str(_mpath)}])
+_sp = _sf.prompt()
+check(_sp.startswith(_sf.intro) and _sp.index("The wall is smooth") < _sp.index("The floor is wide-plank")
+      and _sp.endswith(_sf.outro), f"Surfaces node: prompt from the found surfaces + the list's materials ({_sp[:90]}…)")
+_sf.text_block.clear()
+_sf.text_block.write("floor: polished concrete\nwall|left wall|right wall: exposed brick")
+check("The floor is polished concrete." in _sf.prompt() and "exposed brick" in _sf.prompt(),
+      "Surfaces node: a material edit rewrites the prompt (no new segmentation)")
+_gd = _grun.describe(_st, scene)
+check(_gd[_sf.name].workflow and _gd[_sf.name].inputs == {"Image": _sr.name} and _grun._text(_sf) == _sf.prompt(),
+      "Surfaces node: booked by graph runs, fed by its Image input, its Prompt goes downstream")
+_lm = _gout.linked(_sv)
+check(_lm is not None and _lm.text == _sf.prompt(), "Surfaces node › Viewer gets the prompt text")
+_data = _gpo.serialize(_st, "Surfaces smoke", "")
+_st2 = bpy.data.node_groups.new("Surfaces smoke 2", "ComfyQGraphTree")
+_made = _gpo.build_saved(_data, _st2, scene)
+_sf2 = next((n for n in _made if n.bl_idname == "ComfyQSurfacesNode"), None)
+check(_sf2 is not None and _sf2.value() == _sf.value() and _sf2.intro == _sf.intro and len(_st2.links) == 2,
+      "Surfaces node: saved in a preset and rebuilt (list, text, links)")
+if "utility_video_segment_sam3" not in SESSION.served_ids() and not _grun.solo_on():
+    _ok, _msg = _grun.start(_st, scene, [_sf.name], [])
+    check(not _ok and "Not served" in _msg and "Surfaces" in _msg, f"Surfaces node: not run while SAM3 is not served ({_msg})")
+_arch = next((Path(__file__).resolve().parents[2] / "presets" / "class").glob("Architecture*SeedVR2*.json"))
+_ad = json.loads(_arch.read_text(encoding="utf-8"))
+for _w in {d["workflow_id"] for d in _ad["nodes"] if d.get("workflow_id") and d["type"] == "ComfyQWorkflowNode"}:
+    from bl_ext.user_default.comfyq_bridge.ops.workflow import request_specs as _rq
+    _rq(_w)
+pump_until(lambda: all(d["workflow_id"] in SESSION.specs for d in _ad["nodes"]
+                       if d["type"] == "ComfyQWorkflowNode"), 30, "architecture preset specs")
+_st3 = bpy.data.node_groups.new("Arch smoke", "ComfyQGraphTree")
+_m3 = _gpo.build_saved(_ad, _st3, scene)
+_l3 = {(lk.from_node.bl_idname, lk.to_node.bl_idname, lk.to_socket.identifier) for lk in _st3.links}
+check(("ComfyQSurfacesNode", "ComfyQWorkflowNode", "textencodeqwenimage21_prompt_459_474") in _l3
+      and ("ComfyQSceneRenderNode", "ComfyQSurfacesNode", "Image") in _l3
+      and len(_l3) == 6, f"Architecture class preset: Cycles → Surfaces (SAM3) → Qwen edit prompt → SeedVR2 ({len(_l3)} links)")
+for _t in (_st, _st2, _st3):
+    bpy.data.node_groups.remove(_t)
 # teacher tools (load models): hidden + refused while the preference is off; only safe calls here
 err, st = mcp_tool("comfyq_server_status", workflow_id=unserved or wf)
 check(not err and {s_["workflow_id"] for s_ in st["served"]} == SESSION.served_ids() and st["card_gb"]

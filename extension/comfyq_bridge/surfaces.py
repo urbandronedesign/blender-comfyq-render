@@ -88,3 +88,37 @@ def labels_from(text: str | list[str] | tuple[str, ...] | None) -> list[str]:
         if it and it not in out:
             out.append(it)
     return out
+
+
+# The Surfaces node's list: one surface per line (or ";"), "label: material". A label may be a phrase group.
+DEFAULT_SURFACES = """floor: wide-plank light oak parquet with a satin finish
+wall|left wall|right wall: smooth warm-white lime plaster
+ceiling: flat white plaster
+window: black steel-framed glazing looking onto a sunny garden
+door: a solid walnut door
+sofa: a light grey linen sofa with cushions
+table: a dark walnut coffee table
+rug: a cream hand-woven wool rug
+shelf: a walnut bookcase with books and ceramics
+lamp: a matte black metal pendant lamp"""
+
+
+def parse_surfaces(text: str) -> list[tuple[str, str]]:
+    """'floor: oak parquet\nwall|left wall: plaster; lamp' -> [('floor', 'oak parquet'),
+    ('wall|left wall', 'plaster'), ('lamp', '')]. Labels lower-case, duplicates dropped (first kept)."""
+    out: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for raw in text.replace(";", "\n").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        label, _, material = line.partition(":")
+        label = "|".join(p.strip().lower() for p in label.split("|") if p.strip())
+        if label and label_name(label) not in seen:
+            seen.add(label_name(label))
+            out.append((label, material.strip()))
+    return out
+
+
+def materials_of(pairs: list[tuple[str, str]]) -> dict[str, str]:
+    return {label_name(lab): mat for lab, mat in pairs if mat}

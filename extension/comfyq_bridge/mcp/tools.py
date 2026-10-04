@@ -687,6 +687,10 @@ def _node_dict(n) -> dict:
                  note=n.note or None)
     elif n.bl_idname == "ComfyQPromptNode":
         d["text"] = n.value()
+    elif n.bl_idname == "ComfyQSurfacesNode":
+        d.update(surfaces=n.value(), intro=n.intro, outro=n.outro, threshold=round(n.threshold, 3),
+                 found=[f"{r['label']} {r['coverage_pct']}%" for r in n.found()], prompt=n.prompt() or None,
+                 overlay=n.result or None, note=n.note or None)
     for k in ("style", "frame", "filepath", "auto", "folder", "status"):
         if hasattr(n, k) and k in n.bl_rna.properties:
             d[k] = getattr(n, k)
@@ -758,6 +762,12 @@ def blender_graph_set(args: dict) -> dict:
         if n.bl_idname == "ComfyQPromptNode" and key in ("text", "prompt"):
             n.text_block, n.text = None, str(value)
             return {n.name: {"text": n.text}}
+        if n.bl_idname == "ComfyQSurfacesNode" and key in ("text", "surfaces"):
+            if n.text_block is None:
+                n.text_block = bpy.data.texts.new(f"ComfyQ surfaces · {n.name}")
+            n.text_block.clear()
+            n.text_block.write(str(value))
+            return {n.name: {"surfaces": n.value(), "prompt_now": n.prompt() or None}}
         if n.bl_idname == "ComfyQImageNode" and key in ("image", "filepath"):
             path = Path(str(value)).expanduser()
             if not path.is_file():
@@ -800,6 +810,11 @@ def blender_graph_status(args: dict) -> dict:
         t = _tree()
         out = []
         for n in t.nodes:
+            if n.bl_idname == "ComfyQSurfacesNode":
+                out.append({"node": n.name, "workflow_id": n.workflow_id, "state": running(t.name, n.name) or "idle",
+                            "found": [r["label"] for r in n.found()], "result": n.result or None,
+                            "note": n.note or None})
+                continue
             if n.bl_idname != WORKFLOW_NODE:
                 continue
             v = SESSION.jobs.get(n.job_id) if n.job_id else None
@@ -927,7 +942,8 @@ TOOLS = [
          "`keyframe_v2v`, `image_3d`, `image_upscale` (workflows picked from what is served), or a saved "
          "preset's label.", obj({"preset": _S}, ("preset",)), blender_graph_add_preset),
     Tool("blender_graph_set", "Change a node: a workflow node's setting by key (or `prompt`), a Prompt "
-         "node's `text`, a source's `style`/`frame`/`filepath` (an Image node's `image` = a local image file), "
+         "node's `text`, a Surfaces node's `surfaces` ('label: material' lines), a source's `style`/`frame`/"
+         "`filepath` (an Image node's `image` = a local image file), "
          "an output's `auto`/`folder`/`pattern`.",
          obj({"node": _S, "key": _S, "value": {}}, ("node", "key", "value")), blender_graph_set),
     Tool("blender_graph_run", "Run the graph (or one node and what it needs). Up-to-date results are reused; "

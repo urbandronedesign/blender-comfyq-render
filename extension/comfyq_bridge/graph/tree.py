@@ -617,6 +617,118 @@ class ComfyQWorkflowNode(_Node, bpy.types.Node):
         op.job_id, op.path = self.job_id, str(path)
 
 
+# -- surfaces: SAM3 segmentation by name → a prompt naming each surface and its material ----------------
+SURFACES_NODE = "ComfyQSurfacesNode"
+SAM3_ID = "utility_video_segment_sam3"
+_INTRO = ("Photorealistic architectural photograph, natural daylight, soft realistic shadows, realistic "
+          "materials.")
+_OUTRO = "Keep the exact layout, camera, perspective and proportions."
+
+
+class ComfyQSurfacesNode(_Node, bpy.types.Node):
+    """SAM3 finds each named surface (floor, walls, window…) in the picture: Prompt = the surfaces it found,
+    each with its material; Overlay = the picture with every surface tinted"""
+    bl_idname = SURFACES_NODE
+    bl_label = "Surfaces (SAM3)"
+    bl_icon = "MATERIAL"
+    bl_width_default = 400
+    bl_width_min = 300
+
+    workflow_id: StringProperty(default=SAM3_ID)     # what ComfyQ must serve (solo mode loads it)
+    text: StringProperty(name="Surfaces", description="label: material; … (a|b|c = one label from several "
+                                                       "SAM3 phrases, merged)")
+    text_block: PointerProperty(type=bpy.types.Text, name="Surfaces text")
+    intro: StringProperty(name="Before", default=_INTRO, description="Text before the surfaces (style, light)")
+    outro: StringProperty(name="After", default=_OUTRO, description="Text after the surfaces")
+    threshold: FloatProperty(name="Detection threshold", default=0.5, min=0.1, max=0.9, step=5,
+                             description="SAM3: lower finds more (looser), higher is stricter")
+    note: StringProperty()
+    job_id: StringProperty()
+    result: StringProperty(subtype="FILE_PATH")       # the overlay
+    result_hash: StringProperty()
+    pending_hash: StringProperty()
+    masks_key: StringProperty()                       # picture + labels + threshold the masks were made from
+    regions: StringProperty()                         # JSON: label, coverage, bbox, mask file
+    history: CollectionProperty(type=ComfyQResultRecord)
+
+    def init(self, context):
+        from ..surfaces import DEFAULT_SURFACES
+        self.inputs.new(SOCKET_IDNAME["image"], "Image")
+        self.outputs.new(SOCKET_IDNAME["text"], "Prompt")
+        self.outputs.new(SOCKET_IDNAME["image"], "Overlay")
+        txt = bpy.data.texts.new("ComfyQ surfaces")
+        txt.write(DEFAULT_SURFACES)
+        self.text_block = txt
+
+    def value(self) -> str:
+        return self.text_block.as_string() if self.text_block else self.text
+
+    def draw_label(self):
+        return self.label or self.bl_label
+
+    def found(self) -> list[dict]:
+        try:
+            return json.loads(self.regions) if self.regions else []
+        except ValueError:
+            return []
+
+    def prompt(self) -> str:
+        """The surfaces SAM3 found, named with the materials of the list as it is NOW (editing a material
+        needs no new segmentation)."""
+        from ..surfaces import Region, materials_of, parse_surfaces, surface_prompt
+        regions = [Region(r["label"], r["coverage_pct"] / 100, tuple(r["bbox"]), r.get("mask", ""))
+                   for r in self.found()]
+        return surface_prompt(regions, materials_of(parse_surfaces(self.value())), self.intro, self.outro)
+
+    def draw_buttons(self, context, layout):
+        from pathlib import Path
+
+        from ..ui.studio import wrap
+        from .run import running
+        served = self.workflow_id in SESSION.served_ids()
+        layout.label(text="SAM3 " + ("served" if served else "not served (solo mode loads it on Run)"),
+                     icon="CHECKMARK" if served else "INFO")
+        layout.label(text="One surface per line — label: material", icon="MATERIAL")
+        draw_text_field(layout, self, "text", "text_block", self, "", True,
+                        "floor: oak parquet; wall|left wall|right wall: white plaster")
+        col = layout.column(align=True)
+        col.prop(self, "intro", text="Before")
+        col.prop(self, "outro", text="After")
+        layout.prop(self, "threshold")
+        if self.note:
+            box = layout.box()
+            box.alert = self.note.startswith(("Failed", "Not run", "Could not", "Link"))
+            for line in wrap(self.note, 60, max_lines=3):
+                box.label(text=line)
+        row = layout.row(align=True)
+        row.scale_y = 1.4
+        state = running(self.id_data.name, self.name)
+        if state:
+            row.label(text={"booked": "Segmenting…", "sending": "Segmenting…"}.get(state, "Waiting for its inputs"),
+                      icon="SORTTIME")
+        else:
+            target(row.operator("comfyq.graph_run", text="Find surfaces", icon="VIEWZOOM"), self)
+            op = row.operator("comfyq.graph_run", text="", icon="FILE_REFRESH")
+            target(op, self)
+            op.force = True
+        found = self.found()
+        if not found:
+            return
+        path = Path(self.result) if self.result else None
+        img = bpy.data.images.get(path.name) if path is not None and path.is_file() else None
+        if img is not None:
+            _thumbnail(layout, img, scale=10.0)
+        box = layout.box().column(align=True)
+        box.label(text=f"Found {sum(1 for r in found if r.get('found', True))}: " +
+                  ", ".join(f"{r['label']} {r['coverage_pct']:.0f}%" for r in found if r.get("found", True)))
+        for line in wrap(self.prompt(), 64, max_lines=6):
+            box.label(text=line)
+        if path is not None and path.is_file():
+            btn = layout.row(align=True)
+            btn.operator("comfyq.show_media", text="Show overlay", icon="PLAY").path = str(path)
+            btn.operator("comfyq.open_media", text="Open", icon="WINDOW").path = str(path)
+
+
 # -- output nodes: act on what is linked into them (no job of their own) ------------------------------
 class _OutputNode(_Node):
     bl_width_default = 300
@@ -752,7 +864,8 @@ SOURCE_LABEL = {"image": "Scene render", "video": "Scene animation", "mask": "Se
 
 NODE_CLASSES = (ComfyQImageNode, ComfyQSceneRenderNode, ComfyQMaskNode, ComfyQSceneAnimationNode,
                 ComfyQVideoFileNode, ComfyQAudioFileNode, ComfyQPromptNode, ComfyQWorkflowNode,
-                ComfyQViewerNode, ComfyQImportNode, ComfyQSaveNode)
+                ComfyQSurfacesNode, ComfyQViewerNode, ComfyQImportNode, ComfyQSaveNode)
+RUN_NODES = (WORKFLOW_NODE, SURFACES_NODE)       # nodes a graph run books (a ComfyQ job / a SAM3 segmentation)
 OUTPUT_CLASSES = (ComfyQViewerNode, ComfyQImportNode, ComfyQSaveNode)
 SOURCE_NODES = (ComfyQSceneAnimationNode, ComfyQSceneRenderNode, ComfyQMaskNode, ComfyQImageNode,
                 ComfyQVideoFileNode, ComfyQAudioFileNode, ComfyQPromptNode)
