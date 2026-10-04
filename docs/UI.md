@@ -157,7 +157,8 @@ Plays videos in the viewer **without moving the scene's timeline**.
 | Preferences: **Student name** | Name on your jobs; you can only cancel jobs booked under it | — |
 | **Profile** / **Server URL override** | Which ComfyQ to use (`%APPDATA%\comfyq-bridge\profiles.toml`; tokens never go in the .blend) | — |
 | **Connect on startup** | Connects when Blender starts | — |
-| **AI agents (MCP server)** + Port | Off by default. Lets AI agents on this PC (Claude Code, Codex) use the scene and ComfyQ through scoped tools; 127.0.0.1 only, new token each start. Shows the address and the launcher command to give the agent. See [AGENTS.md](AGENTS.md) | smoke `Preferences › AI agents (MCP server) starts it`, `MCP …`; `toolsgent_roundtrip.ps1` |
+| **Solo: load models on demand** + *Then serve the previous main workflow again* | Off by default; **never in class**. When you are alone on ComfyQ: **Run Graph** loads the model each node needs (alongside if it fits, else as ComfyQ's main workflow: ComfyQ restarts, about 1–2 min per switch), one model at a time, and puts the previous main workflow back at the end. Refused while anyone has a job on the server. Workflow nodes say *Loads on Run* instead of *Not served* and get a **Load Model** button (⇩) | smoke `solo: …` (ComfyQ's switch faked) |
+| **AI agents (MCP server)** + Port | Off by default. Lets AI agents on this PC (Claude Code, Codex) use the scene and ComfyQ through scoped tools; 127.0.0.1 only, new token each start. Shows the address and the launcher command to give the agent. See [AGENTS.md](AGENTS.md) | smoke `Preferences › AI agents (MCP server) starts it`, `MCP …`; `tools\agent_roundtrip.ps1` |
 
 The shortcut was **Ctrl+Shift+G** until 2026-10-03: in Object Mode Mixar/Blender run *Add to active
 collection* first, so it never reached ComfyQ.
@@ -211,7 +212,7 @@ the window opens if needed). Saved with the file.
 | *… when ready* | Acts once per new result (remembers the file + time it handled, also across saving and reopening). Linking a node that already has a result counts as new | smoke `… a new result (file changed) is saved again` |
 | **Reroute** | Works like in Blender's own editors: runs, type checks (an image through a reroute into a video input is still refused) and outputs follow it | smoke `Reroute: a run follows it`, `… still refused` |
 | Header width | Wide: labelled menus. Narrower: icons (names in tooltips), then *Run Graph* becomes ▶; very narrow: one **+** menu. Never truncated labels | `N3: the toolbar picks labels or icons by the header width` |
-| Header **Run Graph** | Runs the graph's last nodes (those that feed no other workflow node) | — |
+| Header **Run Graph** | Runs the graph's last nodes (those that feed no other workflow node). With **Solo** on (Preferences), first loads the models that are not served, one at a time | smoke `solo: …` |
 | Workflow node **Generate** | Runs this node: renders the scene sources it needs (fresh), books upstream workflow nodes that have no up-to-date result first, then this one. A result is reused while nothing it depends on changed (settings, prompts, links, the scene) | `node › Generate on B starts the chain A → B`, `Generate again reuses A and books only B` |
 | Workflow node ⟳ | Re-runs everything upstream too | — |
 | Status / progress, ✕ | *Waiting for its inputs*, *Sending…*, queue / progress bar; ✕ cancels the job and stops what depends on it | `node › ✕ cancels its job and ends the run` |

@@ -8,6 +8,7 @@ advanced by the add-on timer (`tick_all`). Results stay on their nodes (saved wi
 from __future__ import annotations
 
 import random
+import time
 from pathlib import Path
 
 import bpy
@@ -16,12 +17,14 @@ from ..client.params import is_disabled
 from ..importers.media import IMAGE_EXTS
 from ..passes import animation, render
 from ..props import INT_MAX
+from ..runtime import serving
 from ..runtime.session import SESSION
 from . import engine, kinds
 from .tree import TREE, WORKFLOW_NODE, frame_number, remember_result, socket_kind, upstream
 
 SCENE_SOURCES = {"ComfyQSceneRenderNode", "ComfyQMaskNode", "ComfyQSceneAnimationNode"}
 RUNS: dict[str, Run] = {}            # tree name -> the run in progress
+SWITCH_TIMEOUT_S = 900               # solo mode: a model switch restarts ComfyQ (1–3 min); give up after this
 
 
 # -- the graph as plain data -------------------------------------------------------------------------
@@ -79,7 +82,7 @@ def describe(tree, scene) -> dict[str, engine.GNode]:
 # -- a run -----------------------------------------------------------------------------------------------
 class Run:
     def __init__(self, tree, scene, todo: list[str], nodes: dict[str, engine.GNode], selected: list[str],
-                 after: list[str] | tuple = ()):
+                 after: list[str] | tuple = (), solo: bool = False, restore_to: str = ""):
         self.tree_name, self.scene_name = tree.name, scene.name
         self.nodes = nodes
         self.pending = set(todo)
@@ -91,6 +94,12 @@ class Run:
         self.renders: dict[tuple, Path] = {}          # one render per source per run (fan-out shares it)
         self.error = ""
         self.after = list(after)                       # output nodes to act on at the end (their Generate)
+        # solo mode: nodes whose model ComfyQ does not serve wait until nothing runs, then the run switches
+        # ComfyQ to that model (one switch at a time) and goes on; `restore_to` is served again at the end
+        self.solo = solo
+        self.restore_to = restore_to
+        self.switch: dict | None = None                # {"wf", "state": asking|loading|failed, "t0", "error"}
+        self.switched = False
 
     def tree(self):
         t = bpy.data.node_groups.get(self.tree_name)
@@ -112,19 +121,84 @@ class Run:
                 del self.booked[name]
             elif not view.job.ok:
                 self._fail(tree, name, f"{view.job.phase}: {view.job.error or 'no result'}")
+        if self.switch is not None and not self._switch_tick(tree):
+            return True                                # ComfyQ is loading a model (and may be restarting)
+        if self.solo and not SESSION.connected:
+            return True                                # reconnecting after a switch
+        served = SESSION.served_ids()
+        unserved = []
         for name in sorted(self.pending):
             if name in self.booked or name in self.booking:
                 continue
             if engine.ready(self.nodes, name, self.pending):
-                self._book(tree, scene, name)
+                if self.solo and tree.nodes[name].workflow_id not in served:
+                    unserved.append(name)
+                else:
+                    self._book(tree, scene, name)
+        if unserved and not self.booked and not self.booking:
+            self._start_switch(tree, tree.nodes[unserved[0]].workflow_id, unserved)
         if not self.pending and not self.booking:
             if self.after:
                 if not self.error:
                     act_outputs(tree, scene, self.after)
             else:
                 self._show_result(tree)
+            if self.switched and self.restore_to and self.restore_to not in SESSION.served_ids():
+                restore(self.restore_to)
             return False
         return True
+
+    # -- solo mode: load the model a node needs ------------------------------------------------------------
+    def _start_switch(self, tree, wf_id: str, waiting: list[str]) -> None:
+        client = SESSION.client
+        if client is None:
+            return
+        name = _wf_name(wf_id)
+        others = serving.blockers(client)
+        if others:                                     # someone's job: never switch under it; wait
+            SESSION.status_note = (f"Solo: waiting for {len(others)} job(s) on ComfyQ before loading “{name}” "
+                                   f"({others[0]})")
+            return
+        self.switch = {"wf": wf_id, "state": "asking", "t0": time.monotonic(), "error": ""}
+        for n in waiting:
+            node = tree.nodes.get(n)
+            if node is not None and node.workflow_id == wf_id:
+                node.note = "Loading its model in ComfyQ…"
+        SESSION.status_note = f"Solo: loading “{name}” in ComfyQ (ComfyQ restarts, about 1–2 min)…"
+        sw = self.switch
+
+        def work():
+            how = serving.choose(client, wf_id, "auto")
+            serving.serve(client, wf_id, how)
+            return how
+
+        def done(how):
+            sw.update(state="loading", how=how)
+
+        def failed(msg):
+            sw.update(state="failed", error=msg)
+        SESSION.run(work, done, on_error=failed)
+
+    def _switch_tick(self, tree) -> bool:
+        """True once the switch is over (the model is served, or it failed)."""
+        sw = self.switch
+        wf_id = sw["wf"]
+        if sw["state"] == "loading" and SESSION.connected and wf_id in SESSION.served_ids():
+            self.switch, self.switched = None, True
+            for node in tree.nodes:
+                if node.bl_idname == WORKFLOW_NODE and node.workflow_id == wf_id and node.name in self.pending:
+                    node.note = ""
+            SESSION.status_note = f"Solo: “{_wf_name(wf_id)}” loaded"
+            return True
+        late = time.monotonic() - sw["t0"] > SWITCH_TIMEOUT_S
+        if sw["state"] == "failed" or late:
+            why = sw["error"] or f"not served after {SWITCH_TIMEOUT_S // 60} min (see the ComfyQ console)"
+            self.switch = None
+            for name in [n for n in self.pending if tree.nodes.get(n) is not None
+                         and tree.nodes[n].workflow_id == wf_id]:
+                self._fail(tree, name, f"Could not load its model: {why}")
+            return True
+        return False
 
     def _fail(self, tree, name: str, why: str) -> None:
         node = tree.nodes.get(name)
@@ -268,6 +342,31 @@ def _text(src) -> str:
 
 
 # -- starting and advancing runs -------------------------------------------------------------------------
+def _wf_name(wf_id: str) -> str:
+    return next((w.name for w in SESSION.workflows if w.id == wf_id), wf_id)
+
+
+def restore(wf_id: str) -> None:
+    """Solo mode, end of a run: serve the previous main workflow again (unless someone booked meanwhile)."""
+    client = SESSION.client
+    if client is None or serving.blockers(client):
+        return
+
+    def work():
+        serving.serve(client, wf_id, serving.choose(client, wf_id, "auto"))
+
+    SESSION.status_note = f"Solo: serving “{_wf_name(wf_id)}” again (ComfyQ restarts)…"
+    SESSION.run(work, on_error=lambda msg: setattr(SESSION, "status_note", f"Solo: could not restore: {msg}"))
+
+
+def solo_on() -> bool:
+    from ..prefs import prefs
+    try:
+        return bool(prefs().solo_mode)
+    except KeyError:
+        return False
+
+
 def act_outputs(tree, scene, names) -> list[str]:
     from . import outputs
     msgs = []
@@ -300,8 +399,14 @@ def start(tree, scene, targets: list[str], selected: list[str], force: bool = Fa
     if unloaded:
         return False, "Still loading the settings of: " + ", ".join(unloaded)
     unserved = [tree.nodes[n].draw_label() for n in todo if tree.nodes[n].workflow_id not in served]
-    if unserved:
+    solo = bool(unserved) and solo_on()
+    if unserved and not solo:
         return False, "Not served right now (ask the teacher): " + ", ".join(unserved)
+    if solo:
+        others = serving.blockers(SESSION.client)
+        if others:
+            return False, (f"Solo mode: {len(others)} job(s) on ComfyQ ({others[0]}); models are only switched "
+                           f"when nobody is using the server")
     missing = []
     for name in todo:
         node = tree.nodes[name]
@@ -312,11 +417,18 @@ def start(tree, scene, targets: list[str], selected: list[str], force: bool = Fa
                     if s.is_media and s.required and s.key not in linked and not is_disabled(s, cur, specs)]
     if missing:
         return False, "Link these inputs first: " + "; ".join(missing)
-    run = Run(tree, scene, todo, nodes, selected, after)
+    restore_to = ""
+    if solo:
+        from ..prefs import prefs
+        restore_to = serving.main_workflow(SESSION.client) if prefs().solo_restore else ""
+    run = Run(tree, scene, todo, nodes, selected, after, solo=solo, restore_to=restore_to)
     RUNS[tree.name] = run
     run.tick()
     reused = [n for n in engine.order(nodes, targets) if n not in todo]
     msg = f"Running {len(todo)} job(s): " + " → ".join(todo)
+    if solo:
+        n_models = len({tree.nodes[n].workflow_id for n in todo if tree.nodes[n].workflow_id not in served})
+        msg += f" (solo: loads {n_models} model(s) in ComfyQ; each switch restarts it, about 1–2 min)"
     if reused:
         msg += f" (reusing {', '.join(reused)})"
     return True, msg

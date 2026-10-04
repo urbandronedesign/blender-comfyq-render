@@ -98,3 +98,5 @@ profile it runs with):
 Every job goes through ComfyQ's queue (one GPU, first come first served): long videos block others.
 Keep class presets short (a few seconds of animation, working resolution 512–768) and ask students
 to **cancel** (✕ on the node) jobs they no longer need.
+
+**Preparing alone (solo mode).** In class the queue needs one fixed model for everyone. When you are the only one on the server (preparing a lesson, testing presets), tick **Preferences › Add-ons › ComfyQ Bridge › Solo: load models on demand**: **Run Graph** then loads the model each node needs, one at a time (each switch restarts ComfyQ, about 1–2 min), and serves the previous main workflow again at the end. It refuses while anyone has a job on the server, but students' open pages still reconnect at each restart: **untick it before class.** (An AI agent can do the same with the teacher tools, see [AGENTS.md](AGENTS.md).)

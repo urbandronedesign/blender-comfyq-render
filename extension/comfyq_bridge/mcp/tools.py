@@ -14,6 +14,8 @@ from typing import Any
 
 import bpy
 
+from ..client.http import ComfyQError
+from ..runtime import serving
 from ..runtime.session import SESSION, cache_dir
 from .server import Tool, ToolError, obj
 
@@ -265,24 +267,14 @@ def comfyq_serve(args: dict) -> dict:
     _workflow(wf_id)
     if wf_id in SESSION.served_ids():
         return {"workflow_id": wf_id, "served": True, "message": "already served"}
-    info = client.server_lanes()
-    fit = (info.get("fit") or {}).get(wf_id) or {}
-    if how == "auto":
-        how = "alongside" if fit.get("ok") else "main"
-    if how == "alongside" and not fit.get("ok") and not force:
-        raise ToolError(f"{wf_id} does not fit alongside ({fit.get('reason')}: needs {fit.get('needGb')} GB, "
-                        f"{fit.get('freeGb')} GB free). Use how='main' (replaces the main workflow, ComfyQ "
-                        f"restarts), stop a lane first, or force=true when the size is unknown.")
-    busy = [ln.get("workflowId") for ln in info.get("lanes") or [] if ln.get("busy")]
-    if how == "main" and busy and not force:
-        raise ToolError(f"A job is running on {', '.join(busy)}. how='main' restarts ComfyQ and stops it: "
-                        f"wait for it, or pass force=true.")
+    try:
+        how = serving.choose(client, wf_id, how, force)
+    except ComfyQError as e:
+        raise ToolError(f"{e} (pass force=true to overrule)") from e
 
     def work():
-        if how == "alongside":
-            client.open_lane(wf_id, force=force)
-        else:
-            client.activate(wf_id)
+        serving.serve(client, wf_id, how, force)
+        if how == "main":
             time.sleep(5)                                  # ComfyQ goes down; don't read the old lanes
         deadline = time.monotonic() + SERVE_TIMEOUT_S
         while time.monotonic() < deadline:

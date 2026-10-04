@@ -517,11 +517,16 @@ class ComfyQWorkflowNode(_Node, bpy.types.Node):
             head.alert = True
             head.label(text="Unknown workflow", icon="ERROR")
         elif wf is not None:
+            from .run import solo_on
             served = wf.id in SESSION.served_ids()
+            solo = not served and solo_on()
             sub = head.row()
-            sub.alert = not served
-            sub.label(text="Served" if served else "Not served", icon="PLAY" if served else "ERROR")
+            sub.alert = not served and not solo
+            sub.label(text="Served" if served else ("Loads on Run" if solo else "Not served"),
+                      icon="PLAY" if served else ("IMPORT" if solo else "ERROR"))
             head.label(text=vram_badge(wf, shared_budget())[0], icon="MEMORY")
+            if solo:
+                head.operator("comfyq.graph_load_model", text="", icon="IMPORT").workflow_id = wf.id
         if self.note:
             box = layout.box()
             box.alert = True

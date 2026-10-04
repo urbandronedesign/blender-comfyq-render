@@ -435,6 +435,34 @@ if unserved:
     unlinked.change_workflow(unserved)
     ok, msg = grun.start(tree, scene, [unlinked.name], [])
     check(not ok and "Not served" in msg, f"graph run: refused when a workflow is not served ({msg[:60]})")
+# solo mode (Preferences): Run Graph loads the model a node needs. ComfyQ's switch is faked here: a smoke
+# test never changes what the live server serves
+t2i = next((w.id for w in SESSION.workflows if w.category == "t2i" and w.id not in SESSION.served_ids()
+            and not w.unavailable), None)
+if t2i:
+    from bl_ext.user_default.comfyq_bridge.runtime import serving as gserving
+    SESSION.specs[t2i] = SESSION.client.params(t2i)
+    unlinked.change_workflow(t2i)
+    _pp = bpy.context.preferences.addons["bl_ext.user_default.comfyq_bridge"].preferences
+    _pp.solo_mode = True
+    real_serve, real_blockers, asked = gserving.serve, gserving.blockers, []
+    gserving.blockers = lambda client: ["someone · x (running)"]
+    ok, msg = grun.start(tree, scene, [unlinked.name], [])
+    check(not ok and "nobody is using the server" in msg, f"solo: refused while anyone has a job ({msg[:70]})")
+    gserving.blockers = lambda client: []
+    gserving.serve = lambda client, wf_id, how, force=False: asked.append((wf_id, how))
+    ok, msg = grun.start(tree, scene, [unlinked.name], [])
+    run_ = grun.RUNS.get(tree.name)
+    pump_until(lambda: asked and run_.switch and run_.switch["state"] == "loading", 20, "solo switch asked")
+    check(ok and "solo" in msg and asked == [(t2i, "main")] and unlinked.note.startswith("Loading its model")
+          and run_.restore_to == wf and not run_.booked,
+          f"solo: Run Graph asks ComfyQ to serve {t2i} ({asked}), waits, restores {run_.restore_to} after")
+    grun.SWITCH_TIMEOUT_S, run_.switch["t0"] = 0, 0
+    pump_until(lambda: (grun.tick_all(), tree.name not in grun.RUNS)[1], 10, "solo timeout")
+    check("Could not load its model" in unlinked.note, f"solo: a model that never comes gives up ({unlinked.note})")
+    grun.SWITCH_TIMEOUT_S = 900
+    gserving.serve, gserving.blockers = real_serve, real_blockers
+    _pp.solo_mode = False
 tree.nodes.remove(unlinked)
 tree.nodes.remove(b_node)
 wnode.result, wnode.result_hash = "", ""

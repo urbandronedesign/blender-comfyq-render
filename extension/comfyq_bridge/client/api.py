@@ -66,6 +66,9 @@ class ComfyQClient:
     def lanes(self) -> list[Lane]:
         return self.transport.lanes()
 
+    def active_jobs(self) -> list[Job]:
+        return self.transport.active_jobs()
+
     def served_ids(self) -> set[str]:
         return {l.workflow_id for l in self.lanes()}
 

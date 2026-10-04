@@ -835,7 +835,45 @@ def _adopt_result(tree, node) -> None:
                 img.preview_ensure()
 
 
-classes = (COMFYQ_OT_graph_add, *TAB_MENUS, COMFYQ_MT_graph_scene, COMFYQ_OT_graph_clear, COMFYQ_OT_open_graph,
+class COMFYQ_OT_graph_load_model(bpy.types.Operator):
+    bl_idname = "comfyq.graph_load_model"
+    bl_label = "Load Model"
+    bl_description = ("Solo mode: make ComfyQ serve this workflow now (alongside if it fits, else as the main one: "
+                      "ComfyQ restarts, about 1–2 min). Refused while anyone has a job on the server")
+    bl_options = {"INTERNAL"}
+    workflow_id: StringProperty(options={"HIDDEN", "SKIP_SAVE"})
+
+    @classmethod
+    def poll(cls, context):
+        from .run import solo_on
+        return SESSION.connected and solo_on()
+
+    def execute(self, context):
+        from ..runtime import serving
+        from .run import _wf_name
+        client, wf_id = SESSION.client, self.workflow_id
+        others = serving.blockers(client)
+        if others:
+            self.report({"WARNING"}, f"{len(others)} job(s) on ComfyQ ({others[0]}): models are only switched "
+                                     f"when nobody is using the server")
+            return {"CANCELLED"}
+        name = _wf_name(wf_id)
+
+        def work():
+            how = serving.choose(client, wf_id, "auto")
+            serving.serve(client, wf_id, how)
+            return how
+
+        def done(how):
+            SESSION.status_note = (f"Solo: “{name}” loading alongside" if how == "alongside" else
+                                   f"Solo: ComfyQ restarts with “{name}” (about 1–2 min)")
+        SESSION.status_note = f"Solo: asking ComfyQ to load “{name}”…"
+        SESSION.run(work, done, on_error=lambda msg: setattr(SESSION, "status_note", f"Solo: {msg}"))
+        self.report({"INFO"}, SESSION.status_note)
+        return {"FINISHED"}
+
+
+classes = (COMFYQ_OT_graph_load_model, COMFYQ_OT_graph_add, *TAB_MENUS, COMFYQ_MT_graph_scene, COMFYQ_OT_graph_clear, COMFYQ_OT_open_graph,
            COMFYQ_OT_open_as_graph, COMFYQ_OT_graph_add_search, COMFYQ_MT_graph_all, COMFYQ_OT_graph_set_workflow,
            COMFYQ_OT_graph_add_source, COMFYQ_OT_graph_edit_text,
            COMFYQ_OT_graph_unlink_text, COMFYQ_OT_graph_run, COMFYQ_OT_graph_output, COMFYQ_OT_graph_use_result,

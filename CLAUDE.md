@@ -206,7 +206,13 @@ change that session: the user must reinstall from the UI or restart Mixar.
   generated presets (one per t2i / image-edit / i2v / video-edit workflow) in `presets/library/`, copied to
   the user's `%APPDATA%\comfyq-bridge\presets` (2026-10-04); subfolders = submenus of Presets › Saved;
   saved workflow nodes with `match_scene` keep defaults + take the scene's duration/size/fps. All 48 load
-  in a sandbox with every link; **none run on the GPU from the library yet**. `smoke_test.ps1 -Ui` 92/92,
+  in a sandbox with every link; **none run on the GPU from the library yet**.
+- **Solo mode** (Preferences "Solo: load models on demand", off; never in class): Run Graph / MCP
+  `blender_graph_run` loads the models nodes need (`runtime/serving.py`, shared with the MCP teacher tools):
+  one switch at a time, only when nothing is booked and **no job of anyone** is unfinished on ComfyQ
+  (`client.active_jobs()`), then restores the previous main workflow (option). Nodes show *Loads on Run* +
+  a Load Model button. Smoke-tested with ComfyQ's switch faked; **never run live yet** (needs a real
+  switch = ComfyQ restart). `smoke_test.ps1 -Ui` 92/92,
   `-Ui -Book` green. **Not yet compared with the Moodboard screenshot by the user.**
 - **Done — P1.4 MCP** (docs/AGENTS.md): server inside the extension (off by default; ON in the user's
   prefs), 127.0.0.1 + token in `%APPDATA%\comfyq-bridge\mcp.json`, 17 tools (+3 **teacher tools** behind the

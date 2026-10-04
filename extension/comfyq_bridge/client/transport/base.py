@@ -56,6 +56,11 @@ class ComfyQTransport(ABC):
         with self._lock:
             return list(self._lanes)
 
+    def active_jobs(self) -> list[Job]:
+        """Every job ComfyQ has not finished, anyone's (scheduled, queued, running)."""
+        with self._lock:
+            return [j for j in self._jobs.values() if not j.done]
+
     def on_jobs(self, fn: JobListener) -> None:
         self._job_listeners.append(fn)
 
