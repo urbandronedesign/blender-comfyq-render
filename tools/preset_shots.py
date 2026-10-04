@@ -96,6 +96,8 @@ def steps():
                     asset = (rec.get("inputs") or {}).get(node.label)
                     if asset:
                         node.filepath = str(ASSETS / asset)
+                elif node.bl_idname == "ComfyQWorkflowNode" and (rec.get("results") or {}).get(node.workflow_id):
+                    node.result = rec["results"][node.workflow_id]      # a chain: each step its own result
                 elif node.bl_idname == "ComfyQWorkflowNode" and rec.get("result"):
                     node.result = rec["result"]
                     node.job_id = rec.get("job_id") or ""

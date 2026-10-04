@@ -1,0 +1,102 @@
+{
+ "format": 1,
+ "label": "Text → 3D model (Flux2 Klein + TRELLIS2)",
+ "description": "Describe an object: Flux2 Klein 9B makes a clean product picture of it (white background, whole object), TRELLIS2 turns it into a textured 3D model, imported beside the scene, on the ground, 4.5 m long (change Size on the Import node). Viewer shows the picture.",
+ "made": "2026-10-04 14:33",
+ "nodes": [
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -1300.0,
+    0.0
+   ],
+   "width": 340.0,
+   "label": "Prompt",
+   "parent": "",
+   "text": "Studio product photo of a sleek modern supercar, three-quarter front view, the whole car visible from bumper to bumper with space around it, glossy deep red paint, black rims, plain pure white background, soft even studio light, sharp focus, no text, no people"
+  },
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -850.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "image_flux2_klein_9b_t2i",
+   "params": [],
+   "match_scene": true
+  },
+  {
+   "name": "Workflow.001",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -300.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "3d_trellis2_image_to_textured_mesh",
+   "params": [],
+   "match_scene": true
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    -300.0,
+    420.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Import to Scene",
+   "type": "ComfyQImportNode",
+   "location": [
+    200.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true,
+   "replace": true,
+   "place": "BESIDE",
+   "on_ground": true,
+   "size": 4.5
+  }
+ ],
+ "links": [
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "primitivestringmultiline_value_76"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Workflow.001",
+   "to_socket": "loadimage_image_6"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow.001",
+   "from_socket": "3D Model",
+   "to": "Import to Scene",
+   "to_socket": "Result"
+  }
+ ]
+}

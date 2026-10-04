@@ -159,7 +159,12 @@ switches took about 30 s each.
    - ComfyUI listens on 0.0.0.0:8188, so students can skip the queue.
 
    This is P1.0 of the plan, postponed until now.
-2. **Two broken workflows:** both Wan 2.1 ID-V2V restyle workflows fail in ComfyUI 0.37 with
+2. **The job prompt lands in the negative prompt** (`realtime/realtimeBus.js` `book_job`, ~line 206): ComfyQ copies the
+   job's top-level `prompt` into the first *unset* textarea whose field is `text`. When a workflow's real prompt is a
+   Primitive (field `value`), as in Flux2 Klein t2i, that is the **Negative prompt**: every Klein t2i job from Blender ran
+   with negative = prompt. The bridge now sends every prompt field explicitly (work-around); the server should only fill
+   the parameter that `meta.json` marks as the prompt.
+2b. **Two broken workflows:** both Wan 2.1 ID-V2V restyle workflows fail in ComfyUI 0.37 with
    `WanImageToVideo.execute() got an unexpected keyword argument 'ref_pad_image'` (node version
    mismatch). They also have no example prompt.
 3. **Calibration inputs missing:** `comfyq__bench-vi__sports_car.png` and `comfyq__bench-im__sports_car.png`

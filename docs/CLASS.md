@@ -77,6 +77,9 @@ long list by lesson or task.
 - **Cycles render → photoreal (Flux2 Klein)**: a real Cycles render of the camera view (materials, lights,
   HDRI, shadow catchers; rendered in a separate Blender so the GPU is free), made photoreal by Flux2 Klein 9B
   image edit with the same composition. Viewer + Save. Tested on a supercar-on-a-driveway scene (2026-10-04).
+- **Text → 3D model (Flux2 Klein + TRELLIS2)**: describe an object; Klein makes a clean product picture (white
+  background, whole object), TRELLIS2 turns it into a textured 3D model (~6 min), imported beside the scene, on
+  the ground, 4.5 m long (Import node › Size). Two models: in class, both must be served (or use solo mode).
 
 ### The workflow library (one preset per image / video workflow)
 `presets\library\` in this repository holds 48 ready-made graphs, one per workflow of ComfyQ's image and

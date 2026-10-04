@@ -195,6 +195,10 @@ change that session: the user must reinstall from the UI or restart Mixar.
 30. **"ok" in the sweep = job completed + result downloaded + imported.** It is not "looks right": look at
     the images (Read tool) — black outputs happen with some ComfyUI flag mixes (the sweep flags mean < 0.02),
     and a workflow given an unsuitable input can echo it back (Krea character sheet on a cubes scene).
+31. **ComfyQ fills an unset textarea with the job prompt**: `book_job` copies the top-level `prompt` into the first unset
+    textarea with field `text` — for Primitive-prompt workflows (Flux2 Klein t2i) the NEGATIVE prompt. `client.submit`
+    now sends every prompt-kind param explicitly (default when unset). Check job params (`GET /jobs/:id`) when a
+    result ignores its prompt.
 
 ## Status (2026-10-04 afternoon) — **for b2renger and the teacher: docs/RUNBOOK.md**
 - **Host:** Blender 5.2.2 LTS (user's profile has the latest build). Mixar uninstalled. ComfyQ serves

@@ -42,6 +42,15 @@ def test_prompt_param_is_also_sent_as_the_job_prompt():
     assert b["user"] == "ana"
 
 
+def test_unset_prompt_params_are_sent_so_comfyq_cannot_fill_them_with_the_prompt():
+    # ComfyQ copies the job prompt into the first unset textarea with field "text": for workflows whose
+    # real prompt is a Primitive, that was the negative prompt (Flux2 Klein t2i ran with negative = prompt).
+    t = FakeTransport()
+    c = ComfyQClient(Profile(name="t"), transport=t)
+    c.submit("wf", {"primitivestringmultiline_value_5508": "a red car"}, specs=SPECS, check_served=False)
+    assert t.booked[0]["params"]["neg"] == ""                       # sent explicitly, its default
+
+
 def test_explicit_prompt_wins():
     t = FakeTransport()
     c = ComfyQClient(Profile(name="t"), transport=t)

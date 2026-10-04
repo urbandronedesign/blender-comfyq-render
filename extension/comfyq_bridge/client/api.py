@@ -124,6 +124,14 @@ class ComfyQClient:
             # The text already travels in its parameter; also send it as the job's prompt so
             # ComfyQ's own pages (job cards, history) show it. ComfyQ keeps an already-set param.
             prompt = next((str(params[s.key]) for s in specs if s.kind == "prompt" and s.key in params), "")
+        if prompt:
+            # ComfyQ's book_job copies the job's prompt into the first unset textarea parameter whose field
+            # is "text" — for workflows whose real prompt is a Primitive ("value"), that is the NEGATIVE
+            # prompt (seen: Flux2 Klein t2i ran with negative = prompt). Send every prompt parameter
+            # explicitly (its default when unset) so nothing is left for ComfyQ to fill.
+            for s in specs:
+                if s.kind == "prompt" and s.key not in params:
+                    params[s.key] = "" if s.default is None else s.default
         return self.transport.book(workflow_id, params, self.profile.user, prompt, scheduled_time)
 
     def cancel(self, job_id: str) -> None:

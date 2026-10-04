@@ -148,7 +148,7 @@ _NODE_PROPS = {
     "ComfyQSceneRenderNode": ("style", "frame", "cycles_samples"), "ComfyQMaskNode": ("style", "frame"),
     "ComfyQSceneAnimationNode": ("style",), "ComfyQVideoFileNode": ("filepath",),
     "ComfyQAudioFileNode": ("filepath",), "ComfyQPromptNode": ("text",),
-    "ComfyQViewerNode": ("auto",), "ComfyQImportNode": ("auto", "replace"),
+    "ComfyQViewerNode": ("auto",), "ComfyQImportNode": ("auto", "replace", "place", "on_ground", "size"),
     "ComfyQSaveNode": ("auto", "folder", "pattern"),
 }
 

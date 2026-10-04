@@ -123,7 +123,9 @@ def main() -> None:
 
         ins = []
         for f in job.get("input_files") or []:
-            p = find_input(f["name"], job.get("started_at") or job.get("time_slot"))
+            alt = (rec.get("input_files") or {}).get(f["name"])     # e.g. an intermediate copy no longer cached
+            p = Path(alt) if alt and Path(alt).is_file() else find_input(f["name"], job.get("started_at")
+                                                                         or job.get("time_slot"))
             if p is None:
                 ins.append(f'<div class="in"><span class="lab">{esc(lab.get(f["param"], f["param"]))}</span>'
                            f'<span class="missing">{esc(f["name"])} (not found)</span></div>')
@@ -132,12 +134,37 @@ def main() -> None:
             ins.append(f'<div class="in"><span class="lab">{esc(lab.get(f["param"], f["param"]))}</span>'
                        f'{media(p, rel, f["name"])}</div>')
         media_keys = {f["param"] for f in job.get("input_files") or []}
-        sent = [(lab.get(k, k), v) for k, v in (job.get("params") or {}).items() if k not in media_keys]
-        prompt_keys = [k for k, v in (job.get("params") or {}).items() if isinstance(v, str) and len(v) > 60]
+        # "prompt" = ComfyQ's copy of the job prompt (shown once, in its parameter); media = file names
+        shown = {k: v for k, v in (job.get("params") or {}).items() if k not in media_keys and k != "prompt"}
+        sent = [(lab.get(k, k), v) for k, v in shown.items()]
+        prompt_keys = [k for k, v in shown.items() if isinstance(v, str) and len(v) > 60]
         sent_rows = "".join(f"<tr><td>{esc(k)}</td><td>{esc(v)}</td></tr>" for k, v in sent
                             if not (isinstance(v, str) and len(v) > 60))
         prompts = "".join(f'<blockquote><span class="lab">{esc(lab.get(k, k))}</span>{esc(job["params"][k])}'
                           f'</blockquote>' for k in prompt_keys)
+        for step, cj in enumerate(rec.get("chain_jobs") or [], 1):       # a chain: every step's job
+            if cj == rec.get("job_id"):
+                continue
+            try:
+                sj = requests.get(f"{SERVER}/jobs/{cj}", timeout=30).json()
+                sj = sj.get("job", sj)
+            except (requests.RequestException, ValueError):
+                continue
+            sw = sj.get("workflow_id", "")
+            if sw not in labels:
+                try:
+                    sps = requests.get(f"{SERVER}/workflows/{sw}/parameters", timeout=30).json().get("parameters") or []
+                except (requests.RequestException, ValueError):
+                    sps = []
+                labels[sw] = {p["key"]: p.get("label") or p["key"] for p in sps}
+            sl = labels[sw]
+            smedia = {f["param"] for f in sj.get("input_files") or []}
+            rows = "".join(f"<tr><td>{esc(sl.get(k, k))}</td><td>{esc(v)}</td></tr>"
+                           for k, v in (sj.get("params") or {}).items() if k != "prompt" and k not in smedia)
+            secs = round(((sj.get("finished_at") or 0) - (sj.get("started_at") or 0)) / 1000)
+            prompts = (f'<h4>Step {step}: {esc(wfs.get(sw, {}).get("name", sw))} · {secs} s · job '
+                       f'<code>{esc(cj[:8])}</code></h4><table>{rows}</table><h4>Step {step + 1}: '
+                       f'{esc(wfs.get(wf_id, {}).get("name", wf_id))}</h4>') + prompts
         shot = SHOTS / f"{n:02d}.png"
         shot_html = (f'<a href="{esc(copy(shot, mdir, "blender"))}" target="_blank"><img loading="lazy" class="shot" '
                      f'src="{esc((mdir / "blender.png").relative_to(OUT).as_posix())}" alt="Blender graph"></a>'
@@ -154,7 +181,14 @@ def main() -> None:
             rel = os.path.relpath(bp, OUT).replace("\\", "/")
             base_html = (f'<div class="col"><h4>Baseline · {esc(b.get("date"))} · {esc(b.get("seconds"))} s</h4>'
                          f'{media(bp, rel) if bp.is_file() else "<p class=missing>missing</p>"}</div>')
-        out_html = media(result, out_rel) if out_rel else f'<p class="missing">{esc(rec.get("error") or "no result")}</p>'
+        if out_rel and result.suffix.lower() not in IMG | VID | AUD and rec.get("preview"):
+            pv = (ROOT / rec["preview"]) if not Path(rec["preview"]).is_absolute() else Path(rec["preview"])
+            out_html = (media(pv, copy(pv, mdir, "preview")) + f'<p class="dim">Rendered views of the result · '
+                        f'<a href="{esc(out_rel)}" download>download {esc(result.suffix[1:].upper())}</a></p>')
+        elif out_rel:
+            out_html = media(result, out_rel)
+        else:
+            out_html = f'<p class="missing">{esc(rec.get("error") or "no result")}</p>'
         meta = (f'{esc(rec.get("seconds"))} s total · model loaded in {esc(rec.get("load_seconds"))} s · '
                 f'job <code>{esc((rec.get("job_id") or "—")[:8])}</code> · {esc(rec.get("started"))}'
                 + (f' · VRAM peak {vram:.1f} GB' if isinstance(vram, (int, float)) else ""))
