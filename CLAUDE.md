@@ -13,6 +13,7 @@ stays Mixar-compatible (`smoke_test.ps1 -App mixar` if Mixar is reinstalled); Mi
 Approved plan: `C:\Users\Ateliernum\.claude\plans\we-are-planning-a-effervescent-widget.md`.
 Git: local repo, branch `main`, no remote. Commit author = repo-local `urbandronedesign <urbandronedesign@users.noreply.github.com>`
 (never the global identity). Ask the user before committing. **UI reference: `docs/UI.md`** (every button + its check).
+**Building a new workflow / pipeline: follow `.claude/skills/comfyq-workflow-build/SKILL.md`** (the user's standing protocol).
 
 ## Environment (this machine)
 | Thing | Where |
