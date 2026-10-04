@@ -209,6 +209,9 @@ change that session: the user must reinstall from the UI or restart Mixar.
 35. **Shader to RGB is EEVEE-only (black in Cycles)**: a material using it needs a separate Cycles output
     (`ShaderNodeOutputMaterial.target`). Cycles lights objects through their material even as shadow catchers.
 
+36. **ComfyQ's SAM3 is video-only and returns ONE surface per phrase** ("wall" = the back wall only; threshold
+    0.3 did not help). Stills go through a 3-frame MP4; labels are phrase groups `"wall|left wall|right wall"`
+    (union mask). Qwen 2.1 outputs 1920×1088, over the upload box: `segment.fit_upload` shrinks to 1904×1080.
 ## Status (2026-10-04 evening, last commit `8579ea0`) — **hand-over for b2renger / the teacher: docs/RUNBOOK.md**
 - **Host:** Blender 5.2.2 LTS; the user's profile has build `8579ea0` (MCP ON, Teacher tools ON, **Solo ON**).
   Mixar uninstalled. **ComfyQ serves whatever solo mode / the last preset loaded** (at stop:
@@ -230,7 +233,7 @@ change that session: the user must reinstall from the UI or restart Mixar.
 - **Cycles source:** `render.cycles_pass` renders a temp copy in a separate `blender -b --factory-startup`
   (OptiX→CUDA→…→CPU) so the GPU is free again before the ComfyQ job (nvidia-smi checked). Blocks Blender while
   rendering; stills only. Fingerprint adds materials, lights, shadow catchers, world/HDRI.
-- **MCP (P1.4, docs/AGENTS.md): 20 tools + 3 teacher tools.** blender_scene_info/select/render (style CYCLES +
+- **MCP (P1.4, docs/AGENTS.md): 23 tools + 3 teacher tools** (new: blender_segment / task_status / mask_image). blender_scene_info/select/render (style CYCLES +
   samples)/import (place/on_ground/size)/transform/world (HDRI file or builtin:<name>)/shadow_catcher (Cycles flag
   + EEVEE material, `eevee_lit`)/graph_describe/add_preset/set (incl. Image node `image`)/run/status;
   comfyq_list/describe/submit/job_status/wait/cancel/outputs/server_status; teacher: comfyq_serve/unserve/
@@ -238,8 +241,8 @@ change that session: the user must reinstall from the UI or restart Mixar.
 - **Tests run:** unit+contract 68 pass (2 skipped); headless smoke passes (incl. solo with faked switch, placement,
   world, shadow catcher, Cycles still); GUI `-Ui` 92/92 last run before the library (not re-run since).
 - **Workflow coverage:** 48/66 run from Blender — preset library run 46/48 (docs/preset-run.md; ❌ Wan 2.1 ID-V2V
-  ×2 = ComfyUI `WanImageToVideo … 'ref_pad_image'`), LTX deblur-upscale (sweep), TRELLIS2 (3D chain). **Never
-  run (16):** Pixal3D ×3, TripoSplat, SeedVR2 image ×2 + video ×2, PiD upscale, Marigold ×2, SAM3, frame
+  ×2 = ComfyUI `WanImageToVideo … 'ref_pad_image'`), LTX deblur-upscale (sweep), TRELLIS2 (3D chain), SAM3 + PiD + SeedVR2 7B image (arch chain) = 51/66. **Never
+  run (13):** Pixal3D ×3, TripoSplat, SeedVR2 image (4K/HD) + video ×2, Marigold ×2, frame
   interpolation, Gemma ×2, Stable Audio. Earlier per-family sweep: docs/workflow-matrix.md (24/66).
 - **Visual baseline:** `baselines/2026-10-04/index.html` (local, gitignored, ~120 MB): per workflow description,
   Blender graph screenshot, inputs uploaded, prompt + settings sent, output (images, videos, GLB views),
@@ -255,6 +258,12 @@ change that session: the user must reinstall from the UI or restart Mixar.
   driveway HDRI (`Desktop\tree_lined_driveway_8k.hdr` via blender_world), user's Plane = shadow catcher, an Area
   light; old car hidden at the origin (`world`/`geometry_0`); graph holds ~60 preset groups from the tests.
   AI renders in `live_check/ai_render/` (Cycles + Klein photoreal).
+- **Architecture chain (docs/arch-render.md, 2026-10-04):** blocked-out room (`tools/make_arch_scene.py` →
+  `E:\zaki\arch_room.blend`) → Cycles → SAM3 surfaces (`blender_segment`, `surfaces.py`, `passes/segment.py`,
+  `runtime/segmentation.py`) → labelled prompt → **Qwen edit** (best of Klein edit / Qwen depth / Qwen edit) →
+  Klein inpaint of one surface (`blender_mask_image`) → **PiD ×4** (best vs SeedVR2 7B). Driver
+  `tools/arch_render.py` (steps); class preset *Architecture: Cycles → photoreal → 4× upscale*. Not in the user's
+  Blender yet (sandbox only) until installed.
 - **Other:** theme Mixar Forest; multi-model orchestration page https://claude.ai/artifact/C8EPx3vgnJVsRXvZNjB7ug
   (local copy docs/private/); P1.0 hardening postponed; phase 2 not started.
 - **Known gaps:** dialog doesn't live-redraw job progress; job cards can't be removed; Cycles render blocks the

@@ -1,0 +1,130 @@
+{
+ "format": 1,
+ "label": "Architecture: Cycles render → photoreal → 4× upscale (Qwen edit + PiD)",
+ "description": "Architecture AI render: a Cycles render of the camera view made photoreal by Qwen Image 2.1 edit (keeps the blocked geometry almost pixel for pixel), then PiD ×4 (7616×4320). The prompt names each surface and its material: edit it, or let an agent fill it from SAM3 (blender_segment). Viewer shows the render, Save keeps the upscale.",
+ "made": "2026-10-04 15:30",
+ "nodes": [
+  {
+   "name": "Scene Render",
+   "type": "ComfyQSceneRenderNode",
+   "location": [
+    -1260.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "Cycles render",
+   "parent": "",
+   "style": "CYCLES",
+   "frame": "CURRENT",
+   "cycles_samples": 64
+  },
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -1260.0,
+    -330.0
+   ],
+   "width": 340.0,
+   "label": "Surfaces & materials",
+   "parent": "",
+   "text": "Turn <image1>, a 3D render, into a real photograph. Photorealistic interior photograph of a modern living room, architectural photography, natural daylight through the window, soft realistic shadows. The wall is smooth warm-white lime plaster. The ceiling is flat white plaster. The floor is wide-plank light oak parquet with a satin finish. The rug is a cream hand-woven wool rug. The shelf is a walnut bookcase with books and ceramics. The window is a black steel-framed glazing looking onto a sunny garden. The sofa is a light grey linen sofa with cushions. The table is a dark walnut coffee table. The door is a solid walnut door. The lamp is a matte black metal pendant lamp. Keep the exact layout, camera, perspective and proportions of the room."
+  },
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -820.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "image_qwen_image_2_1_image_edit",
+   "params": [
+    {
+     "key": "ksampler_steps_459_458",
+     "s": "",
+     "i": 30,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    }
+   ],
+   "match_scene": true
+  },
+  {
+   "name": "Workflow.001",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "utility_pid_image_upscale",
+   "params": [],
+   "match_scene": true
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}"
+  }
+ ],
+ "links": [
+  {
+   "from": "Scene Render",
+   "from_socket": "Image",
+   "to": "Workflow",
+   "to_socket": "loadimage_image_470"
+  },
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "textencodeqwenimage21_prompt_459_474"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Workflow.001",
+   "to_socket": "loadimage_image_1"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow.001",
+   "from_socket": "Image",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ]
+}

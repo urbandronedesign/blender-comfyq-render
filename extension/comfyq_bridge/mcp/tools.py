@@ -606,6 +606,65 @@ def blender_transform(args: dict) -> dict:
 
 
 # -- blender_graph_* ------------------------------------------------------------------------------------
+def blender_segment(args: dict) -> dict:
+    """SAM3 by name on a render of the scene (or a given picture), in the background: one job per label."""
+    from ..passes import render
+    from ..passes import segment as seg
+    from ..runtime import segmentation
+    from ..surfaces import labels_from, surface_prompt
+    client = _client()
+    if segmentation.SAM3_ID not in SESSION.served_ids():
+        raise ToolError(f"{segmentation.SAM3_ID} is not served (teacher: comfyq_serve it first)")
+    labels = labels_from(args.get("labels"))
+    image = Path(args["image"]) if args.get("image") else None
+    if image is not None and not image.is_file():
+        raise ToolError(f"No such file: {image}")
+    style, samples = args.get("style", "CYCLES"), int(args.get("samples", 64))
+    if image is None and style not in {s[0] for s in render.STILL_STYLES}:
+        raise ToolError(f"style must be one of {[s[0] for s in render.STILL_STYLES]}")
+    threshold = args.get("threshold")
+
+    def work():
+        out = seg.work_dir()
+        pic = image or on_main(lambda: render.structure_pass(bpy.context.scene, style, int(args.get("max_edge", 1920)),
+                                                             None, samples), timeout=1900)
+        res = segmentation.segment(client, Path(pic), labels, out, lambda fn: on_main(fn, timeout=300),
+                                   None if threshold is None else float(threshold),
+                                   progress=lambda m: TASK.update(message=m))
+        regions = res.pop("regions")
+        res["regions"] = segmentation.region_dicts(regions)
+        res["found"] = [r.label for r in sorted(regions, key=lambda r: -r.coverage) if r.found]
+        res["prompt"] = surface_prompt(regions, args.get("materials"), args.get("intro", ""), args.get("outro", ""))
+        if args.get("show", True) and res["overlay"]:
+            from ..importers.media import import_files
+            on_main(lambda: import_files([Path(res["overlay"])], "segment", segmentation.SAM3_ID, bpy.context.scene))
+        return f"{len(res['found'])}/{len(labels)} labels found", res
+    _start_task("segment", segmentation.SAM3_ID, work)
+    return _task_reply(args.get("wait_s", 60), "Still segmenting: follow with blender_task_status.")
+
+
+def blender_task_status(args: dict) -> dict:
+    if TASK.get("state") == "running" and args.get("wait_s"):
+        _wait_task(min(float(args["wait_s"]), MAX_WAIT_S))
+    return {"task": _task_dict()}
+
+
+def blender_mask_image(args: dict) -> dict:
+    """An inpaint input: the picture with the surfaces' masks made transparent (= what gets repainted)."""
+    from ..passes import segment as seg
+    image = Path(args["image"])
+    masks = [Path(m) for m in args["masks"]]
+    for p in (image, *masks):
+        if not p.is_file():
+            raise ToolError(f"No such file: {p}")
+
+    def go():
+        out = seg.work_dir("masks") / f"{image.stem}_{'_'.join(m.stem for m in masks)[:60]}.png"
+        return {"path": str(seg.repaint_mask(image, masks, out, int(args.get("grow_px", 6)),
+                                             bool(args.get("invert", False))))}
+    return on_main(go)
+
+
 def _tree():
     from ..graph.ui import ensure_graph
     return ensure_graph()
@@ -839,6 +898,29 @@ TOOLS = [
          obj({"names": {"type": "array", "items": _S}, "location": {"type": "array", "items": {"type": "number"}},
               "rotation_deg": {"type": "array", "items": {"type": "number"}}, "scale": {},
               "hide": {"type": "boolean"}}, ("names",)), blender_transform),
+    Tool("blender_segment", "Segment a render by name with SAM3 (architecture: which part is floor, wall, "
+         "ceiling, window…): renders the scene camera (`style`, default CYCLES) or takes `image`, runs one "
+         "SAM3 job per label (`labels`, default floor/wall/ceiling/window/door/stairs/column/sofa/table/rug/shelf/"
+         "lamp). SAM3 returns ONE surface per phrase: write 'wall|left wall|right wall' to name one label from "
+         "several phrases (their masks are merged; the default wall does this). Returns each label's mask PNG, % of the picture, where it is, a colour overlay (shown in the "
+         "Image Editor unless show=false) and `prompt`: the found surfaces named with `materials` "
+         "({label: 'light oak parquet', …}) between `intro` and `outro`. Needs SAM3 served. Runs in the "
+         "background: waits up to `wait_s` (≤120, default 60), then follow with blender_task_status.",
+         obj({"labels": {"type": "array", "items": _S}, "image": _S,
+              "style": {"type": "string", "enum": ["CLAY", "MATCAP", "MATERIAL", "CYCLES"]},
+              "samples": {"type": "integer", "minimum": 1}, "max_edge": {"type": "integer"},
+              "threshold": {"type": "number", "minimum": 0.1, "maximum": 0.9},
+              "materials": {"type": "object"}, "intro": _S, "outro": _S, "show": {"type": "boolean"},
+              "wait_s": {"type": "number", "maximum": MAX_WAIT_S}}), blender_segment),
+    Tool("blender_task_status", "The background task (segmentation, serve, calibrate): state, message, "
+         "result when done. `wait_s` = first wait (≤120 s) for it to end.",
+         obj({"wait_s": {"type": "number", "maximum": MAX_WAIT_S}}), blender_task_status),
+    Tool("blender_mask_image", "Make an inpaint input from a picture and surface masks (blender_segment's "
+         "`mask` files): the picture with those surfaces transparent = the area an inpaint workflow repaints "
+         "(e.g. Flux2 Klein inpaint: only the floor gets the new material). Masks are resized to the picture; "
+         "`grow_px` (6) widens them over the seams; `invert` repaints everything else.",
+         obj({"image": _S, "masks": {"type": "array", "items": _S}, "grow_px": {"type": "integer"},
+              "invert": {"type": "boolean"}}, ("image", "masks")), blender_mask_image),
     Tool("blender_graph_describe", "The ComfyQ node graph: nodes (type, workflow, settings, prompt, links "
          "into each input, result) — what the student sees in the graph editor.", obj(), blender_graph_describe),
     Tool("blender_graph_add_preset", "Add a class preset to the graph: built in `render_image`, `clay_v2v`, "

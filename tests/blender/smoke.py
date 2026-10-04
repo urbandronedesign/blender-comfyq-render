@@ -742,7 +742,7 @@ def mcp_tool(name, **args):
 
 check(mcp_rpc("ping", token="wrong") == 401, "MCP: a wrong token is refused")
 names = [t["name"] for t in mcp_rpc("tools/list")["result"]["tools"]]
-check(len(names) == 20 and "blender_shadow_catcher" in names and "blender_world" in names and "blender_transform" in names and "comfyq_submit" in names and "blender_graph_run" in names, f"MCP: {len(names)} tools")
+check(len(names) == 23 and "blender_segment" in names and "blender_mask_image" in names and "blender_shadow_catcher" in names and "blender_world" in names and "blender_transform" in names and "comfyq_submit" in names and "blender_graph_run" in names, f"MCP: {len(names)} tools")
 err, info = mcp_tool("blender_scene_info")
 check(not err and info["camera"] and info["frames"] == [scene.frame_start, scene.frame_end],
       f"MCP blender_scene_info: {info.get('scene')} {info.get('frames')} camera {info.get('camera')}")
@@ -841,6 +841,37 @@ bpy.data.collections.remove(_sc_coll)
 err, w3 = mcp_tool("blender_world", clear=True)
 check(not err and scene.world.node_tree.nodes.get("ComfyQ HDRI") is None and not scene.render.film_transparent,
       "MCP blender_world clear: back to a plain world")
+# segmentation helpers (SAM3 takes a video): still → MP4 → frame back, mask stats, overlay, repaint mask
+import numpy as _np
+from bl_ext.user_default.comfyq_bridge.passes import segment as _seg
+
+_wd = _seg.work_dir("smoke")
+_still = Path(still["path"])
+_mp4 = _seg.still_to_video(_still, _wd / "in.mp4")
+_back = _seg.video_frame(_mp4, _wd / "back.png")
+_a, _b = _seg.read_rgba(_still), _seg.read_rgba(_back)
+_sh = (min(_a.shape[0], _b.shape[0]), min(_a.shape[1], _b.shape[1]))
+_diff = float(_np.abs(_a[:_sh[0], :_sh[1], :3] - _b[:_sh[0], :_sh[1], :3]).mean())
+check(_mp4.is_file() and _b.shape[0] >= _a.shape[0] - 1 and _diff < 0.03,
+      f"Segment: still → MP4 → frame keeps the picture ({_b.shape[1]}×{_b.shape[0]}, mean diff {_diff:.3f})")
+_m = _np.zeros((_a.shape[0], _a.shape[1], 4), dtype=_np.float32)
+_m[_a.shape[0] // 2:, :, :] = 1.0                       # bottom half white = "floor"
+_mpath = _seg.write_rgba(_m, _wd / "mask_floor.png")
+_reg = _seg.region("floor", _mpath)
+check(abs(_reg.coverage - 0.5) < 0.02 and _reg.where == "bottom" and _reg.found,
+      f"Segment: mask stats (floor {_reg.coverage:.2f} of the picture, {_reg.where})")
+_ov = _seg.overlay(_still, [_reg], _wd / "overlay.png")
+check(_ov.is_file() and _reg.extra.get("colour"), f"Segment: colour overlay ({_reg.extra.get('colour')})")
+err, _mi = mcp_tool("blender_mask_image", image=str(_still), masks=[str(_mpath)], grow_px=4)
+_mrgba = _seg.read_rgba(Path(_mi["path"])) if not err else None
+check(not err and _mrgba[-1, 0, 3] == 0.0 and _mrgba[0, 0, 3] == 1.0
+      and abs(float((_mrgba[..., 3] == 0).mean()) - 0.5) < 0.03,
+      "MCP blender_mask_image: the floor half is transparent (= repainted), the rest opaque")
+if "utility_video_segment_sam3" not in SESSION.served_ids():     # never books SAM3 jobs here
+    err, out = mcp_tool("blender_segment", labels=["floor"], show=False)
+    check(err and "not served" in out["error"], "MCP blender_segment refuses while SAM3 is not served")
+err, out = mcp_tool("blender_task_status")
+check(not err and "task" in out, f"MCP blender_task_status ({(out.get('task') or {}).get('kind')})")
 # teacher tools (load models): hidden + refused while the preference is off; only safe calls here
 err, st = mcp_tool("comfyq_server_status", workflow_id=unserved or wf)
 check(not err and {s_["workflow_id"] for s_ in st["served"]} == SESSION.served_ids() and st["card_gb"]
