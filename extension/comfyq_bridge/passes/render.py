@@ -26,10 +26,10 @@ from ..runtime.session import cache_dir
 
 UPLOAD_LONG, UPLOAD_SHORT = 1920, 1080
 STYLES = (
-    ("CLAY", "Grayscale (clay)",
+    ("CLAY", "Grayscale (Clay)",
      "Neutral grey studio shading on a neutral background, saved as grayscale — best for depth/edge control"),
     ("MATCAP", "Matcap", "Matcap shading — strong shape readability"),
-    ("MATERIAL", "Material colors", "Workbench with material viewport colors"),
+    ("MATERIAL", "Material Colors", "Workbench with the materials' viewport colors"),
 )
 
 

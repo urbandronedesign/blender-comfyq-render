@@ -382,7 +382,7 @@ def _slug(name: str) -> str:
 
 class COMFYQ_OT_graph_save_preset(bpy.types.Operator):
     bl_idname = "comfyq.graph_save_preset"
-    bl_label = "Save Graph as Preset"
+    bl_label = "Save Graph as Preset..."
     bl_description = ("Save this graph (nodes, models, settings, prompts, links) as a class preset. "
                       "Copy the file to the students' presets folder, or set COMFYQ_BRIDGE_PRESETS to a shared folder")
     bl_options = {"REGISTER", "INTERNAL"}

@@ -55,7 +55,7 @@ def _who(layout) -> None:
     row = layout.row(align=True)
     host = SESSION.client.profile.url.split("://")[-1] if SESSION.client is not None else ""
     row.label(text=f"{p.student_name or '?'}  ·  {host}", icon="USER")
-    row.operator("comfyq.set_student_name", text="", icon="GREASEPENCIL")
+    row.operator("comfyq.set_student_name", text="", icon="GREASEPENCIL")   # tooltip: Change Name...
     if solo_on():
         sub = layout.row()
         sub.alert = True
@@ -84,7 +84,7 @@ def draw_studio(layout: bpy.types.UILayout, context, columns: int = 2, dialog: b
                        depress=graph_on).toggle = True
     else:
         right.operator("comfyq.open_graph", text="", icon="NODETREE")
-    right.operator("comfyq.open_folder", text="Library", icon="FILE_FOLDER").job_id = ""
+    right.operator("comfyq.open_folder", text="Results Folder", icon="FILE_FOLDER").job_id = ""
     active = sum(1 for v in SESSION.jobs.values() if not v.job.done)
     right.popover("COMFYQ_PT_queue", text=f"Queue {active}" if active else "Queue", icon="SORTTIME")
 
@@ -92,9 +92,9 @@ def draw_studio(layout: bpy.types.UILayout, context, columns: int = 2, dialog: b
     if scene_has_result_strips(scene):
         warn = layout.box()
         warn.alert = True
-        warn.label(text="AI results sit in this scene's sequencer: your own renders show them, not the camera",
+        warn.label(text="AI results in this scene's Sequencer replace the camera in renders",
                    icon="ERROR")
-        warn.operator("comfyq.cleanup", text="Clean up", icon="BRUSH_DATA")
+        warn.operator("comfyq.cleanup", text="Clean Up...", icon="BRUSH_DATA")
 
     if SESSION.client is None:
         row = layout.row()
@@ -113,8 +113,8 @@ def draw_studio(layout: bpy.types.UILayout, context, columns: int = 2, dialog: b
     grid = box.grid_flow(row_major=True, columns=columns, even_columns=True, align=False)
     chip = grid.row(align=True)
     chip.alert = wf is not None and wf.id not in served
-    chip.menu("COMFYQ_MT_workflows", text=wf.name if wf else "Choose a model…",
-              icon="PLAY" if wf and wf.id in served else "DOWNARROW_HLT")
+    chip.menu("COMFYQ_MT_workflows", text=wf.name if wf else "Choose Model",
+              icon="CHECKMARK" if wf and wf.id in served else "DOWNARROW_HLT")
     specs = SESSION.specs.get(cq.workflow_id) if wf else None
     if wf and specs is None:
         grid.label(text="Loading…", icon="SORTTIME")
@@ -124,7 +124,7 @@ def draw_studio(layout: bpy.types.UILayout, context, columns: int = 2, dialog: b
         col = box.column(align=True)
         col.alert = True
         for n, line in enumerate(wrap("Not served right now: ask the teacher to serve this model, or choose a "
-                                      "served one (▶ in the list)", _CHARS[0], max_lines=3)):
+                                      "served one (check mark in the list)", _CHARS[0], max_lines=3)):
             col.label(text=line, icon="ERROR" if n == 0 else "BLANK1")
 
     # -- prompt ---------------------------------------------------------------------------------
@@ -139,14 +139,14 @@ def draw_studio(layout: bpy.types.UILayout, context, columns: int = 2, dialog: b
     actions = box.row(align=True)
     media_items = [param_item(scene, s.key) for s in visible if s.is_media]
     actions.prop(cq, "style", text="")
-    actions.operator("comfyq.preview_pass", text="Render scene", icon="RESTRICT_VIEW_OFF").mask = False
+    actions.operator("comfyq.preview_pass", text="Render Scene", icon="RENDER_STILL").mask = False
     if any(it.source == "MASK" for it in media_items):
         actions.operator("comfyq.preview_pass", text="Mask", icon="SELECT_SET").mask = True
     if not dialog:
         gen = box.row() if narrow else actions.row()       # narrow: Generate gets its own full row
         gen.scale_x, gen.scale_y = 1.6, 1.3
-        gen.operator("comfyq.generate", icon="RENDER_STILL")
-        actions.operator("comfyq.open_as_graph", text="", icon="NODE_INSERT_OFF")
+        gen.operator("comfyq.generate", icon="PLAY")
+        actions.operator("comfyq.open_as_graph", text="", icon="NODETREE")
     from ..ops.generate import why_not_generate
     why = why_not_generate(scene, cq.workflow_id)
     # the reason Generate is greyed out, not only in its tooltip (not served: already said under the model)
@@ -201,7 +201,7 @@ def draw_prompts(layout, scene, wf_id: str, visible: list[ParamSpec], big: bool)
             row = col.row(align=True)
             field = row.row(align=True)
             field.scale_y = 2.0 if big and s.kind == "prompt" else 1.0
-            _prop(field, it, "s", placeholder=scene_match.short_label(s.label, 60) or "Describe your scene here…")
+            _prop(field, it, "s", placeholder=scene_match.short_label(s.label, 60) or "Describe the scene")
             ed = row.column(align=True)
             ed.scale_y = field.scale_y
             op = ed.operator("comfyq.edit_prompt", text="", icon="FULLSCREEN_ENTER")
@@ -226,7 +226,7 @@ def draw_media(layout, context, wf_id: str, visible: list[ParamSpec], columns: i
         elif it.source == "FILE":
             col.prop(it, "path", text="")
         elif it.source == "MASK":
-            col.label(text="Selected objects = area to repaint")
+            col.label(text="Selected objects mark the area to repaint")
         elif it.source == "STRUCTURE":
             col.label(text=f"Camera view at frame {scene_match.frame_for(s, wfops.scene_facts(scene))}")
     for s in media:
@@ -248,7 +248,7 @@ def _draw_keyframe(layout, context, spec: ParamSpec, it, columns: int) -> None:
     grid = box.grid_flow(row_major=True, columns=columns, even_columns=True, align=False)
     chip = grid.row(align=True)
     chip.alert = kf is not None and kf.id not in SESSION.served_ids()
-    chip.menu("COMFYQ_MT_keyframe_workflows", text=kf.name if kf else "Choose the style model…",
+    chip.menu("COMFYQ_MT_keyframe_workflows", text=kf.name if kf else "Choose Keyframe Model",
               icon="DOWNARROW_HLT")
     kf_specs = SESSION.specs.get(cq.keyframe_workflow_id) if kf else None
     if kf and kf_specs is None:
@@ -275,8 +275,8 @@ def _draw_keyframe(layout, context, spec: ParamSpec, it, columns: int) -> None:
         row.operator("comfyq.clear_keyframe", text="", icon="X").key = it.key
         row.operator("comfyq.generate_keyframe", text="Regenerate", icon="FILE_REFRESH").key = it.key
     else:
-        row.label(text="Not made yet — Generate makes it first, then the main job", icon="INFO")
-        row.operator("comfyq.generate_keyframe", text="Generate keyframe", icon="RENDER_STILL").key = it.key
+        row.label(text="Not made yet: Generate makes it first, then the main job", icon="INFO")
+        row.operator("comfyq.generate_keyframe", text="Generate Keyframe", icon="PLAY").key = it.key
 
 
 def _draw_scene_strip(box, context, specs) -> None:
@@ -298,8 +298,8 @@ def _draw_scene_strip(box, context, specs) -> None:
         head.label(text=text, icon="CAMERA_DATA")
     sub = head.row(align=True)
     sub.alert = bool(mismatched)
-    sub.operator("comfyq.match_scene", text="Match to scene" if mismatched else "Matched",
-                 icon="LINKED" if mismatched else "CHECKMARK")
+    sub.operator("comfyq.match_scene", text="Match to Scene", icon="SNAP_ON" if mismatched else "CHECKMARK",
+                 depress=not mismatched)            # pressed = already matching (a state, the verb stays)
     for w in m.warnings:
         strip.label(text=w, icon="ERROR")
     if not any(s.kind == "video" for s in specs):
@@ -307,9 +307,9 @@ def _draw_scene_strip(box, context, specs) -> None:
     edge = max((s.max_input_edge or 0 for s in specs if s.kind == "video"), default=0) or None
     ready = animation.current(scene, scene.comfyq.style, edge)
     col = strip.column(align=True)
-    _wrapped(col, "Clay animation (what is sent) — rendered fresh on every Generate", "RENDER_ANIMATION")
+    _wrapped(col, "Clay animation (what is sent): rendered again on every Generate", "RENDER_ANIMATION")
     row = col.row(align=True)
-    op = row.operator("comfyq.preview_animation", text="Render & play clay animation", icon="PLAY")
+    op = row.operator("comfyq.preview_animation", text="Render & Play Clay Animation", icon="RENDER_ANIMATION")
     op.force, op.play = True, True
     if ready:
         op = row.operator("comfyq.preview_animation", text="Replay", icon="LOOP_BACK")
@@ -365,9 +365,9 @@ def draw_jobs(layout, context, limit: int | None = None) -> None:
         view = SESSION.jobs.get(rec.job_id)
         job = view.job if view else None
         head = box.row()
-        head.label(text=f"{rec.label}  ({rec.job_id[:8]})")
+        head.label(text=rec.label)
         if job is None:
-            head.label(text="connect to see it")
+            head.label(text="Connect to see its status")
             continue
         phase = PHASE_TEXT.get(job.phase, job.phase)
         _draw_sent(box, rec)
@@ -376,14 +376,14 @@ def draw_jobs(layout, context, limit: int | None = None) -> None:
                 box.progress(factor=job.progress, type="BAR", text=f"{phase} {job.progress * 100:.0f}%")
             else:
                 box.label(text=queue_text(job), icon="SORTTIME")
-            head.operator("comfyq.cancel", text="", icon="X").job_id = rec.job_id
+            head.operator("comfyq.cancel", text="", icon="CANCEL").job_id = rec.job_id
         elif job.ok:
             head.operator("comfyq.open_folder", text="", icon="FILE_FOLDER").job_id = rec.job_id
             box.label(text="Done · " + _when(rec, job), icon="CHECKMARK")
             if view.downloading:
-                box.label(text="Downloading…", icon="IMPORT")
+                box.label(text="Downloading…", icon="TRIA_DOWN_BAR")
             elif not view.files:
-                box.operator("comfyq.download", text="Download result", icon="IMPORT").job_id = rec.job_id
+                box.operator("comfyq.download", text="Download Result", icon="TRIA_DOWN_BAR").job_id = rec.job_id
             for f in view.files:
                 _draw_file(box, rec, f)
         else:
@@ -429,7 +429,7 @@ def _draw_sent(box, rec) -> None:
         row = col.row(align=True)
         row.label(text=f"Sent · {label} ({kind})", icon="FILE_MOVIE" if kind == "animation" else "IMAGE_DATA")
         if p.is_file():
-            row.operator("comfyq.show_media", text="Show", icon="PLAY").path = str(p)
+            row.operator("comfyq.show_media", text="Show", icon="HIDE_OFF").path = str(p)
         else:
             row.label(text="(cleared)")
 
@@ -442,11 +442,11 @@ def _draw_file(box, rec, path) -> None:
     col.label(text=name, icon=_FILE_ICON.get(ext, "IMAGE_DATA"))
     row = col.grid_flow(row_major=True, columns=2, even_columns=True, align=True)   # 2×2: labels fit
     if ext in _VIEWABLE:
-        row.operator("comfyq.show_media", text="Show", icon="PLAY").path = str(path)
-    row.operator("comfyq.open_media", text="Open", icon="WINDOW").path = str(path)
-    row.operator("comfyq.save_result", text="Save as…", icon="FILE_TICK").source = str(path)
-    op = row.operator("comfyq.import_file", text="In scene" if rec.imported else "Import",
-                      icon="CHECKMARK" if rec.imported else "IMPORT")
+        row.operator("comfyq.show_media", text="Show", icon="HIDE_OFF").path = str(path)
+    row.operator("comfyq.open_media", text="Open", icon="URL").path = str(path)
+    row.operator("comfyq.save_result", text="Save As...", icon="FILE_TICK").source = str(path)
+    op = row.operator("comfyq.import_file", text="Import", icon="CHECKMARK" if rec.imported else "IMPORT",
+                      depress=rec.imported)         # pressed = already in the scene (Import again replaces)
     op.job_id, op.path, op.again = rec.job_id, str(path), rec.imported
 
 

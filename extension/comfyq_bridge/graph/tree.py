@@ -227,9 +227,9 @@ class ComfyQImageNode(_Node, bpy.types.Node):
         _thumbnail(layout, self.image)
 
 
-FRAMES = (("START", "First frame", "The first frame of the scene's range"),
-          ("END", "Last frame", "The last frame of the scene's range"),
-          ("CURRENT", "Current frame", "The scene's current frame"))
+FRAMES = (("START", "First Frame", "The first frame of the scene's range"),
+          ("END", "Last Frame", "The last frame of the scene's range"),
+          ("CURRENT", "Current Frame", "The scene's current frame"))
 
 
 def frame_number(scene, which: str) -> int:
@@ -246,8 +246,8 @@ class ComfyQSceneRenderNode(_Node, bpy.types.Node):
     style: EnumProperty(name="Style", items=STILL_STYLES, default="CLAY")
     frame: EnumProperty(name="Frame", items=FRAMES, default="START")
     cycles_samples: IntProperty(name="Samples", default=64, min=1, soft_max=1024,
-                                description="Cycles samples (denoised). Rendered in a separate Blender so the GPU is "
-                                            "free before the ComfyQ job")
+                                description="Set the Cycles samples (denoised). Higher is cleaner and slower; the render runs "
+                                            "in a separate Blender so the GPU is free for ComfyQ")
 
     def init(self, context):
         self.outputs.new(SOCKET_IDNAME["image"], "Image")
@@ -258,8 +258,8 @@ class ComfyQSceneRenderNode(_Node, bpy.types.Node):
         row.prop(self, "frame", text="")
         if self.style == "CYCLES":
             layout.prop(self, "cycles_samples")
-        op = layout.operator("comfyq.preview_pass", text=f"Render frame {frame_number(context.scene, self.frame)}",
-                             icon="RESTRICT_VIEW_OFF")
+        op = layout.operator("comfyq.preview_pass", text=f"Render Frame {frame_number(context.scene, self.frame)}",
+                             icon="RENDER_STILL")
         op.mask, op.style, op.frame = False, self.style, frame_number(context.scene, self.frame)
         _thumbnail(layout, bpy.data.images.get("ComfyQ render preview"))
 
@@ -279,12 +279,12 @@ class ComfyQMaskNode(_Node, bpy.types.Node):
 
     def draw_buttons(self, context, layout):
         n = len(context.selected_objects)
-        layout.label(text=f"Selected objects = area to repaint ({n} selected)",
+        layout.label(text=f"Selected objects mark the area to repaint ({n} selected)",
                      icon="CHECKMARK" if n else "ERROR")
         row = layout.row(align=True)
         row.prop(self, "style", text="")
         row.prop(self, "frame", text="")
-        op = layout.operator("comfyq.preview_pass", text="Render mask", icon="SELECT_SET")
+        op = layout.operator("comfyq.preview_pass", text="Render Mask", icon="SELECT_SET")
         op.mask, op.style, op.frame = True, self.style, frame_number(context.scene, self.frame)
         _thumbnail(layout, bpy.data.images.get("ComfyQ mask preview"))
 
@@ -308,7 +308,7 @@ class ComfyQSceneAnimationNode(_Node, bpy.types.Node):
         layout.label(text=f"{f.frame_start}–{f.frame_end} · {f.fps:g} fps · {f.seconds:.1f} s · "
                           f"{sc.camera.name if sc.camera else 'NO CAMERA'}", icon="CAMERA_DATA")
         layout.prop(self, "style", text="")
-        op = layout.operator("comfyq.preview_animation", text="Render & play clay animation", icon="PLAY")
+        op = layout.operator("comfyq.preview_animation", text="Render & Play Clay Animation", icon="RENDER_ANIMATION")
         op.force, op.play, op.style = True, True, self.style
         _movie(layout, animation_path())
 
@@ -327,8 +327,8 @@ class _FileNode(_Node):
         path = bpy.path.abspath(self.filepath) if self.filepath else ""
         if path:
             row = layout.row(align=True)
-            row.operator("comfyq.show_media", text="Show", icon="PLAY").path = path
-            row.operator("comfyq.open_media", text="Open", icon="WINDOW").path = path
+            row.operator("comfyq.show_media", text="Show", icon="HIDE_OFF").path = path
+            row.operator("comfyq.open_media", text="Open", icon="URL").path = path
             if self.comfyq_kind == "video":
                 _movie(layout, path)
 
@@ -366,7 +366,7 @@ class ComfyQPromptNode(_Node, bpy.types.Node):
         return self.text_block.as_string().strip() if self.text_block else self.text
 
     def draw_buttons(self, context, layout):
-        draw_text_field(layout, self, "text", "text_block", self, "", True, "Describe what you want to create")
+        draw_text_field(layout, self, "text", "text_block", self, "", True, "Describe the image or video to create")
 
 
 # -- workflow node: built from the workflow's parameters ---------------------------------------------
@@ -426,7 +426,7 @@ class ComfyQWorkflowNode(_Node, bpy.types.Node):
 
     def draw_label(self):
         wf = workflow_of(self.workflow_id)
-        return wf.name if wf else (self.workflow_id or "Choose a model")
+        return wf.name if wf else (self.workflow_id or "Choose Model")
 
     def item(self, key: str):
         return next((it for it in self.params if it.key == key and it.workflow_id == self.workflow_id), None)
@@ -522,7 +522,7 @@ class ComfyQWorkflowNode(_Node, bpy.types.Node):
         head = layout.row(align=True)
         swap = head.row(align=True)
         swap.scale_y = 1.2
-        target(swap.operator("comfyq.graph_set_workflow", text="Change model" if wf else "Choose a model…",
+        target(swap.operator("comfyq.graph_set_workflow", text="Change Model..." if wf else "Choose Model...",
                              icon="DOWNARROW_HLT"), self)
         if SESSION.client is None:
             head.label(text="Not connected", icon="UNLINKED")
@@ -535,11 +535,11 @@ class ComfyQWorkflowNode(_Node, bpy.types.Node):
             solo = not served and solo_on()
             sub = head.row()
             sub.alert = not served and not solo
-            sub.label(text="Served" if served else ("Loads on Run" if solo else "Not served"),
-                      icon="PLAY" if served else ("IMPORT" if solo else "ERROR"))
+            sub.label(text="Served" if served else ("Loads on Run" if solo else "Not Served"),
+                      icon="CHECKMARK" if served else ("PACKAGE" if solo else "ERROR"))
             head.label(text=vram_badge(wf, shared_budget())[0], icon="MEMORY")
             if solo:
-                head.operator("comfyq.graph_load_model", text="", icon="IMPORT").workflow_id = wf.id
+                head.operator("comfyq.graph_load_model", text="", icon="PACKAGE").workflow_id = wf.id
         if self.note:
             box = layout.box()
             box.alert = True
@@ -558,7 +558,7 @@ class ComfyQWorkflowNode(_Node, bpy.types.Node):
         for s in visible:
             if s.kind in ("prompt", "text") and s.key not in linked:
                 draw_text_field(layout, self.item(s.key), "s", "text", self, s.key, s.kind == "prompt",
-                                scene_match.short_label(s.label, 60) or "Describe what you want to create")
+                                scene_match.short_label(s.label, 60) or "Describe the image or video to create")
         for s in visible:                   # unlinked inputs: say so, and offer the matching source
             kind = kinds.input_kind(s.kind)
             if s.is_media and s.key not in linked:
@@ -587,13 +587,13 @@ class ComfyQWorkflowNode(_Node, bpy.types.Node):
             else:
                 from ..ui.studio import queue_text
                 row.label(text=queue_text(job), icon="SORTTIME")
-            row.operator("comfyq.cancel", text="", icon="X").job_id = self.job_id
+            row.operator("comfyq.cancel", text="", icon="CANCEL").job_id = self.job_id
         elif state in ("waiting", "sending"):
             row.label(text="Waiting for its inputs" if state == "waiting" else "Sending…", icon="SORTTIME")
         else:
             gen = row.row(align=True)
             gen.enabled = self.workflow_id in SESSION.specs
-            target(gen.operator("comfyq.graph_run", text="Generate", icon="RENDER_STILL"), self)
+            target(gen.operator("comfyq.graph_run", text="Generate", icon="PLAY"), self)
             op = row.operator("comfyq.graph_run", text="", icon="FILE_REFRESH")
             target(op, self)
             op.force = True
@@ -612,8 +612,8 @@ class ComfyQWorkflowNode(_Node, bpy.types.Node):
         res.label(text=("Result · " if self.result_hash == self.pending_hash or not self.pending_hash
                         else "Older result · ") + path.name, icon="CHECKMARK")
         btn = res.row(align=True)
-        btn.operator("comfyq.show_media", text="Show", icon="PLAY").path = str(path)
-        btn.operator("comfyq.open_media", text="Open", icon="WINDOW").path = str(path)
+        btn.operator("comfyq.show_media", text="Show", icon="HIDE_OFF").path = str(path)
+        btn.operator("comfyq.open_media", text="Open", icon="URL").path = str(path)
         op = btn.operator("comfyq.import_file", text="Import", icon="IMPORT")
         op.job_id, op.path = self.job_id, str(path)
 
@@ -636,13 +636,14 @@ class ComfyQSurfacesNode(_Node, bpy.types.Node):
     bl_width_min = 300
 
     workflow_id: StringProperty(default=SAM3_ID)     # what ComfyQ must serve (solo mode loads it)
-    text: StringProperty(name="Surfaces", description="label: material; … (a|b|c = one label from several "
-                                                       "SAM3 phrases, merged)")
+    text: StringProperty(name="Surfaces", description="List the surfaces to find, one per line as "
+                                                       "label: material. Separate phrases with | to merge them "
+                                                       "into one label")
     text_block: PointerProperty(type=bpy.types.Text, name="Surfaces text")
-    intro: StringProperty(name="Before", default=_INTRO, description="Text before the surfaces (style, light)")
-    outro: StringProperty(name="After", default=_OUTRO, description="Text after the surfaces")
-    threshold: FloatProperty(name="Detection threshold", default=0.5, min=0.1, max=0.9, step=5,
-                             description="SAM3: lower finds more (looser), higher is stricter")
+    intro: StringProperty(name="Before", default=_INTRO, description="Put this text before the surfaces (style, light)")
+    outro: StringProperty(name="After", default=_OUTRO, description="Put this text after the surfaces")
+    threshold: FloatProperty(name="Detection Threshold", default=0.5, min=0.1, max=0.9, step=5,
+                             description="Set how sure SAM3 must be. Lower finds more, higher is stricter")
     note: StringProperty()
     job_id: StringProperty()
     result: StringProperty(subtype="FILE_PATH")       # the overlay
@@ -692,7 +693,7 @@ class ComfyQSurfacesNode(_Node, bpy.types.Node):
         row.label(text="SAM3 served" if served else ("SAM3 loads on Run" if solo_on() else
                                                      "SAM3 not served: ask the teacher"),
                   icon="CHECKMARK" if served else ("IMPORT" if solo_on() else "ERROR"))
-        layout.label(text="One surface per line — label: material", icon="MATERIAL")
+        layout.label(text="One surface per line, as label: material", icon="MATERIAL")
         draw_text_field(layout, self, "text", "text_block", self, "", True,
                         "floor: oak parquet; wall|left wall|right wall: white plaster")
         col = layout.column(align=True)
@@ -712,7 +713,7 @@ class ComfyQSurfacesNode(_Node, bpy.types.Node):
                       icon="SORTTIME")
             row.operator("comfyq.graph_stop", text="", icon="CANCEL").tree = self.id_data.name
         else:
-            target(row.operator("comfyq.graph_run", text="Find surfaces", icon="VIEWZOOM"), self)
+            target(row.operator("comfyq.graph_run", text="Find Surfaces", icon="PLAY"), self)
             op = row.operator("comfyq.graph_run", text="", icon="FILE_REFRESH")
             target(op, self)
             op.force = True
@@ -730,8 +731,8 @@ class ComfyQSurfacesNode(_Node, bpy.types.Node):
             box.label(text=line)
         if path is not None and path.is_file():
             btn = layout.row(align=True)
-            btn.operator("comfyq.show_media", text="Show overlay", icon="PLAY").path = str(path)
-            btn.operator("comfyq.open_media", text="Open", icon="WINDOW").path = str(path)
+            btn.operator("comfyq.show_media", text="Show Overlay", icon="HIDE_OFF").path = str(path)
+            btn.operator("comfyq.open_media", text="Open", icon="URL").path = str(path)
 
 
 # -- output nodes: act on what is linked into them (no job of their own) ------------------------------
@@ -758,7 +759,7 @@ class _OutputNode(_Node):
         act = row.row(align=True)
         act.enabled = media is not None
         target(act.operator("comfyq.graph_output", text=self.verb.title(), icon=self.bl_icon), self)
-        target(layout.operator("comfyq.graph_run", text="Generate upstream, then " + self.verb, icon="RENDER_STILL"),
+        target(layout.operator("comfyq.graph_run", text="Generate Upstream, then " + self.verb.title(), icon="PLAY"),
                self)
         if self.status:
             layout.label(text=self.status, icon="CHECKMARK")
@@ -775,7 +776,7 @@ class ComfyQViewerNode(_OutputNode, bpy.types.Node):
     auto_label = "Show when ready"
     verb = "show"
 
-    auto: BoolProperty(name="Show when ready", default=True,
+    auto: BoolProperty(name="Show When Ready", default=True,
                        description="Show each new result in the ComfyQ viewer as soon as it arrives")
 
     def draw_body(self, context, layout, media) -> None:
@@ -802,24 +803,24 @@ class ComfyQImportNode(_OutputNode, bpy.types.Node):
     auto_label = "Import when ready"
     verb = "import"
 
-    auto: BoolProperty(name="Import when ready", default=False,
+    auto: BoolProperty(name="Import When Ready", default=False,
                        description="Import each new result as soon as it arrives")
-    replace: BoolProperty(name="Replace previous import", default=True,
+    replace: BoolProperty(name="Replace Previous Import", default=True,
                           description="Remove what this node imported last time (strips, objects) before importing")
     imported: StringProperty()             # JSON: what the last import created (to replace it)
     # 3D models / splats: generators put them at the origin at their own scale (inside the scene)
     place: EnumProperty(
         name="Place", default="BESIDE",
-        items=(("BESIDE", "Beside the scene", "To the right of the scene's objects, so it is never hidden inside them"),
-               ("CURSOR", "At the 3D cursor", "Where the 3D cursor is"),
-               ("ORIGIN", "At the origin", "At the world origin"),
-               ("ASIS", "As made", "Where and how big the file says")),
-        description="Where an imported 3D model or splat goes")
-    on_ground: BoolProperty(name="On the ground", default=True,
-                            description="Its lowest point at the ground (z = 0, or the 3D cursor's height)")
+        items=(("BESIDE", "Beside the Scene", "Place it to the right of the scene's objects, never hidden inside them"),
+               ("CURSOR", "At the 3D Cursor", "Place it at the 3D cursor"),
+               ("ORIGIN", "At the Origin", "Place it at the world origin"),
+               ("ASIS", "As Made", "Keep the position and size stored in the file")),
+        description="Choose where an imported 3D model or splat goes")
+    on_ground: BoolProperty(name="On the Ground", default=True,
+                            description="Put its lowest point on the ground (z = 0, or the 3D cursor's height)")
     size: FloatProperty(name="Size", default=0.0, min=0.0, soft_max=50.0, subtype="DISTANCE",
-                        description="Scale it so its longest side is this long (0 = keep the size it was made at; "
-                                    "e.g. 4.5 m for a car)")
+                        description="Scale it so its longest side is this long, for example 4.5 m for a car. 0 keeps "
+                                    "the size it was made at")
 
     def placement(self):
         from ..importers.media import Placement
@@ -844,7 +845,7 @@ class ComfyQSaveNode(_OutputNode, bpy.types.Node):
     auto_label = "Save when ready"
     verb = "save"
 
-    auto: BoolProperty(name="Save when ready", default=False,
+    auto: BoolProperty(name="Save When Ready", default=False,
                        description="Save each new result as soon as it arrives")
     folder: StringProperty(name="Folder", subtype="DIR_PATH", default="//comfyq/", options=REL_PATH,
                            description="Where copies go (// = next to the .blend)")

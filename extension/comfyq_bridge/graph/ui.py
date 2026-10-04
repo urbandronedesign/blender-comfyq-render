@@ -12,6 +12,7 @@ from .. import match as scene_match
 from ..importers.media import IMAGE_EXTS, VIDEO_EXTS
 from ..props import TABS, tab_of
 from ..runtime.session import SESSION
+from ..wording import count
 from . import kinds, outputs
 from .tree import (
     OUTPUT_NODES,
@@ -30,6 +31,12 @@ from .tree import (
 )
 
 GRAPH_NAME = "ComfyQ Graph"
+
+
+def _param_label(node, key: str) -> str:
+    """A workflow parameter's label (never the raw key on screen)."""
+    specs = SESSION.specs.get(getattr(node, "workflow_id", ""), [])
+    return next((s.label for s in specs if s.key == key), key)
 
 
 def _in_graph(context) -> bool:
@@ -86,23 +93,23 @@ def _draw_workflow_items(layout, wfs) -> None:
         layout.operator("comfyq.connect", icon="LINKED")
         return
     if not wfs:
-        layout.label(text="No workflow in this category")
+        layout.label(text="No model in this category")
     served = SESSION.served_ids()
     budget = shared_budget()
     for group in (True, False):
         items = [w for w in wfs if (w.id in served) == group]
         if group and items:
-            layout.label(text="Served now")
+            layout.label(text="Served Now")
         elif items:
             if any(w.id in served for w in wfs):
                 layout.separator()
-            layout.label(text="Not served (ask the teacher)")
+            layout.label(text="Not Served (Ask the Teacher)")
         for w in items:
             badge, over = vram_badge(w, budget)
             row = layout.row()
             row.alert = over or w.unavailable
             op = row.operator(COMFYQ_OT_graph_add.bl_idname, text=f"{w.name}   ·  {badge}",
-                              icon="ERROR" if w.unavailable else ("PLAY" if group else "NONE"))
+                              icon="ERROR" if w.unavailable else ("CHECKMARK" if group else "NONE"))
             op.node_type, op.workflow_id = WORKFLOW_NODE, w.id
 
 
@@ -129,8 +136,8 @@ class COMFYQ_MT_graph_output(bpy.types.Menu):
             self.layout.operator(COMFYQ_OT_graph_add.bl_idname, text=cls.bl_label, icon=cls.bl_icon).node_type = \
                 cls.bl_idname
         self.layout.separator()
-        self.layout.operator(COMFYQ_OT_graph_add.bl_idname, text="Frame (note / group)",
-                             icon="OBJECT_HIDDEN").node_type = "NodeFrame"
+        self.layout.operator(COMFYQ_OT_graph_add.bl_idname, text="Frame",
+                             icon="NONE").node_type = "NodeFrame"
         self.layout.operator(COMFYQ_OT_graph_add.bl_idname, text="Reroute", icon="DECORATE").node_type = "NodeReroute"
 
 
@@ -144,7 +151,7 @@ class COMFYQ_MT_graph_scene(bpy.types.Menu):
             self.layout.operator(COMFYQ_OT_graph_add.bl_idname, text=cls.bl_label, icon=cls.bl_icon).node_type = \
                 cls.bl_idname
         self.layout.separator()
-        self.layout.operator(COMFYQ_OT_graph_add.bl_idname, text="Surfaces (SAM3) → prompt",
+        self.layout.operator(COMFYQ_OT_graph_add.bl_idname, text="Surfaces (SAM3) to Prompt",
                              icon="MATERIAL").node_type = "ComfyQSurfacesNode"
 
 
@@ -159,7 +166,7 @@ class COMFYQ_OT_graph_clear(bpy.types.Operator):
         return _in_graph(context) and context.space_data.edit_tree is not None
 
     def invoke(self, context, event):
-        return context.window_manager.invoke_confirm(self, event, title="Clear the graph?",
+        return context.window_manager.invoke_confirm(self, event, title="Clear the Graph?",
                                                      message="Every node of this graph is removed.",
                                                      confirm_text="Clear")
 
@@ -178,7 +185,7 @@ class _NodeOp:
         return find_node(self.tree, self.node)
 
 
-_WF_ITEMS: list[tuple[str, str, str]] = []          # kept alive: Blender keeps pointers to these strings
+_WF_ITEMS: list[tuple] = []          # kept alive: Blender keeps pointers to these strings
 _TAB_LABEL = {key: label for key, label, *_rest in TABS}
 
 
@@ -186,19 +193,18 @@ def _workflow_items(self, context):
     from ..ops.workflow import shared_budget, vram_badge
     served, budget = SESSION.served_ids(), shared_budget()
     items = []
-    for w in sorted(SESSION.workflows, key=lambda w: (w.id not in served, tab_of(w), w.name.lower())):
+    for n, w in enumerate(sorted(SESSION.workflows, key=lambda w: (w.id not in served, tab_of(w), w.name.lower()))):
         badge, _over = vram_badge(w, budget)
-        mark = "▶ " if w.id in served else ""
-        items.append((w.id, f"{mark}{w.name}  ·  {_TAB_LABEL.get(tab_of(w), '')}  ·  {badge}",
-                      (w.description or w.name)[:300]))
-    _WF_ITEMS[:] = items or [("", "Connect to ComfyQ first", "")]
+        items.append((w.id, f"{w.name}  ·  {_TAB_LABEL.get(tab_of(w), '')}  ·  {badge}",
+                      (w.description or w.name)[:300], "CHECKMARK" if w.id in served else "BLANK1", n))
+    _WF_ITEMS[:] = items or [("", "Connect to ComfyQ first", "", "NONE", 0)]
     return _WF_ITEMS
 
 
 class COMFYQ_OT_graph_set_workflow(_NodeOp, bpy.types.Operator):
     bl_idname = "comfyq.graph_set_workflow"
-    bl_label = "Change Model"
-    bl_description = ("Choose this node's workflow (type to search; ▶ = served now). Settings are kept per "
+    bl_label = "Change Model..."
+    bl_description = ("Choose this node's model (type to search; a check mark means served now). Settings are kept per "
                       "model, links come back on inputs of the same kind")
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
     bl_property = "workflow"
@@ -221,8 +227,8 @@ class COMFYQ_OT_graph_set_workflow(_NodeOp, bpy.types.Operator):
 
 class COMFYQ_OT_graph_add_search(bpy.types.Operator):
     bl_idname = "comfyq.graph_add_search"
-    bl_label = "Add Any Workflow"
-    bl_description = "Search every ComfyQ workflow and add it as a node (type to search; ▶ = served now)"
+    bl_label = "Add Any Model..."
+    bl_description = "Search every ComfyQ model and add it as a node (type to search; a check mark means served now)"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
     bl_property = "workflow"
     workflow: EnumProperty(name="Workflow", items=_workflow_items)
@@ -332,9 +338,16 @@ class COMFYQ_OT_graph_unlink_text(_NodeOp, bpy.types.Operator):
 class COMFYQ_OT_graph_run(_NodeOp, bpy.types.Operator):
     bl_idname = "comfyq.graph_run"
     bl_label = "Generate"
-    bl_description = ("Run this node: renders the scene sources it needs, books its job, and first books "
-                      "any upstream workflow node without an up-to-date result. Without a node: run the graph's "
-                      "last nodes. ⟳ = re-run everything upstream")
+    bl_description = "Run this node, after the nodes before it that have no up-to-date result"
+
+    @classmethod
+    def description(cls, context, props):
+        if props.force:
+            return "Run this node and everything before it again, even what is up to date"
+        if props.node:
+            return ("Run this node: render the scene sources it needs, then book its job (nodes before it "
+                    "without an up-to-date result run first)")
+        return "Run the graph's last nodes (and what they need)"
     bl_options = {"REGISTER", "INTERNAL"}
     force: BoolProperty(default=False, options={"SKIP_SAVE"})
 
@@ -365,7 +378,7 @@ class COMFYQ_OT_graph_run(_NodeOp, bpy.types.Operator):
             models = run.models_to_load(tree, context.scene, targets, self.force) if tree and targets else []
             if models:
                 return context.window_manager.invoke_confirm(
-                    self, event, title=f"Load {len(models)} Model(s) in ComfyQ?",
+                    self, event, title=f"Load {count(len(models), 'Model')} in ComfyQ?",
                     message=("Solo mode loads " + ", ".join(models) + ". Each switch can restart ComfyQ "
                              "(1 to 2 minutes) for everyone connected."),
                     confirm_text="Load and Run", icon="WARNING")
@@ -413,14 +426,14 @@ class COMFYQ_OT_graph_stop(_NodeOp, bpy.types.Operator):
             self.report({"INFO"}, "Nothing is running in this graph")
             return {"CANCELLED"}
         n = run.stop(tree)
-        SESSION.status_note = f"Graph stopped ({n} job(s) cancelled)"
+        SESSION.status_note = f"Graph stopped ({count(n, 'job')} cancelled)"
         self.report({"INFO"}, SESSION.status_note)
         return {"FINISHED"}
 
 
 class COMFYQ_OT_graph_output(_NodeOp, bpy.types.Operator):
     bl_idname = "comfyq.graph_output"
-    bl_label = "Act"
+    bl_label = "Show, Import or Save"
     bl_description = "Viewer: show it in the ComfyQ viewer · Import: bring it into the scene · Save: copy it to the folder"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
@@ -506,7 +519,7 @@ class COMFYQ_PT_graph_node(bpy.types.Panel):
                 except ValueError:
                     sent = {}
                 for key, path in sent.items():
-                    box.label(text=f"Sent {key}: {Path(path).name}", icon="EXPORT")
+                    box.label(text=f"Sent {_param_label(node, key)}: {Path(path).name}", icon="EXPORT")
         # earlier results
         older = [r for r in reversed(node.history) if Path(r.path).is_file()]
         if older:
@@ -740,7 +753,7 @@ def _header(self, context):
     else:
         labels = room >= _LABELS_NEED
         row.menu(COMFYQ_MT_graph_scene.bl_idname, text="Scene" if labels else "", icon="SCENE_DATA")
-        row.menu(COMFYQ_MT_graph_output.bl_idname, text="Output" if labels else "", icon="HIDE_OFF")
+        row.menu(COMFYQ_MT_graph_output.bl_idname, text="Output" if labels else "", icon="OUTPUT")
         row.menu("COMFYQ_MT_graph_presets", text="Presets" if labels else "", icon="PRESET")
         for m in TAB_MENUS:
             row.menu(m.bl_idname, text=m.bl_label if labels else "", icon=m.comfyq_icon)
@@ -770,11 +783,11 @@ def _add_menu(self, context):
         return
     layout = self.layout
     layout.menu(COMFYQ_MT_graph_scene.bl_idname, icon="SCENE_DATA")
-    layout.menu(COMFYQ_MT_graph_output.bl_idname, icon="HIDE_OFF")
+    layout.menu(COMFYQ_MT_graph_output.bl_idname, icon="OUTPUT")
     layout.menu("COMFYQ_MT_graph_presets", icon="PRESET")
     for m in TAB_MENUS:
         layout.menu(m.bl_idname, icon=m.comfyq_icon)
-    layout.operator(COMFYQ_OT_graph_add_search.bl_idname, text="Any Workflow…", icon="VIEWZOOM")
+    layout.operator(COMFYQ_OT_graph_add_search.bl_idname, text="Any Model...", icon="VIEWZOOM")
 
 
 # -- timer sync -------------------------------------------------------------------------------------
@@ -926,8 +939,8 @@ def _adopt_result(tree, node) -> None:
 class COMFYQ_OT_graph_load_model(bpy.types.Operator):
     bl_idname = "comfyq.graph_load_model"
     bl_label = "Load Model"
-    bl_description = ("Solo mode: make ComfyQ serve this workflow now (alongside if it fits, else as the main one: "
-                      "ComfyQ restarts, about 1–2 min). Refused while anyone has a job on the server")
+    bl_description = ("Make ComfyQ serve this model now: beside the current one when it fits, otherwise "
+                      "instead of it (ComfyQ restarts for 1 to 2 minutes). Only while nobody has a job")
     bl_options = {"INTERNAL"}
     workflow_id: StringProperty(options={"HIDDEN", "SKIP_SAVE"})
 
@@ -956,7 +969,7 @@ class COMFYQ_OT_graph_load_model(bpy.types.Operator):
         client, wf_id = SESSION.client, self.workflow_id
         others = serving.blockers(client)
         if others:
-            self.report({"WARNING"}, f"{len(others)} job(s) on ComfyQ ({others[0]}): models are only switched "
+            self.report({"WARNING"}, f"{count(len(others), 'job')} on ComfyQ ({others[0]}): models are only switched "
                                      f"when nobody is using the server")
             return {"CANCELLED"}
         name = _wf_name(wf_id)
@@ -968,7 +981,7 @@ class COMFYQ_OT_graph_load_model(bpy.types.Operator):
 
         def done(how):
             SESSION.status_note = (f"Solo: “{name}” loading alongside" if how == "alongside" else
-                                   f"Solo: ComfyQ restarts with “{name}” (about 1–2 min)")
+                                   f"Solo: ComfyQ restarts with “{name}” (1 to 2 minutes)")
         SESSION.status_note = f"Solo: asking ComfyQ to load “{name}”…"
         SESSION.run(work, done, on_error=lambda msg: setattr(SESSION, "status_note", f"Solo: {msg}"))
         self.report({"INFO"}, SESSION.status_note)

@@ -15,7 +15,7 @@ def _name_ok(name: str) -> bool:
 class COMFYQ_OT_connect(bpy.types.Operator):
     bl_idname = "comfyq.connect"
     bl_label = "Connect"
-    bl_description = "Connect to the ComfyQ server set in the add-on preferences"
+    bl_description = "Connect to the ComfyQ server set in the add-on preferences (asks for the student name the first time)"
 
     student_name: StringProperty(name="Student Name", options={"SKIP_SAVE"},
                                  description="Name shown on jobs in ComfyQ, so everyone can tell whose job is whose")
@@ -110,4 +110,18 @@ class COMFYQ_OT_refresh(bpy.types.Operator):
         return {"FINISHED"}
 
 
-classes = (COMFYQ_OT_connect, COMFYQ_OT_set_student_name, COMFYQ_OT_disconnect, COMFYQ_OT_refresh)
+class COMFYQ_OT_copy_agent_command(bpy.types.Operator):
+    bl_idname = "comfyq.copy_agent_command"
+    bl_label = "Copy Agent Command"
+    bl_description = ("Copy the command an AI agent (Claude Code, Codex) runs to reach this Blender, for its MCP "
+                      "settings")
+
+    def execute(self, context):
+        from pathlib import Path
+        launcher = Path(__file__).resolve().parents[1] / "mcp" / "launcher.py"
+        context.window_manager.clipboard = f'python "{launcher.as_posix()}"'
+        self.report({"INFO"}, "Agent command copied: paste it into the agent's MCP settings")
+        return {"FINISHED"}
+
+
+classes = (COMFYQ_OT_copy_agent_command, COMFYQ_OT_connect, COMFYQ_OT_set_student_name, COMFYQ_OT_disconnect, COMFYQ_OT_refresh)

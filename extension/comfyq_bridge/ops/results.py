@@ -11,6 +11,7 @@ from bpy_extras.io_utils import ExportHelper
 
 from ..importers.media import import_files
 from ..runtime.session import SESSION
+from ..wording import count
 
 
 def default_save_dir() -> Path:
@@ -23,8 +24,8 @@ def default_save_dir() -> Path:
 
 class COMFYQ_OT_save_result(bpy.types.Operator, ExportHelper):
     bl_idname = "comfyq.save_result"
-    bl_label = "Save Copy"
-    bl_description = "Save a copy of this result where you want (default: a comfyq folder next to the .blend)"
+    bl_label = "Save As..."
+    bl_description = "Save a copy of this result to a chosen folder"
     bl_options = {"INTERNAL"}
     filename_ext = ""
     source: StringProperty(options={"HIDDEN", "SKIP_SAVE"})
@@ -117,7 +118,7 @@ def scene_has_result_strips(scene) -> bool:
 class COMFYQ_OT_cleanup(bpy.types.Operator):
     bl_idname = "comfyq.cleanup"
     bl_label = "Clean Up"
-    bl_description = ("Remove ComfyQ result strips from your 3D scenes' sequencer (they replace the camera "
+    bl_description = ("Remove ComfyQ result strips from the 3D scenes' Sequencer (they replace the camera "
                       "in renders), delete temporary renders and duplicate previews. Job results are kept")
     bl_options = {"REGISTER", "UNDO"}
 
@@ -133,8 +134,9 @@ class COMFYQ_OT_cleanup(bpy.types.Operator):
         n_files = sum(1 for p in passes.rglob("*") if p.is_file()) if passes.is_dir() else 0
         return context.window_manager.invoke_confirm(
             self, event, title="Clean Up?",
-            message=(f"Remove {ed_strips} result strip(s) from the 3D scenes and delete {n_files} temporary "
-                     "render file(s). Job results are kept. Deleted files cannot be restored."),
+            message=(f"Remove {count(ed_strips, 'result strip')} from the 3D scenes and delete "
+                     f"{count(n_files, 'temporary render file')}. Job results are kept. Deleted files cannot be "
+                     "restored."),
             confirm_text="Clean Up", icon="WARNING")
 
     def execute(self, context):
@@ -154,8 +156,8 @@ class COMFYQ_OT_cleanup(bpy.types.Operator):
                                        "ComfyQ pass preview")) and i not in shown]
         for img in stale:
             bpy.data.images.remove(img)
-        self.report({"INFO"}, f"Removed {strips} strip(s) from your scenes, {n_files} temporary file(s), "
-                              f"{len(stale)} old preview(s)")
+        self.report({"INFO"}, f"Removed result strips: {strips} · temporary files: {n_files} · "
+                              f"old previews: {len(stale)}")
         return {"FINISHED"}
 
 

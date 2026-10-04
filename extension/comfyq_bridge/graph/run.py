@@ -21,6 +21,7 @@ from ..passes import animation, render
 from ..props import INT_MAX
 from ..runtime import serving
 from ..runtime.session import SESSION
+from ..wording import count
 from . import engine, kinds
 from .tree import (
     RUN_NODES,
@@ -169,7 +170,7 @@ class Run:
         name = _wf_name(wf_id)
         others = serving.blockers(client)
         if others:                                     # someone's job: never switch under it; wait
-            SESSION.status_note = (f"Solo: waiting for {len(others)} job(s) on ComfyQ before loading “{name}” "
+            SESSION.status_note = (f"Solo: waiting for {count(len(others), 'job')} on ComfyQ before loading “{name}” "
                                    f"({others[0]})")
             return
         self.switch = {"wf": wf_id, "state": "asking", "t0": time.monotonic(), "error": ""}
@@ -177,7 +178,7 @@ class Run:
             node = tree.nodes.get(n)
             if node is not None and node.workflow_id == wf_id:
                 node.note = "Loading its model in ComfyQ…"
-        SESSION.status_note = f"Solo: loading “{name}” in ComfyQ (ComfyQ restarts, about 1–2 min)…"
+        SESSION.status_note = f"Solo: loading “{name}” in ComfyQ (ComfyQ restarts, 1 to 2 minutes)…"
         sw = self.switch
 
         def work():
@@ -323,7 +324,7 @@ class Run:
             node.note = ""
             self.pending.discard(name)
             return
-        node.note, node.pending_hash = f"SAM3: {len(labels)} label(s)…", self.hashes[name]
+        node.note, node.pending_hash = f"SAM3: {count(len(labels), 'label')}…", self.hashes[name]
         self.booking.add(name)
         client, thr = SESSION.client, node.threshold
         out = seg.work_dir(f"graph_{segmentation.safe(name)}_{time.strftime('%Y%m%d_%H%M%S')}")
@@ -555,7 +556,7 @@ def start(tree, scene, targets: list[str], selected: list[str], force: bool = Fa
     if solo:
         others = serving.blockers(SESSION.client)
         if others:
-            return False, (f"Solo mode: {len(others)} job(s) on ComfyQ ({others[0]}); models are only switched "
+            return False, (f"Solo mode: {count(len(others), 'job')} on ComfyQ ({others[0]}); models are only switched "
                            f"when nobody is using the server")
     missing = []
     for name in todo:
@@ -575,10 +576,10 @@ def start(tree, scene, targets: list[str], selected: list[str], force: bool = Fa
     RUNS[tree.name] = run
     run.tick()
     reused = [n for n in engine.order(nodes, targets) if n not in todo]
-    msg = f"Running {len(todo)} job(s): " + " → ".join(todo)
+    msg = f"Running {count(len(todo), 'job')}: " + " → ".join(todo)
     if solo:
         n_models = len({tree.nodes[n].workflow_id for n in todo if tree.nodes[n].workflow_id not in served})
-        msg += f" (solo: loads {n_models} model(s) in ComfyQ; each switch restarts it, about 1–2 min)"
+        msg += f" (solo: loads {count(n_models, 'model')} in ComfyQ; each switch restarts it, 1 to 2 minutes)"
     if reused:
         msg += f" (reusing {', '.join(reused)})"
     return True, msg

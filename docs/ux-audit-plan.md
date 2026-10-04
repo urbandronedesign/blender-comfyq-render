@@ -38,7 +38,7 @@ Severity uses Nielsen's 0–4 scale (4 = must fix before class).
 | B5 | Connection errors read like "ConnectionError" (`http.py:55`). | "The class server is not answering — check that the teacher's PC is on, then Connect again", with a "Server Address..." button. |
 | B6 | Some actions fail or finish silently: cancel, disconnect, open a missing file, download, Use this result. | `self.report` for every outcome. |
 
-## Phase C — wording, tooltips, icons (Blender HIG; severity 1–2, effort S, mostly mechanical)
+## Phase C — wording, tooltips, icons (Blender HIG; severity 1–2, effort S, mostly mechanical) — DONE 2026-10-04
 - **Labels in title case:**
   - "Render Scene", "Match to Scene", "Generate Keyframe", "Change Model...", "Find Surfaces", "Clean Up"…
   - Preferences: "Student Name", "Connect on Startup", "Teacher Tools".

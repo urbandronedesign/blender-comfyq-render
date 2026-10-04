@@ -245,7 +245,7 @@ class COMFYQ_MT_results(bpy.types.Menu):
         from ..passes import animation
         last = animation.last()
         if last is not None and last.path.is_file():
-            op = layout.operator(COMFYQ_OT_show_media.bl_idname, text="Animation pass (what is sent)",
+            op = layout.operator(COMFYQ_OT_show_media.bl_idname, text="Animation Pass (What Is Sent)",
                                  icon="RENDER_ANIMATION")
             op.path = str(last.path)
             layout.separator()
@@ -271,9 +271,9 @@ class COMFYQ_PT_player(bpy.types.Panel):
         img = sp.image
         render_row = layout.row(align=True)          # a camera render of the scene, any time
         render_row.prop(context.scene.comfyq, "style", text="")
-        render_row.operator("comfyq.preview_pass", text="Render scene", icon="RENDER_STILL").mask = False
+        render_row.operator("comfyq.preview_pass", text="Render Scene", icon="RENDER_STILL").mask = False
         row = layout.row(align=True)
-        row.menu(COMFYQ_MT_results.bl_idname, text=describe(img) if img else "Choose a result…",
+        row.menu(COMFYQ_MT_results.bl_idname, text=describe(img) if img else "Choose Result",
                  icon="RENDER_ANIMATION" if img is not None and not img.get("comfyq_job") else "IMAGE_DATA")
         if not is_movie(img):
             if img is not None:
@@ -296,13 +296,13 @@ class COMFYQ_PT_player(bpy.types.Panel):
         row = layout.row()
         row.label(text=f"{frames} frames · {fps:g} fps · {frames / fps:.1f} s · {img.size[0]}×{img.size[1]}")
         row = layout.row(align=True)
-        row.prop(wm, "comfyq_player_sync", text="Sync scene frame", toggle=True, icon="LINKED")
+        row.prop(wm, "comfyq_player_sync", text="Sync Scene Frame", toggle=True, icon="TIME")
         row.operator("comfyq.open_media", text="", icon="WINDOW").path = bpy.path.abspath(img.filepath)
 
 
 class COMFYQ_OT_open_media(bpy.types.Operator):
     bl_idname = "comfyq.open_media"
-    bl_label = "Open in System Player"
+    bl_label = "Open in External App"
     bl_description = "Open the file in the default app of this PC"
     bl_options = {"INTERNAL"}
     path: StringProperty()
@@ -325,10 +325,11 @@ def register() -> None:
     wm = bpy.types.WindowManager
     wm.comfyq_player_pos = FloatProperty(name="Position", min=0.0, max=100.0, default=0.0, subtype="PERCENTAGE",
                                          precision=0, update=_pos_update)
-    wm.comfyq_player_loop = BoolProperty(name="Loop", default=True)
-    wm.comfyq_player_speed = EnumProperty(name="Speed", items=SPEEDS, default="1")
+    wm.comfyq_player_loop = BoolProperty(name="Loop", default=True, description="Play the result again from the start when it ends")
+    wm.comfyq_player_speed = EnumProperty(name="Speed", items=SPEEDS, default="1",
+                                          description="Playback speed of the result")
     wm.comfyq_player_sync = BoolProperty(
-        name="Sync scene frame", default=False,
+        name="Sync Scene Frame", default=False,
         description="Move the scene to the matching frame while playing (compare a result with the animation)")
 
 

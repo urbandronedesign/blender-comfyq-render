@@ -83,12 +83,12 @@ class COMFYQ_PT_queue(bpy.types.Panel):
 class COMFYQ_OT_studio(bpy.types.Operator):
     bl_idname = "comfyq.studio"
     bl_label = "ComfyQ"
-    bl_description = "Open the ComfyQ generation bar (Ctrl+Shift+Q)"
+    bl_description = "Open the ComfyQ generation bar in a dialog"
 
     def invoke(self, context, event):
-        if SESSION.client is None and bpy.app.online_access:
-            p = prefs(context)
-            SESSION.connect(p.profile, p.student_name.strip(), p.url.strip())
+        p = prefs(context)
+        if SESSION.client is None and bpy.app.online_access and p.name_confirmed and p.student_name.strip():
+            SESSION.connect(p.profile, p.student_name.strip(), p.url.strip())   # (no name yet: Connect asks)
         return context.window_manager.invoke_props_dialog(self, width=880, title="ComfyQ",
                                                           confirm_text="Generate")
 
@@ -109,7 +109,7 @@ class COMFYQ_OT_studio(bpy.types.Operator):
 
 def _header_button(self, context):
     row = self.layout.row(align=True)
-    row.operator(COMFYQ_OT_studio.bl_idname, text="ComfyQ", icon="RENDER_STILL")
+    row.operator(COMFYQ_OT_studio.bl_idname, text="ComfyQ...")
     row.operator("comfyq.open_window", text="", icon="WINDOW")
 
 

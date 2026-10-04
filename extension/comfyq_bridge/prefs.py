@@ -7,7 +7,6 @@ stay in the profiles file or the environment (see client/profile.py).
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
 import bpy
 from bpy.props import BoolProperty, IntProperty, StringProperty
@@ -30,7 +29,8 @@ def teacher_unlocked(p=None) -> bool:
         mtime = path.stat().st_mtime if path.is_file() else 0.0
     except OSError:
         mtime = 0.0
-    key = (p.profile, os.environ.get("COMFYQ_ADMIN_PASSWORD", ""), os.environ.get("COMFYQ_BRIDGE_PROFILE", ""), mtime)
+    key = (str(path), p.profile, os.environ.get("COMFYQ_ADMIN_PASSWORD", ""),
+           os.environ.get("COMFYQ_BRIDGE_PROFILE", ""), mtime)
     if _UNLOCK["key"] != key:
         try:
             _UNLOCK["on"] = bool(load_profile(p.profile or None).admin_password)
@@ -61,29 +61,28 @@ class ComfyQPreferences(bpy.types.AddonPreferences):
                                  description="The student typed this name (asked once, at the first Connect)")
     profile: StringProperty(
         name="Profile", default="",
-        description="Profile from the profiles file (empty = its default, or the local machine)")
+        description="Use this profile of the profiles file (server address, passwords). Leave empty for the "
+                    "file's default profile")
     url: StringProperty(
-        name="Server URL override", default="",
-        description="e.g. http://192.168.1.10:3000 — overrides the profile's address")
-    auto_connect: BoolProperty(name="Connect on startup", default=False)
+        name="Server Address", default="",
+        description="Override the profile's server address, for example http://192.168.1.10:3000")
+    auto_connect: BoolProperty(name="Connect on Startup", default=False,
+                                description="Connect when Blender starts (once a student name is set)")
     mcp_enabled: BoolProperty(
-        name="AI agents (MCP server)", default=False, update=_mcp_toggle,
-        description="Let AI agents on this PC (Claude Code, Codex…) use this scene and ComfyQ through scoped "
-                    "tools (render passes, book jobs, import results, edit the ComfyQ graph). Local only, "
-                    "with a token")
+        name="AI Agents", default=False, update=_mcp_toggle,
+        description="Let AI agents on this PC (Claude Code, Codex) render passes, book jobs, import results and "
+                    "edit the ComfyQ graph. Only this PC can connect")
     mcp_port: IntProperty(name="Port", default=8790, min=1024, max=65535,
                           update=_mcp_toggle,
-                          description="Local port of the MCP server (127.0.0.1 only)")
+                          description="Network port the agents connect to on this PC")
     solo_mode: BoolProperty(
-        name="Solo: load models on demand", default=False,
-        description="When you are the only one using ComfyQ: Run Graph loads the models a node needs (switching "
-                    "what ComfyQ serves, one model at a time; ComfyQ restarts ~1–2 min per switch). Refused while "
-                    "anyone else has a job on the server. Never in class: the queue needs one fixed model")
+        name="Solo Mode: Load Models on Demand", default=False,
+        description="Load the models a graph needs when running it (each switch can restart ComfyQ for 1 to 2 "
+                    "minutes). Only while nobody else has a job; never during class")
     mcp_teacher: BoolProperty(
-        name="Teacher tools: agents may load models", default=False, update=_teacher_toggle,
-        description="Also give agents the tools that change what ComfyQ serves for the whole class: serve "
-                    "a workflow (alongside, or as the main one — ComfyQ restarts), stop a lane, calibrate. "
-                    "Leave off on student PCs. Agents see the change when they reconnect")
+        name="Teacher Tools for Agents", default=False, update=_teacher_toggle,
+        description="Let AI agents change which models ComfyQ serves for the whole class (load, stop, "
+                    "calibrate). Agents see the change when they reconnect")
 
     def draw(self, context):
         col = self.layout.column()
@@ -104,8 +103,7 @@ class ComfyQPreferences(bpy.types.AddonPreferences):
             col.label(text=mcp.STATE["error"], icon="ERROR")
         elif mcp.running():
             col.label(text=f"Running on {mcp.STATE['url']} · connection file {mcp.info_path()}", icon="CHECKMARK")
-            launcher = Path(__file__).parent / "mcp" / "launcher.py"
-            col.label(text="Agents run:  python " + str(launcher).replace("\\", "/"), icon="CONSOLE")
+            col.operator("comfyq.copy_agent_command", icon="COPYDOWN")
         col.separator()
         box = col.box().column()
         box.label(text="Teacher", icon="COMMUNITY")

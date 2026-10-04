@@ -166,10 +166,18 @@ def _loaded(scene_name: str, wf_id: str, specs: list[ParamSpec]) -> None:
 
 class COMFYQ_OT_set_workflow(bpy.types.Operator):
     bl_idname = "comfyq.set_workflow"
-    bl_label = "Use Workflow"
+    bl_label = "Use Model"
+    bl_description = "Use this model in the bar (its settings are kept per model)"
     bl_options = {"INTERNAL", "UNDO"}
     workflow_id: StringProperty()
     role: StringProperty(default="main")
+
+    @classmethod
+    def description(cls, context, props):
+        """Hovering a model in the list shows what it does (ComfyQ's description), not a generic text."""
+        w = next((w for w in SESSION.workflows if w.id == props.workflow_id), None)
+        text = (w.description or "").strip() if w else ""
+        return (text[:400] + ("…" if len(text) > 400 else "")) if text else cls.bl_description
 
     def execute(self, context):
         select_workflow(context.scene, self.workflow_id, self.role)
@@ -193,7 +201,7 @@ def _draw_workflow_menu(layout, wfs, role) -> None:
             row = layout.row()
             row.alert = over or w.unavailable
             op = row.operator(COMFYQ_OT_set_workflow.bl_idname, text=f"{w.name}   ·  {badge}",
-                              icon="ERROR" if w.unavailable else ("PLAY" if group else "NONE"))
+                              icon="ERROR" if w.unavailable else ("CHECKMARK" if group else "NONE"))
             op.workflow_id, op.role = w.id, role
 
 
@@ -210,7 +218,7 @@ class COMFYQ_MT_workflows(bpy.types.Menu):
 class COMFYQ_MT_keyframe_workflows(bpy.types.Menu):
     """Image workflows that can restyle the scene frame into an AI keyframe."""
     bl_idname = "COMFYQ_MT_keyframe_workflows"
-    bl_label = "Keyframe workflows"
+    bl_label = "Keyframe Models"
 
     def draw(self, context):
         wfs = [w for w in SESSION.workflows if tab_of(w) in KEYFRAME_TABS]
@@ -270,7 +278,7 @@ def open_file(path) -> None:
 
 class COMFYQ_OT_preview_pass(bpy.types.Operator):
     bl_idname = "comfyq.preview_pass"
-    bl_label = "Capture Viewport"
+    bl_label = "Render Scene"
     bl_description = "Render the still pass that will be sent (scene camera) and show it in an Image Editor"
     mask: BoolProperty(default=False)
     style: StringProperty(default="", options={"SKIP_SAVE"})     # "" = the bar's style
@@ -644,7 +652,7 @@ def _current_prompt_text():
 class COMFYQ_OT_open_window(bpy.types.Operator):
     bl_idname = "comfyq.open_window"
     bl_label = "ComfyQ Window"
-    bl_description = ("Open ComfyQ in its own window (place it anywhere, e.g. a second screen): "
+    bl_description = ("Open ComfyQ in its own window (place it anywhere, for example on a second screen): "
                       "the full-width ComfyQ bar, a preview of passes and results, and the prompt editor")
 
     @classmethod

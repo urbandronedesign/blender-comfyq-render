@@ -35,14 +35,14 @@ REL_PATH = _relative_ok()
 
 # Fixed numbers so the stored value means the same source whatever list a kind shows.
 _SRC = {
-    "STRUCTURE": ("Scene render", "Workbench render of the scene camera", "SCENE", 0),
-    "MASK": ("Render + selection mask", "Scene render; the selected objects are the area to repaint", "SELECT_SET", 1),
-    "ANIMATION": ("Scene animation", "The frame range rendered through the scene camera, as a video",
+    "STRUCTURE": ("Scene Render", "Workbench render of the scene camera", "SCENE", 0),
+    "MASK": ("Render + Selection Mask", "Scene render; the selected objects are the area to repaint", "SELECT_SET", 1),
+    "ANIMATION": ("Scene Animation", "The frame range rendered through the scene camera, as a video",
                   "RENDER_ANIMATION", 2),
-    "IMAGE": ("Blender image", "An image loaded in this file", "IMAGE_DATA", 3),
+    "IMAGE": ("Blender Image", "An image loaded in this file", "IMAGE_DATA", 3),
     "FILE": ("File", "A file on disk", "FILEBROWSER", 4),
-    "NONE": ("Leave empty", "Send nothing; the workflow uses its own default", "X", 5),
-    "KEYFRAME": ("AI keyframe", "The scene frame restyled by an image workflow you choose and tune first",
+    "NONE": ("Leave Empty", "Send nothing; the workflow uses its own default", "X", 5),
+    "KEYFRAME": ("AI Keyframe", "Restyle the scene frame with a chosen image model first",
                  "SHADERFX", 6),
 }
 _SOURCES_BY_KIND = {
@@ -112,9 +112,9 @@ class ComfyQParamValue(bpy.types.PropertyGroup):
                           description="Multi-line prompt edited in a Text Editor; replaces the one-line field")
     e: EnumProperty(name="", items=_enum_items, update=_enum_update)
     i: IntProperty(name="", min=-INT_MAX, max=INT_MAX)
-    f: FloatProperty(name="", precision=3)
+    f: FloatProperty(name="", precision=2)
     b: BoolProperty(name="")
-    randomize: BoolProperty(name="Random", default=True, description="New random seed for every job")
+    randomize: BoolProperty(name="Random", default=True, description="Pick a new random seed for every job")
     source: EnumProperty(name="", items=_source_items)
     image: PointerProperty(name="", type=bpy.types.Image)
     path: StringProperty(name="", subtype="FILE_PATH", options=REL_PATH)
@@ -139,14 +139,16 @@ class ComfyQJobRecord(bpy.types.PropertyGroup):
 class ComfyQSceneProps(bpy.types.PropertyGroup):
     tab: EnumProperty(name="Category", items=TABS, default="IMAGE")
     workflow_id: StringProperty(name="Workflow")
-    keyframe_workflow_id: StringProperty(name="Keyframe workflow",
+    keyframe_workflow_id: StringProperty(name="Keyframe Model",
                                          description="Image workflow that restyles the scene frame for AI keyframes")
     params: CollectionProperty(type=ComfyQParamValue)
-    style: EnumProperty(name="Render style", items=STYLES, default="CLAY")
-    auto_import: BoolProperty(name="Import results", default=True,
+    style: EnumProperty(name="Render Style", items=STYLES, default="CLAY",
+                         description="How the scene is drawn in the passes sent to ComfyQ")
+    auto_import: BoolProperty(name="Import Results", default=True,
                               description="Load finished results into this file automatically")
     jobs: CollectionProperty(type=ComfyQJobRecord)
-    show_jobs: IntProperty(name="Jobs shown", default=5, min=1, max=50)
+    show_jobs: IntProperty(name="Jobs Shown", default=5, min=1, max=50,
+                           description="Number of recent jobs listed")
 
 
 def param_item(scene: bpy.types.Scene, key: str, workflow_id: str | None = None) -> ComfyQParamValue | None:

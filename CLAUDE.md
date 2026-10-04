@@ -279,7 +279,9 @@ change that session: the user must reinstall from the UI or restart Mixar.
   name asked at the first Connect (`name_confirmed`), "name · server" row; Clean Up asks first; GUI -Ui 91/91.
   **Phase B done**: `poll_message_set` reasons; Generate greyed + reason when not served (`why_not_generate`);
   queue place `client/queue.py`; job card Remove; graph Stop (`Run.stop`, cancels SAM3 jobs too); model-load timer;
-  plain connection errors. Next: phase C (wording/tooltips/icons), then E, D, F.
+  plain connection errors. **Phase C done**: Title Case labels, "..." only on dialogs, no "you"/abbreviations
+  (`wording.count`), verb-first tooltips, one icon one meaning (table in docs/UI.md), Copy Agent Command, model
+  tooltips = ComfyQ descriptions. Next: phase E (code health), then D (layout), F (large).
 
 ## Next steps
 1. Whatever the user asks next. Open candidates: run the 16 never-run workflows (3D / upscale / audio /

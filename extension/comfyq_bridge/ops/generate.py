@@ -291,6 +291,7 @@ class COMFYQ_OT_cancel(bpy.types.Operator):
 class COMFYQ_OT_import(bpy.types.Operator):
     bl_idname = "comfyq.import_result"
     bl_label = "Import Result"
+    bl_description = "Bring this job's result into the scene"
     bl_options = {"INTERNAL", "UNDO"}
     job_id: StringProperty()
 
@@ -309,6 +310,7 @@ class COMFYQ_OT_import(bpy.types.Operator):
 class COMFYQ_OT_open_folder(bpy.types.Operator):
     bl_idname = "comfyq.open_folder"
     bl_label = "Open Folder"
+    bl_description = "Open the folder of downloaded results in the file explorer"
     bl_options = {"INTERNAL"}
     job_id: StringProperty()
 

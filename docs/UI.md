@@ -22,7 +22,7 @@ no drawing errors. Earlier the same checks passed in Mixar 4.2.0 (uninstalled si
 | **ComfyQ window** | Window icon (bar, or 3D View header) | Its own window: **viewer** (top), **Player** + bar + Jobs in the viewer's sidebar, **prompt editor** (bottom) |
 | **Dialog** | **ComfyQ** button in the 3D View header, or **Ctrl+Shift+Q** (3D View, Image Editor) | The bar as a floating dialog; its **Generate** button sends the job |
 | **Queue popover** | **Queue** button of the bar | The last 8 jobs of this scene |
-| **Preferences** | Edit › Preferences › Add-ons › ComfyQ Bridge | Student name, profile, server URL, connect on startup |
+| **Preferences** | Edit › Preferences › Add-ons › ComfyQ Bridge | Student Name, Profile, Server Address, Connect on Startup, AI Agents, Teacher box |
 
 The ComfyQ window is saved with the file. When the file is opened again it is recognised as the
 ComfyQ window (players, previews and the prompt editor use it) and its sidebar is put back on the ComfyQ tab.
@@ -42,7 +42,7 @@ become icons (hover for the name), long lines wrap and **Generate** gets its own
 | **Image / Video / 3D / Splats / Audio / Tools** tabs | Filters the model menu by category. Choosing a model also switches to its tab | `every tab lists workflows`, `tab follows the workflow` |
 | Window icon | Opens the ComfyQ window (see §1) | `window icon opens the ComfyQ window (one only), sidebar on the ComfyQ tab` |
 | Graph icon | Opens the **ComfyQ Graph** (node editor, Moodboard-style) in its own window — *build and wire nodes (see §8); running from the graph comes next* (docs/plans/node-graph.md) | `bar › graph icon opens the ComfyQ graph…` |
-| **Library** | Opens the results folder `%LOCALAPPDATA%\comfyq-bridge\cache` in Explorer | `Library opens the results folder` |
+| **Results Folder** | Opens the results folder `%LOCALAPPDATA%\comfyq-bridge\cache` in Explorer | `Library opens the results folder` |
 | **Queue N** | Popover with the last jobs; N = jobs not finished yet | `Queue popover draws without error` |
 | ⟳ (panel header) | **Refresh**: reloads the workflow list and what is served. The chosen workflow's settings reload by themselves | `Refresh button`, `settings still loaded after Refresh`, `Generate enabled after Refresh` |
 | ⛓ (panel header) | **Disconnect** | `Disconnect` |
@@ -50,7 +50,7 @@ become icons (hover for the name), long lines wrap and **Generate** gets its own
 
 **Warning box** (red) — *“AI results sit in this scene's sequencer…”*: shown when ComfyQ result strips
 are in a 3D scene's Video Sequencer (they would replace the camera in every render, including the
-clay pass). **Clean up** removes them, deletes temporary renders and old previews; job results are kept.
+clay pass). **Clean Up...** (asks first, with counts) removes them, deletes temporary renders and old previews; job results are kept.
 Check: `bar warns about result strips in the scene`, `Clean up removes them`.
 
 ### 2.2 Model and settings chips
@@ -76,8 +76,8 @@ The main prompt is also sent as the job's prompt, so ComfyQ's job cards show it 
 | Control | Does | Check |
 |---|---|---|
 | *Scene 0–120 · 24 fps · 5.0 s · 1280×720 · Camera* | The scene facts the workflow is matched against | — |
-| **Match to scene** / **✓ Matched** | Sets duration / frame count / fps / size / aspect from the scene. Turns into *Matched* when nothing differs | `Match to scene` |
-| **Render & play clay animation** | Renders the frame range through the scene camera (exactly what Generate sends) and plays it in the ComfyQ viewer (else any Image Editor, else the system player) | `Render & play clay animation → plays in the ComfyQ viewer`, `playback advances` |
+| **Match to Scene** (pressed + ✓ when already matching) | Sets duration / frame count / fps / size / aspect from the scene. Shown pressed when nothing differs | `Match to scene` |
+| **Render & Play Clay Animation** | Renders the frame range through the scene camera (exactly what Generate sends) and plays it in the ComfyQ viewer (else any Image Editor, else the system player) | `Render & play clay animation → plays in the ComfyQ viewer`, `playback advances` |
 | **Replay** | Plays the last clay render again without re-rendering | `Replay` |
 
 Generate always renders the clay animation fresh, whatever this preview shows.
@@ -94,7 +94,7 @@ A second, image workflow restyles the scene frame first; its result becomes the 
 |---|---|---|
 | **Choose the style model…** | Image workflows menu (role: keyframe; the main workflow is kept) | `keyframe model menu` |
 | Its chips + prompt + inputs | That workflow's own settings | — |
-| **Generate keyframe** / **Regenerate** | Books the keyframe job now (needs the keyframe workflow **served**) | `Generate keyframe button enabled` (booking not run: no image workflow served during the check) |
+| **Generate Keyframe** / **Regenerate** | Books the keyframe job now (needs the keyframe workflow **served**) | `Generate keyframe button enabled` (booking not run: no image workflow served during the check) |
 | ✕ | Forgets the keyframe; the next Generate makes a new one first | `✕ clears the keyframe` |
 
 If the keyframe is missing, **Generate** makes it first and then sends the main job automatically.
@@ -103,8 +103,8 @@ If the keyframe is missing, **Generate** makes it first and then sends the main 
 ### 2.7 Actions
 | Control | Does | Check |
 |---|---|---|
-| Style list | **Grayscale (clay)** (true grayscale PNG / video) · **Matcap** · **Material colors** | `Render scene (CLAY / MATCAP / MATERIAL)…` |
-| **Render scene** | A still of the camera view in the chosen style, shown in the viewer | `Render scene (…) from the bar → shown in the ComfyQ viewer`, `… is a grayscale clay render` |
+| Style list | **Grayscale (Clay)** (true grayscale PNG / video) · **Matcap** · **Material Colors** | `Render scene (CLAY / MATCAP / MATERIAL)…` |
+| **Render Scene** | A still of the camera view in the chosen style, shown in the viewer | `Render scene (…) from the bar → shown in the ComfyQ viewer`, `… is a grayscale clay render` |
 | **Mask** (when an input uses the mask) | Render with the **selected objects** transparent (= area to repaint) | `Mask button → mask preview` |
 | **Generate** | Renders the inputs, uploads them, books the job, follows it, imports the result. **Greyed out with the reason** (in its tooltip and under the button) when not connected, no model, settings still loading, or the model **not served** (then nothing is rendered) | `Generate`, `job booked; card lists what was sent`; GUI `Generate enabled … when its model is served, else greyed with the reason`; smoke `Generate greyed out for an unserved model, with why` |
 
@@ -123,11 +123,11 @@ One card per job of this scene, newest first.
 | Connection errors | Plain words + what to do ("The ComfyQ server at … is not answering. Check that the server PC is on…") | unit `test_unreachable_server_message_is_plain_words` |
 | ✕ (running job) | Cancels it (own jobs only) | `card › ✕ cancels the job` |
 | 📁 (finished job) | Opens this job's folder | `card › folder icon opens this job's folder` |
-| **Download result** | Shown when finished but not downloaded (e.g. reopened elsewhere) | `card › Download result` |
+| **Download Result** | Shown when finished but not downloaded (e.g. reopened elsewhere) | `card › Download result` |
 | **Show** | Result in the ComfyQ viewer (videos play there) | `card › Show → ComfyQ viewer` |
 | **Open** | In the system viewer / player | `card › Open → system player/viewer` |
-| **Save as…** | Copy anywhere (default: `comfyq` folder next to the .blend) | `card › Save as… opens the file browser`, `… copies the file` |
-| **Import** / **✓ In scene** | Image → Image Editor; video / audio → separate **ComfyQ Results** scene (never the 3D scene's sequencer); GLB / PLY → a `ComfyQ <job>` collection, set **beside the scene, on the ground** (generators put models at the origin, inside the scene). *In scene* asks before importing a second copy | `card › Import (video → ComfyQ Results scene, not the 3D scene)` |
+| **Save As...** | Copy anywhere (default: `comfyq` folder next to the .blend) | `card › Save as… opens the file browser`, `… copies the file` |
+| **Import** (pressed + ✓ once in the scene; pressing again replaces) | Image → Image Editor; video / audio → separate **ComfyQ Results** scene (never the 3D scene's sequencer); GLB / PLY → a `ComfyQ <job>` collection, set **beside the scene, on the ground** (generators put models at the origin, inside the scene). *In scene* asks before importing a second copy | `card › Import (video → ComfyQ Results scene, not the 3D scene)` |
 | **Jobs shown** | How many cards to list | — |
 | **Import results** | Import finished results automatically (off: use Import) | — |
 
@@ -139,7 +139,7 @@ Plays videos in the viewer **without moving the scene's timeline**.
 
 | Control | Does | Check |
 |---|---|---|
-| Style + **Render scene** | Same as the bar's (handy while reviewing) | `Render scene (Player panel) is a grayscale clay render` |
+| Style + **Render Scene** | Same as the bar's (handy while reviewing) | `Render scene (Player panel) is a grayscale clay render` |
 | Results menu (shows what is on screen: *Clay animation (sent to ComfyQ)*, *Scene render*, *AI result · job …*) | Pick the clay animation, a render, a keyframe or any result to show | `Results menu → shows the chosen item`, `viewer says what it shows` |
 | ⏮ ◀| ⏯ |▶ ⏭ | First / previous / play-pause / next / last frame. ⏯ at the end restarts | `⏯ pauses`, `⏮ first frame`, `▶| next frame`, `|◀ previous frame`, `⏭ last frame`, `⏯ at the last frame restarts…` |
 | ⟳ | Loop | — |
@@ -159,7 +159,7 @@ Plays videos in the viewer **without moving the scene's timeline**.
 | Preferences: **Student Name** | Name shown on jobs in ComfyQ; only jobs booked under it can be cancelled. Asked at the first Connect | GUI `no student name confirmed yet…`, `Connect button (name typed in its dialog)` |
 | Bar: **name · server** row + ✎ **Change Name...** | Who the jobs are booked as, on which server; ✎ changes the name and reconnects | — |
 | Preferences › **Teacher** box | **Locked** (🔒 message) unless the active profile holds ComfyQ's admin password (`admin_password` / `admin_password_env` / `admin_password_file` in profiles.toml, or `COMFYQ_ADMIN_PASSWORD`). Unlocked: *Solo* and *Teacher tools*. A student PC therefore cannot switch what ComfyQ serves | smoke `solo: locked without the admin password…`, `Teacher tools stay hidden without the admin password…` |
-| **Profile** / **Server URL override** | Which ComfyQ to use (`%APPDATA%\comfyq-bridge\profiles.toml`; tokens never go in the .blend) | — |
+| **Profile** / **Server Address** | Which ComfyQ to use (`%APPDATA%\comfyq-bridge\profiles.toml`; tokens never go in the .blend) | — |
 | **Connect on startup** | Connects when Blender starts | — |
 | **Solo: load models on demand** (Teacher box) | Needs the admin password in the profile. A red *Solo* line in the bar and *Solo* in the graph header while on. **Run Graph** asks first ("Load N Model(s) in ComfyQ?") and **Load Model** asks first. Off by default; **never in class**. When you are alone on ComfyQ: **Run Graph** loads the model each node needs (alongside if it fits, else as ComfyQ's main workflow: ComfyQ restarts, about 1–2 min per switch), one model at a time; the last one stays loaded until a preset needs another. Refused while anyone has a job on the server. Workflow nodes say *Loads on Run* instead of *Not served* and get a **Load Model** button (⇩) | smoke `solo: …` (ComfyQ's switch faked) |
 | **AI agents (MCP server)** + Port | Off by default. Lets AI agents on this PC (Claude Code, Codex) use the scene and ComfyQ through scoped tools; 127.0.0.1 only, new token each start. Shows the address and the launcher command to give the agent. See [AGENTS.md](AGENTS.md) | smoke `Preferences › AI agents (MCP server) starts it`, `MCP …`; `tools\agent_roundtrip.ps1` |
@@ -189,6 +189,27 @@ collection* first, so it never reached ComfyQ.
 - The AI-keyframe chain has not run end to end on the server yet.
 - Job cards cannot be removed from the list yet (lower **Jobs shown** instead).
 
+## Icons: one meaning each (UX phase C, Blender HIG)
+| Icon | Means | Where |
+|---|---|---|
+| ▶ PLAY | run | Generate, Generate Keyframe, Run Graph, node Generate, Find Surfaces; the player's play button |
+| ✓ CHECKMARK | served / done / current | model lists and chips, Served, Done, Match to Scene and Import when pressed |
+| 👁 HIDE_OFF | show in the ComfyQ viewer | Show, Show Overlay |
+| RENDER_STILL / RENDER_ANIMATION / SELECT_SET | render a scene pass | Render Scene / Frame, Render & Play Clay Animation, Render Mask |
+| 🌐 URL | open in the PC's own app | Open |
+| IMPORT | bring into the scene | Import |
+| TRIA_DOWN_BAR | download | Download Result, Downloading… |
+| PACKAGE | load a model (solo) | Load Model, *Loads on Run* |
+| CANCEL | cancel / stop | job ✕, graph Stop, Surfaces ✕ |
+| X | unlink / clear | multi-line prompt ✕, AI keyframe ✕ |
+| FILE_REFRESH | do again | Refresh, Regenerate, ⟳ re-run, random seed |
+| NODETREE | the graph | graph icon, Open as Graph |
+| WINDOW | the ComfyQ window | window button |
+
+Labels follow Blender's HIG: Title Case, "..." only on buttons that open a dialog (Change Model..., Save As...,
+Clean Up..., Save Graph as Preset...), no "you", no abbreviations, tooltips start with a verb; every greyed-out
+button says why in its tooltip.
+
 ## 8. ComfyQ Graph (node editor)
 
 Open it with the graph icon of the bar: it opens in the **ComfyQ window, left of the viewer** (graph mode;
@@ -206,13 +227,13 @@ the window opens if needed). Saved with the file.
 |---|---|---|
 | Header **Scene** | Adds a source node: Scene Animation (clay video), Scene Render (still, first/last/current frame; style Clay / Matcap / Material colors / **Cycles (final render)** + *Samples*: a real Cycles render — materials, lights, HDRI, shadow catchers — made in a separate background Blender from a temporary copy of the scene, so the GPU is free again before the ComfyQ job; GPU, else CPU; blocks while it renders), Selection Mask, Image, Video File, Audio File, Prompt | `toolbar › Scene › Scene Animation adds the node` |
 | Header **Image · Video · 3D · Splats · Audio · Tools** | Adds a workflow node (served first, VRAM badge). Same entries in Shift+A | `toolbar › Video › … adds a node with its inputs as sockets` |
-| Header 🔍 (and Shift+A › *Any Workflow…*) | Search every workflow by name and add it | — |
+| Header 🔍 (and Shift+A › *Any Model...*) | Search every workflow by name and add it | — |
 | Header **Presets** | Class presets: *Scene render → image*, *Clay animation → video*, *AI keyframe → video*, *Image → 3D model*, *Image → upscale* — built from the workflows ComfyQ serves now (served first, then the best match), added right of the graph; then presets **Saved** by the teacher (subfolders of the presets folder = submenus, e.g. the 48-preset workflow library: Image / Image edit / Image → video / Video → video); **Save Graph as Preset…**, **Open Presets Folder** (Explorer on `%APPDATA%\comfyq-bridge\presets`, path + count in the status bar). Teacher guide: [CLASS.md](CLASS.md) | `N5: Presets › AI keyframe → video builds the graph…`, `N5: Save Graph as Preset…`; smoke `preset “…”: built from …`, `saved preset rebuilds the same graph` |
 | Header **Output** | Adds a **Viewer**, **Import to Scene** or **Save** node, or Blender's **Frame** (notes / groups) and **Reroute** | `N4: toolbar › Output adds Viewer, Save, Import to Scene, Reroute and Frame` |
-| **Viewer** node | Shows what is linked (thumbnail; text as text) and, with *Show when ready* (on), plays each new result in the ComfyQ viewer. **Show** shows it now | `N4: Viewer fed by Scene Animation shows the clay video…`; live `N4 live: the Viewer shows B's result` |
-| **Import to Scene** node | **Import**: image → Image Editor, video/audio → *ComfyQ Results* scene, GLB/PLY → collection, text → a Text. *Replace previous import* (on) removes the strips/objects it imported last time. For a 3D model or splat: **Place** *Beside the scene* (default) / *At the 3D cursor* / *At the origin* / *As made*, **On the ground** (on), **Size** = longest side (0 = as made, e.g. 4.5 m for a car). *Import when ready* (off) | smoke `Import to Scene: imports, and Replace replaces`, `an imported model is placed beside the scene…`, `Place at the 3D cursor, size 4.5…`; live `Import when ready brought B's result…` |
-| **Save** node | **Save** copies to *Folder* (default `//comfyq/`, Downloads for an unsaved file) as *Name* (`{source}_{date}_{time}`; also `{node}` `{job}` `{workflow}`), never overwriting. *Save when ready* (off) | smoke `Save: copies with unique names`, `Save when ready: acts once per new result`; `N4: Save (through a Reroute)…` |
-| Output node › **Generate upstream, then …** | Runs only what is out of date upstream (nothing if all is up to date), then shows / imports / saves. Fed by a source only: acts at once, no job | live `Generate on the Viewer with everything up to date books nothing`; smoke `Save fed by Scene Animation…` |
+| **Viewer** node | Shows what is linked (thumbnail; text as text) and, with *Show When Ready* (on), plays each new result in the ComfyQ viewer. **Show** shows it now | `N4: Viewer fed by Scene Animation shows the clay video…`; live `N4 live: the Viewer shows B's result` |
+| **Import to Scene** node | **Import**: image → Image Editor, video/audio → *ComfyQ Results* scene, GLB/PLY → collection, text → a Text. *Replace previous import* (on) removes the strips/objects it imported last time. For a 3D model or splat: **Place** *Beside the scene* (default) / *At the 3D cursor* / *At the origin* / *As made*, **On the ground** (on), **Size** = longest side (0 = as made, e.g. 4.5 m for a car). *Import When Ready* (off) | smoke `Import to Scene: imports, and Replace replaces`, `an imported model is placed beside the scene…`, `Place at the 3D cursor, size 4.5…`; live `Import when ready brought B's result…` |
+| **Save** node | **Save** copies to *Folder* (default `//comfyq/`, Downloads for an unsaved file) as *Name* (`{source}_{date}_{time}`; also `{node}` `{job}` `{workflow}`), never overwriting. *Save When Ready* (off) | smoke `Save: copies with unique names`, `Save when ready: acts once per new result`; `N4: Save (through a Reroute)…` |
+| Output node › **Generate Upstream, then …** | Runs only what is out of date upstream (nothing if all is up to date), then shows / imports / saves. Fed by a source only: acts at once, no job | live `Generate on the Viewer with everything up to date books nothing`; smoke `Save fed by Scene Animation…` |
 | *… when ready* | Acts once per new result (remembers the file + time it handled, also across saving and reopening). Linking a node that already has a result counts as new | smoke `… a new result (file changed) is saved again` |
 | **Reroute** | Works like in Blender's own editors: runs, type checks (an image through a reroute into a video input is still refused) and outputs follow it | smoke `Reroute: a run follows it`, `… still refused` |
 | Header width | Wide: labelled menus. Narrower: icons (names in tooltips), then *Run Graph* becomes ▶; very narrow: one **+** menu. Never truncated labels | `N3: the toolbar picks labels or icons by the header width` |
@@ -222,10 +243,10 @@ the window opens if needed). Saved with the file.
 | Status / progress, ✕ | *Waiting for its inputs*, *Sending…*, queue place / progress bar, *Loading its model in ComfyQ… 0:42 (usually 1 to 2 min)* (solo); ✕ cancels the job and stops what depends on it; the Surfaces node has its own ✕ (Stop) and "SAM3: 5/12 floor" | `node › ✕ cancels its job and ends the run` |
 | Result: thumbnail, **Show · Open · Import** | The node's result (fed to the nodes linked after it); Show plays it in the ComfyQ viewer | `chain finished: A and B have results`, `B was given A's result` |
 | Header 🗑 **Clear Graph** | Removes every node (asks first) | `Clear Graph` |
-| Workflow node **Change model** | Searchable list of every workflow (▶ = served). Settings kept per model; links come back on inputs of the same kind | `node › Change model lists every workflow, served first`; smoke `Change model … stays linked` |
+| Workflow node **Change Model...** | Searchable list of every model (check mark = served). Settings kept per model; links come back on inputs of the same kind | `node › Change model lists every workflow, served first`; smoke `Change model … stays linked` |
 | Workflow node chips | The workflow's settings (sidebar › Node: all of them, with the description) | smoke `settings stored on the node as chips` |
 | Prompt field + ⤢ / Edit / ✕ | Same as the bar's prompt, per node | smoke `Prompt node: multi-line…` |
-| **Surfaces (SAM3) → prompt** node (Scene menu) | *Image* in → **Prompt** (text) + **Overlay** (image) out. A list, one surface per line `label: material` (`wall|left wall|right wall` = one label from several SAM3 phrases, merged — ComfyQ's SAM3 returns one surface per phrase), *Before* / *After* text, *Detection threshold*. **Find surfaces** (or any run that needs it) books one SAM3 job per phrase; then the node shows the overlay, what it found (% of the picture) and the prompt: the found surfaces, biggest first, each with its material. Editing a material only rewrites the prompt (no new SAM3 run); a new picture, label or threshold runs SAM3 again. Needs SAM3 served (solo mode loads it). Used by the class preset *Architecture* | smoke `Surfaces node: …` (prompt, material edit, run scheduling, Viewer text, preset round trip, Architecture preset links); live run docs/arch-render.md |
+| **Surfaces (SAM3) to Prompt** node (Scene menu) | *Image* in → **Prompt** (text) + **Overlay** (image) out. A list, one surface per line `label: material` (`wall|left wall|right wall` = one label from several SAM3 phrases, merged — ComfyQ's SAM3 returns one surface per phrase), *Before* / *After* text, *Detection threshold*. **Find surfaces** (or any run that needs it) books one SAM3 job per phrase; then the node shows the overlay, what it found (% of the picture) and the prompt: the found surfaces, biggest first, each with its material. Editing a material only rewrites the prompt (no new SAM3 run); a new picture, label or threshold runs SAM3 again. Needs SAM3 served (solo mode loads it). Used by the class preset *Architecture* | smoke `Surfaces node: …` (prompt, material edit, run scheduling, Viewer text, preset round trip, Architecture preset links); live run docs/arch-render.md |
 | **+ Scene render / Scene animation / …** next to an unlinked input | Adds the matching source node and links it | `node › + on “Start image” adds and links a source node` |
 | Sockets | Inputs = the workflow's images / masks / videos / audio / prompts; output = what it makes. A wrong kind is drawn red and never sent | smoke `Image → video input is refused` |
 | Served / Not served, VRAM | Live from the server | — |

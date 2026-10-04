@@ -472,6 +472,8 @@ if t2i:
     _pp.solo_mode = True
     from bl_ext.user_default.comfyq_bridge.prefs import teacher_unlocked as _unlocked
     _had_admin = os.environ.pop("COMFYQ_ADMIN_PASSWORD", None)
+    _had_cfg = os.environ.get("COMFYQ_BRIDGE_CONFIG")
+    os.environ["COMFYQ_BRIDGE_CONFIG"] = os.path.join(bpy.app.tempdir or ".", "no_profiles.toml")  # a student PC
     check(not _unlocked(_pp) and not grun.solo_on(),
           "solo: locked without the admin password in the profile (a student cannot switch models)")
     os.environ["COMFYQ_ADMIN_PASSWORD"] = "smoke"          # the teacher's PC (this process only)
@@ -497,6 +499,10 @@ if t2i:
     gserving.serve, gserving.blockers, gserving.choose = real_serve, real_blockers, real_choose
     _pp.solo_mode = False
     os.environ.pop("COMFYQ_ADMIN_PASSWORD", None)
+    if _had_cfg is None:
+        os.environ.pop("COMFYQ_BRIDGE_CONFIG", None)
+    else:
+        os.environ["COMFYQ_BRIDGE_CONFIG"] = _had_cfg
 tree.nodes.remove(unlinked)
 tree.nodes.remove(b_node)
 wnode.result, wnode.result_hash = "", ""
@@ -971,6 +977,8 @@ err, out = mcp_tool("comfyq_serve", workflow_id=wf)
 check(err and "Teacher tools are off" in out["error"], "… and refused if called anyway")
 _p = bpy.context.preferences.addons["bl_ext.user_default.comfyq_bridge"].preferences
 _admin_env = os.environ.pop("COMFYQ_ADMIN_PASSWORD", None)
+_cfg_env = os.environ.get("COMFYQ_BRIDGE_CONFIG")
+os.environ["COMFYQ_BRIDGE_CONFIG"] = os.path.join(bpy.app.tempdir or ".", "no_profiles.toml")   # a student PC
 _p.mcp_teacher = True                                    # ticked on a PC without the admin password
 names_l = [t["name"] for t in mcp_rpc("tools/list")["result"]["tools"]]
 check(not bmcp.STATE["teacher"] and not {"comfyq_serve", "comfyq_unserve", "comfyq_calibrate"} & set(names_l),
@@ -993,6 +1001,10 @@ if _main:                                # never a side lane: that call would re
     check(err and "main workflow" in out["error"], f"MCP comfyq_unserve refuses the main workflow ({out})")
 _p.mcp_teacher = False
 os.environ.pop("COMFYQ_ADMIN_PASSWORD", None)
+if _cfg_env is None:
+    os.environ.pop("COMFYQ_BRIDGE_CONFIG", None)
+else:
+    os.environ["COMFYQ_BRIDGE_CONFIG"] = _cfg_env
 check(not bmcp.STATE["teacher"], "… unticking turns them off again")
 bmcp.stop()
 check(not bmcp.info_path().exists(), "MCP server stops and removes its connection file")
