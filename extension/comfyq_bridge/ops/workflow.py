@@ -239,7 +239,10 @@ class COMFYQ_OT_match_scene(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return bool(current_specs(context))
+        if not current_specs(context):
+            cls.poll_message_set("Connect and choose a model first")
+            return False
+        return True
 
     def execute(self, context):
         m = scene_match.match(current_specs(context), scene_facts(context.scene))

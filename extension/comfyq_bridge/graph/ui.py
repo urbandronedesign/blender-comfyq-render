@@ -340,7 +340,10 @@ class COMFYQ_OT_graph_run(_NodeOp, bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return SESSION.connected
+        if not SESSION.connected:
+            cls.poll_message_set("Connect to ComfyQ first")
+            return False
+        return True
 
     def _targets(self, context):
         """(tree, targets, after) of this press; targets None = nothing to run (outputs act at once)."""
@@ -394,6 +397,27 @@ class COMFYQ_OT_graph_run(_NodeOp, bpy.types.Operator):
         return {"FINISHED"} if ok else {"CANCELLED"}
 
 
+class COMFYQ_OT_graph_stop(_NodeOp, bpy.types.Operator):
+    bl_idname = "comfyq.graph_stop"
+    bl_label = "Stop"
+    bl_description = ("Stop the graph run: cancel its jobs on the server (also SAM3 surface jobs) and stop waiting "
+                      "for a model. A model ComfyQ is already loading keeps loading")
+    bl_options = {"REGISTER", "INTERNAL"}
+
+    def execute(self, context):
+        from .run import RUNS
+        tree = bpy.data.node_groups.get(self.tree) if self.tree else (
+            context.space_data.edit_tree if _in_graph(context) else None)
+        run = RUNS.get(tree.name) if tree is not None else None
+        if run is None:
+            self.report({"INFO"}, "Nothing is running in this graph")
+            return {"CANCELLED"}
+        n = run.stop(tree)
+        SESSION.status_note = f"Graph stopped ({n} job(s) cancelled)"
+        self.report({"INFO"}, SESSION.status_note)
+        return {"FINISHED"}
+
+
 class COMFYQ_OT_graph_output(_NodeOp, bpy.types.Operator):
     bl_idname = "comfyq.graph_output"
     bl_label = "Act"
@@ -425,8 +449,10 @@ class COMFYQ_OT_graph_use_result(_NodeOp, bpy.types.Operator):
         node = self.target_node()
         rec = next((r for r in node.history if r.path == self.key), None) if node else None
         if rec is None:
+            self.report({"WARNING"}, "This result is no longer in the node's history")
             return {"CANCELLED"}
         node.result, node.result_hash, node.job_id = rec.path, rec.made_hash, rec.job_id
+        self.report({"INFO"}, f"Current result: {bpy.path.basename(rec.path)}")
         return {"FINISHED"}
 
 
@@ -639,7 +665,10 @@ class COMFYQ_OT_open_as_graph(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.scene.comfyq.workflow_id in SESSION.specs
+        if context.scene.comfyq.workflow_id not in SESSION.specs:
+            cls.poll_message_set("Connect and choose a model in the bar first")
+            return False
+        return True
 
     def execute(self, context):
         scene = context.scene
@@ -717,9 +746,17 @@ def _header(self, context):
             row.menu(m.bl_idname, text=m.bl_label if labels else "", icon=m.comfyq_icon)
         row.operator(COMFYQ_OT_graph_add_search.bl_idname, text="", icon="VIEWZOOM")
     layout.separator()
-    run = layout.row()
-    run.scale_x = 1.2
-    run.operator(COMFYQ_OT_graph_run.bl_idname, text="Run Graph" if room >= _RUN_LABEL_NEED else "", icon="PLAY")
+    row = layout.row()
+    row.scale_x = 1.2
+    tree = context.space_data.edit_tree
+    from .run import RUNS
+    if tree is not None and tree.name in RUNS:      # running: the same place stops it
+        row.alert = True
+        row.operator(COMFYQ_OT_graph_stop.bl_idname, text="Stop" if room >= _RUN_LABEL_NEED else "",
+                     icon="CANCEL").tree = tree.name
+    else:
+        row.operator(COMFYQ_OT_graph_run.bl_idname, text="Run Graph" if room >= _RUN_LABEL_NEED else "",
+                     icon="PLAY")
     layout.operator(COMFYQ_OT_graph_clear.bl_idname, text="", icon="TRASH")
     from .run import solo_on
     if solo_on():
@@ -897,7 +934,13 @@ class COMFYQ_OT_graph_load_model(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         from .run import solo_on
-        return SESSION.connected and solo_on()
+        if not SESSION.connected:
+            cls.poll_message_set("Connect to ComfyQ first")
+            return False
+        if not solo_on():
+            cls.poll_message_set("Only on the teacher's PC, with Solo mode on")
+            return False
+        return True
 
     def invoke(self, context, event):
         from .run import _wf_name
@@ -935,7 +978,7 @@ class COMFYQ_OT_graph_load_model(bpy.types.Operator):
 classes = (COMFYQ_OT_graph_load_model, COMFYQ_OT_graph_add, *TAB_MENUS, COMFYQ_MT_graph_scene, COMFYQ_OT_graph_clear, COMFYQ_OT_open_graph,
            COMFYQ_OT_open_as_graph, COMFYQ_OT_graph_add_search, COMFYQ_MT_graph_all, COMFYQ_OT_graph_set_workflow,
            COMFYQ_OT_graph_add_source, COMFYQ_OT_graph_edit_text,
-           COMFYQ_OT_graph_unlink_text, COMFYQ_OT_graph_run, COMFYQ_OT_graph_output, COMFYQ_OT_graph_use_result,
+           COMFYQ_OT_graph_unlink_text, COMFYQ_OT_graph_run, COMFYQ_OT_graph_stop, COMFYQ_OT_graph_output, COMFYQ_OT_graph_use_result,
            COMFYQ_MT_graph_output, COMFYQ_PT_graph_node)
 
 

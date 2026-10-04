@@ -303,13 +303,16 @@ class COMFYQ_PT_player(bpy.types.Panel):
 class COMFYQ_OT_open_media(bpy.types.Operator):
     bl_idname = "comfyq.open_media"
     bl_label = "Open in System Player"
+    bl_description = "Open the file in the default app of this PC"
     bl_options = {"INTERNAL"}
     path: StringProperty()
 
     def execute(self, context):
         from ..ops.workflow import open_file
-        if Path(self.path).is_file():
-            open_file(self.path)
+        if not Path(self.path).is_file():
+            self.report({"ERROR"}, f"The file is no longer there: {Path(self.path).name}")
+            return {"CANCELLED"}
+        open_file(self.path)
         return {"FINISHED"}
 
 

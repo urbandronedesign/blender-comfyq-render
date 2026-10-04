@@ -306,7 +306,12 @@ class COMFYQ_OT_graph_preset(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return _in_graph(context) and context.space_data.edit_tree is not None and bool(SESSION.workflows)
+        if not (_in_graph(context) and context.space_data.edit_tree is not None):
+            return False
+        if not SESSION.workflows:
+            cls.poll_message_set("Connect to ComfyQ first: presets are built from the models it offers")
+            return False
+        return True
 
     @classmethod
     def description(cls, context, properties):
@@ -388,7 +393,12 @@ class COMFYQ_OT_graph_save_preset(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return _in_graph(context) and context.space_data.edit_tree is not None and len(context.space_data.edit_tree.nodes)
+        if not (_in_graph(context) and context.space_data.edit_tree is not None):
+            return False
+        if not len(context.space_data.edit_tree.nodes):
+            cls.poll_message_set("The graph is empty")
+            return False
+        return True
 
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self, width=420)

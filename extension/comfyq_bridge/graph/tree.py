@@ -585,7 +585,8 @@ class ComfyQWorkflowNode(_Node, bpy.types.Node):
             if job.progress is not None and job.phase == "executing":
                 row.progress(factor=job.progress, type="BAR", text=f"Generating {job.progress * 100:.0f}%")
             else:
-                row.label(text=PHASE_TEXT.get(job.phase, job.phase), icon="SORTTIME")
+                from ..ui.studio import queue_text
+                row.label(text=queue_text(job), icon="SORTTIME")
             row.operator("comfyq.cancel", text="", icon="X").job_id = self.job_id
         elif state in ("waiting", "sending"):
             row.label(text="Waiting for its inputs" if state == "waiting" else "Sending…", icon="SORTTIME")
@@ -709,6 +710,7 @@ class ComfyQSurfacesNode(_Node, bpy.types.Node):
         if state:
             row.label(text={"booked": "Segmenting…", "sending": "Segmenting…"}.get(state, "Waiting for its inputs"),
                       icon="SORTTIME")
+            row.operator("comfyq.graph_stop", text="", icon="CANCEL").tree = self.id_data.name
         else:
             target(row.operator("comfyq.graph_run", text="Find surfaces", icon="VIEWZOOM"), self)
             op = row.operator("comfyq.graph_run", text="", icon="FILE_REFRESH")

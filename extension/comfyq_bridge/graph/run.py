@@ -114,6 +114,7 @@ class Run:
         self.solo = solo
         self.switch: dict | None = None                # {"wf", "state": asking|loading|failed, "t0", "error"}
         self.switched = False
+        self.surface_jobs: dict[str, list[str]] = {}   # Surfaces node -> its SAM3 job ids (a Stop cancels them)
 
     def tree(self):
         t = bpy.data.node_groups.get(self.tree_name)
@@ -191,10 +192,41 @@ class Run:
             sw.update(state="failed", error=msg)
         SESSION.run(work, done, on_error=failed)
 
+    def stop(self, tree) -> int:
+        """Stop the run: cancel its booked jobs (and SAM3 jobs), stop waiting for a model. Returns the
+        number of jobs cancelled. A model already being loaded by ComfyQ keeps loading."""
+        client = SESSION.client
+        ids = list(self.booked.values()) + [j for js in self.surface_jobs.values() for j in js]
+        n = 0
+        for jid in ids:
+            view = SESSION.jobs.get(jid)
+            if client is not None and (view is None or not view.job.done):
+                try:
+                    client.cancel(jid)
+                    n += 1
+                except Exception:  # noqa: BLE001, S110 - finished meanwhile, or not ours
+                    pass
+        for name in list(self.pending):
+            node = tree.nodes.get(name)
+            if node is not None:
+                node.note = "Stopped"
+        self.pending.clear()
+        self.booking.clear()
+        self.booked.clear()
+        self.switch = None
+        self.error = "Stopped"
+        return n
+
     def _switch_tick(self, tree) -> bool:
         """True once the switch is over (the model is served, or it failed)."""
         sw = self.switch
         wf_id = sw["wf"]
+        secs = int(time.monotonic() - sw["t0"])
+        for node in tree.nodes:                        # a counter on the waiting nodes: the wait is 1–2 min
+            if node.bl_idname in RUN_NODES and node.workflow_id == wf_id and node.name in self.pending:
+                note = f"Loading its model in ComfyQ… {secs // 60}:{secs % 60:02d} (usually 1 to 2 min)"
+                if node.note != note:
+                    node.note = note
         if sw["state"] == "loading" and SESSION.connected and wf_id in SESSION.served_ids():
             self.switch, self.switched = None, True
             for node in tree.nodes:
@@ -306,9 +338,12 @@ class Run:
             SESSION.later(go)
 
         def work():
-            return segmentation.segment(client, pic, labels, out, _on_main, thr, progress=note)
+            return segmentation.segment(client, pic, labels, out, _on_main, thr, progress=note,
+                                        on_booked=lambda ids: self.surface_jobs.__setitem__(name, ids))
 
         def done(res):
+            if name not in self.booking:               # stopped meanwhile
+                return
             self.booking.discard(name)
             t = self.tree()
             n = t.nodes.get(name) if t is not None else None
@@ -327,7 +362,7 @@ class Run:
 
         def failed(msg):
             t = self.tree()
-            if t is not None:
+            if t is not None and name in self.booking:
                 self._fail(t, name, f"Failed: {msg}")
         SESSION.run(work, done, label="Finding surfaces", on_error=failed)
 

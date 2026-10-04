@@ -879,6 +879,37 @@ if "utility_video_segment_sam3" not in SESSION.served_ids():     # never books S
     check(err and "not served" in out["error"], "MCP blender_segment refuses while SAM3 is not served")
 err, out = mcp_tool("blender_task_status")
 check(not err and "task" in out, f"MCP blender_task_status ({(out.get('task') or {}).get('kind')})")
+# UX phase B: why Generate is greyed out, Stop a graph run, remove a finished job from the list
+from bl_ext.user_default.comfyq_bridge.ops import generate as _gen
+
+_uns = next((w for w in SESSION.workflows if w.id not in SESSION.served_ids() and not w.unavailable), None)
+if _uns is not None:
+    SESSION.specs.setdefault(_uns.id, SESSION.client.params(_uns.id))
+    _why = _gen.why_not_generate(scene, _uns.id)
+    check("not served" in _why and _uns.name in _why, f"Generate greyed out for an unserved model, with why ({_why[:70]})")
+check(_gen.why_not_generate(scene, "") == "Choose a model first", "Generate: no model chosen → says so")
+from bl_ext.user_default.comfyq_bridge.graph import run as _grun_b
+
+_bt = bpy.data.node_groups.new("Stop smoke", "ComfyQGraphTree")
+_bw = _bt.nodes.new("ComfyQPromptNode")
+_bs = _bt.nodes.new("ComfyQSurfacesNode")
+_bt.links.new(_bt.nodes.new("ComfyQSceneRenderNode").outputs[0], _bs.inputs["Image"])
+_brun = _grun_b.Run(_bt, scene, [_bs.name], _grun_b.describe(_bt, scene), [])
+_brun.booking.add(_bs.name)
+_brun.surface_jobs[_bs.name] = ["no-such-job"]
+_grun_b.RUNS[_bt.name] = _brun
+with bpy.context.temp_override(**({} if not bpy.context.window else {"window": bpy.context.window})):
+    _res = bpy.ops.comfyq.graph_stop(tree=_bt.name)
+_grun_b.tick_all()
+check(_res == {"FINISHED"} and _bt.name not in _grun_b.RUNS and _bs.note == "Stopped",
+      f"Graph › Stop ends the run, cancels its SAM3 jobs, marks the nodes ({_res}, {_bs.note})")
+bpy.data.node_groups.remove(_bt)
+_jr = scene.comfyq.jobs.add()
+_jr.job_id, _jr.workflow_id, _jr.label = "smoke-remove-job", "x", "Smoke"
+_n0 = len(scene.comfyq.jobs)
+_res = bpy.ops.comfyq.remove_job(job_id="smoke-remove-job")
+check(_res == {"FINISHED"} and len(scene.comfyq.jobs) == _n0 - 1
+      and all(r.job_id != "smoke-remove-job" for r in scene.comfyq.jobs), "Job card › Remove from List")
 # Surfaces node (SAM3 → prompt) in the graph: no SAM3 job here (found surfaces are faked)
 from bl_ext.user_default.comfyq_bridge.graph import outputs as _gout
 from bl_ext.user_default.comfyq_bridge.graph import preset_ops as _gpo

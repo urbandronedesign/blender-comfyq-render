@@ -106,7 +106,7 @@ If the keyframe is missing, **Generate** makes it first and then sends the main 
 | Style list | **Grayscale (clay)** (true grayscale PNG / video) · **Matcap** · **Material colors** | `Render scene (CLAY / MATCAP / MATERIAL)…` |
 | **Render scene** | A still of the camera view in the chosen style, shown in the viewer | `Render scene (…) from the bar → shown in the ComfyQ viewer`, `… is a grayscale clay render` |
 | **Mask** (when an input uses the mask) | Render with the **selected objects** transparent (= area to repaint) | `Mask button → mask preview` |
-| **Generate** | Renders the inputs, uploads them, books the job, follows it, imports the result | `Generate`, `job booked; card lists what was sent` |
+| **Generate** | Renders the inputs, uploads them, books the job, follows it, imports the result. **Greyed out with the reason** (in its tooltip and under the button) when not connected, no model, settings still loading, or the model **not served** (then nothing is rendered) | `Generate`, `job booked; card lists what was sent`; GUI `Generate enabled … when its model is served, else greyed with the reason`; smoke `Generate greyed out for an unserved model, with why` |
 
 ---
 
@@ -118,7 +118,9 @@ One card per job of this scene, newest first.
 |---|---|---|
 | Title `Workflow (job id)` | — | — |
 | **Sent · Source video (animation) ▶ Show** | The exact file that was sent (clay video, start image…). *(cleared)* once Clean up removed it | `card › Sent · Show` |
-| Progress bar / *Waiting in queue* | Live status while running | — |
+| Progress bar / queue place | While waiting: **"3rd in line · now running: Tom"** (same model's lane, from the jobs ComfyQ sends everyone); then the progress bar | unit `test_queue` |
+| Job card 🗑 **Remove from List** | Removes a finished / failed / cancelled job from the list (files stay on disk); a running job must be cancelled first | smoke `Job card › Remove from List` |
+| Connection errors | Plain words + what to do ("The ComfyQ server at … is not answering. Check that the server PC is on…") | unit `test_unreachable_server_message_is_plain_words` |
 | ✕ (running job) | Cancels it (own jobs only) | `card › ✕ cancels the job` |
 | 📁 (finished job) | Opens this job's folder | `card › folder icon opens this job's folder` |
 | **Download result** | Shown when finished but not downloaded (e.g. reopened elsewhere) | `card › Download result` |
@@ -214,10 +216,10 @@ the window opens if needed). Saved with the file.
 | *… when ready* | Acts once per new result (remembers the file + time it handled, also across saving and reopening). Linking a node that already has a result counts as new | smoke `… a new result (file changed) is saved again` |
 | **Reroute** | Works like in Blender's own editors: runs, type checks (an image through a reroute into a video input is still refused) and outputs follow it | smoke `Reroute: a run follows it`, `… still refused` |
 | Header width | Wide: labelled menus. Narrower: icons (names in tooltips), then *Run Graph* becomes ▶; very narrow: one **+** menu. Never truncated labels | `N3: the toolbar picks labels or icons by the header width` |
-| Header **Run Graph** | Runs the graph's last nodes (those that feed no other workflow node). With **Solo** on (Preferences), first loads the models that are not served, one at a time | smoke `solo: …` |
+| Header **Run Graph** / **Stop** | While a run goes, the button becomes **Stop**: cancels the run's jobs on the server (also the Surfaces node's SAM3 jobs) and stops waiting for a model. Run Graph runs the graph's last nodes (those that feed no other workflow node). With **Solo** on (Preferences), first loads the models that are not served, one at a time | smoke `solo: …` |
 | Workflow node **Generate** | Runs this node: renders the scene sources it needs (fresh), books upstream workflow nodes that have no up-to-date result first, then this one. A result is reused while nothing it depends on changed (settings, prompts, links, the scene) | `node › Generate on B starts the chain A → B`, `Generate again reuses A and books only B` |
 | Workflow node ⟳ | Re-runs everything upstream too | — |
-| Status / progress, ✕ | *Waiting for its inputs*, *Sending…*, queue / progress bar; ✕ cancels the job and stops what depends on it | `node › ✕ cancels its job and ends the run` |
+| Status / progress, ✕ | *Waiting for its inputs*, *Sending…*, queue place / progress bar, *Loading its model in ComfyQ… 0:42 (usually 1 to 2 min)* (solo); ✕ cancels the job and stops what depends on it; the Surfaces node has its own ✕ (Stop) and "SAM3: 5/12 floor" | `node › ✕ cancels its job and ends the run` |
 | Result: thumbnail, **Show · Open · Import** | The node's result (fed to the nodes linked after it); Show plays it in the ComfyQ viewer | `chain finished: A and B have results`, `B was given A's result` |
 | Header 🗑 **Clear Graph** | Removes every node (asks first) | `Clear Graph` |
 | Workflow node **Change model** | Searchable list of every workflow (▶ = served). Settings kept per model; links come back on inputs of the same kind | `node › Change model lists every workflow, served first`; smoke `Change model … stays linked` |

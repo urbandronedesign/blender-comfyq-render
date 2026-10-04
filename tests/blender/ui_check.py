@@ -180,7 +180,10 @@ def step_connect():
     yield (lambda: specs_ready(wf)), 10
     check("saved workflow's settings load after Connect (chips + Generate enabled)", specs_ready(wf), wf)
     with ctx(v3d):
-        check("Generate enabled after Connect", bpy.ops.comfyq.generate.poll())
+        served = wf in S().served_ids()
+        why = ext("ops.generate").why_not_generate(bpy.context.scene, wf)
+        check("Generate enabled after Connect when its model is served, else greyed with the reason",
+              bpy.ops.comfyq.generate.poll() == served and (served or "not served" in why), why or "enabled")
     shot("01_connected")
 
 
@@ -192,7 +195,8 @@ def step_refresh():
     yield (lambda: specs_ready(wf)), 10
     check("settings still loaded after Refresh", specs_ready(wf))
     with ctx(v3d):
-        check("Generate enabled after Refresh", bpy.ops.comfyq.generate.poll())
+        check("Generate after Refresh: enabled when its model is served, else greyed",
+              bpy.ops.comfyq.generate.poll() == (wf in S().served_ids()))
 
 
 def step_tabs_and_menu():
@@ -517,7 +521,9 @@ def step_keyframe():
     shot("09_keyframe")
     with ctx(v3d):
         greyed = not bpy.ops.comfyq.generate_keyframe.poll()
-    check("Generate keyframe button enabled", not greyed)
+    kf = sc.comfyq.keyframe_workflow_id
+    check("Generate keyframe: enabled when the keyframe model is served, else greyed",
+          greyed == (kf not in S().served_ids()), f"{kf} served={kf in S().served_ids()}")
     it = props.param_item(sc, spec.key, wf)
     it.image = bpy.data.images.get("ComfyQ render preview")
     res = click("clear_keyframe", v3d, key=spec.key)

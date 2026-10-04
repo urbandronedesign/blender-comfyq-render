@@ -198,9 +198,23 @@ def _mark_imported(scene, job_id: str) -> None:
             r.imported = True
 
 
+def why_not_generate(scene, wf_id: str) -> str:
+    """'' when a job on `wf_id` can be booked now, else the reason (shown on the greyed-out button)."""
+    if not SESSION.connected:
+        return "Connect to ComfyQ first"
+    if not wf_id:
+        return "Choose a model first"
+    if wf_id not in SESSION.specs:
+        return "The model's settings are still loading"
+    served = SESSION.served_ids()
+    if served and wf_id not in served:
+        name = next((w.name for w in SESSION.workflows if w.id == wf_id), wf_id)
+        return f"“{name}” is not served right now: ask the teacher to serve it"
+    return ""
+
+
 def can_generate(context) -> bool:
-    cq = context.scene.comfyq
-    return SESSION.connected and bool(cq.workflow_id) and cq.workflow_id in SESSION.specs
+    return not why_not_generate(context.scene, context.scene.comfyq.workflow_id)
 
 
 def generate(context, report: Report) -> bool:
@@ -214,7 +228,10 @@ class COMFYQ_OT_generate(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return can_generate(context)
+        why = why_not_generate(context.scene, context.scene.comfyq.workflow_id)
+        if why:
+            cls.poll_message_set(why)
+        return not why
 
     def execute(self, context):
         return {"FINISHED"} if generate(context, self.report) else {"CANCELLED"}
@@ -228,7 +245,10 @@ class COMFYQ_OT_generate_keyframe(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return SESSION.connected and context.scene.comfyq.keyframe_workflow_id in SESSION.specs
+        why = why_not_generate(context.scene, context.scene.comfyq.keyframe_workflow_id)
+        if why:
+            cls.poll_message_set("Keyframe model: " + why[0].lower() + why[1:])
+        return not why
 
     def execute(self, context):
         sc = context.scene
@@ -253,15 +273,18 @@ class COMFYQ_OT_clear_keyframe(bpy.types.Operator):
 class COMFYQ_OT_cancel(bpy.types.Operator):
     bl_idname = "comfyq.cancel"
     bl_label = "Cancel Job"
+    bl_description = "Cancel this job on the ComfyQ server"
     bl_options = {"INTERNAL"}
     job_id: StringProperty()
 
     def execute(self, context):
         client = SESSION.client
         if client is None:
+            self.report({"WARNING"}, "Not connected: connect to ComfyQ to cancel the job")
             return {"CANCELLED"}
         job_id = self.job_id          # the lambda runs after this operator is freed
-        SESSION.run(lambda: client.cancel(job_id))
+        SESSION.run(lambda: client.cancel(job_id), label="Cancelling")
+        self.report({"INFO"}, "Cancelling the job…")
         return {"FINISHED"}
 
 

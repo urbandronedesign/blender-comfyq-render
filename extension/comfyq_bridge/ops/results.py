@@ -90,14 +90,19 @@ class COMFYQ_OT_download(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return SESSION.client is not None
+        if SESSION.client is None:
+            cls.poll_message_set("Connect to ComfyQ first")
+            return False
+        return True
 
     def execute(self, context):
         view = SESSION.jobs.get(self.job_id)
         if view is None or not view.job.ok:
+            self.report({"WARNING"}, "Nothing to download: the job has no finished result")
             return {"CANCELLED"}
         view.files = []
         SESSION._download(view)
+        self.report({"INFO"}, "Downloading the result…")
         return {"FINISHED"}
 
 
@@ -154,4 +159,28 @@ class COMFYQ_OT_cleanup(bpy.types.Operator):
         return {"FINISHED"}
 
 
-classes = (COMFYQ_OT_save_result, COMFYQ_OT_import_file, COMFYQ_OT_download, COMFYQ_OT_cleanup)
+class COMFYQ_OT_remove_job(bpy.types.Operator):
+    bl_idname = "comfyq.remove_job"
+    bl_label = "Remove from List"
+    bl_description = "Remove this finished job from the list (its downloaded files stay on disk)"
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+    job_id: StringProperty(options={"HIDDEN"})
+
+    def execute(self, context):
+        jobs = context.scene.comfyq.jobs
+        idx = next((n for n, r in enumerate(jobs) if r.job_id == self.job_id), None)
+        if idx is None:
+            self.report({"WARNING"}, "This job is no longer in the list")
+            return {"CANCELLED"}
+        view = SESSION.jobs.get(self.job_id)
+        if view is not None and not view.job.done:
+            self.report({"WARNING"}, "Cancel the job first (✕): it is still on the server")
+            return {"CANCELLED"}
+        jobs.remove(idx)                                   # never keep a reference across remove (gotcha 7)
+        SESSION.jobs.pop(self.job_id, None)
+        self.report({"INFO"}, "Removed from the list")
+        return {"FINISHED"}
+
+
+classes = (COMFYQ_OT_save_result, COMFYQ_OT_import_file, COMFYQ_OT_download, COMFYQ_OT_cleanup,
+           COMFYQ_OT_remove_job)

@@ -28,7 +28,7 @@ Severity uses Nielsen's 0–4 scale (4 = must fix before class).
 | A3 | **Clean Up** deletes files and images with no confirmation (`results.py:170`). | Confirm first, with the count: "Remove 3 strips and 12 temporary files?". |
 | A4 | The Surfaces node tells every student "solo mode loads it on Run", even with Solo off (`tree.py:689`). | Use the workflow node's wording, "Not served: ask the teacher". Mention solo only when it is on. |
 
-## Phase B — feedback & errors (severity 2–3, effort S–M)
+## Phase B — feedback & errors (severity 2–3, effort S–M) — DONE 2026-10-04 (Retry on job cards left out: a re-run with the same inputs needs the inputs kept per job; Remove done)
 | # | Problem | Proposal |
 |---|---|---|
 | B1 | Buttons go grey with no reason: `poll_message_set` is used nowhere. This affects Generate, Run Graph, Refresh, Generate Keyframe, Match to Scene, Open as Graph and Load Model. | Give every poll a reason, shown in the tooltip ("Connect to ComfyQ first", "This model is not served: ask the teacher", "Settings are still loading"). |

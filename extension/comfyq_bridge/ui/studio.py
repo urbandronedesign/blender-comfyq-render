@@ -121,7 +121,11 @@ def draw_studio(layout: bpy.types.UILayout, context, columns: int = 2, dialog: b
     visible = _visible(scene, cq.workflow_id, specs or [])
     draw_chips(grid, scene, cq.workflow_id, visible)
     if wf and wf.id not in served:
-        box.label(text="Not served right now — ask the teacher to serve this workflow", icon="ERROR")
+        col = box.column(align=True)
+        col.alert = True
+        for n, line in enumerate(wrap("Not served right now: ask the teacher to serve this model, or choose a "
+                                      "served one (▶ in the list)", _CHARS[0], max_lines=3)):
+            col.label(text=line, icon="ERROR" if n == 0 else "BLANK1")
 
     # -- prompt ---------------------------------------------------------------------------------
     draw_prompts(box, scene, cq.workflow_id, visible, big=True)
@@ -143,6 +147,14 @@ def draw_studio(layout: bpy.types.UILayout, context, columns: int = 2, dialog: b
         gen.scale_x, gen.scale_y = 1.6, 1.3
         gen.operator("comfyq.generate", icon="RENDER_STILL")
         actions.operator("comfyq.open_as_graph", text="", icon="NODE_INSERT_OFF")
+    from ..ops.generate import why_not_generate
+    why = why_not_generate(scene, cq.workflow_id)
+    # the reason Generate is greyed out, not only in its tooltip (not served: already said under the model)
+    if why and SESSION.connected and not (wf and wf.id not in served):
+        col = box.column(align=True)
+        col.alert = True
+        for n, line in enumerate(wrap(why, _CHARS[0], max_lines=3)):
+            col.label(text=line, icon="ERROR" if n == 0 else "BLANK1")
     _messages(layout)
 
 
@@ -333,6 +345,15 @@ def _messages(layout) -> None:
             layout.label(text=line, icon="INFO" if n == 0 else "BLANK1")
 
 
+def queue_text(job) -> str:
+    """'3rd in line · now running: Tom' for a waiting job (all users' jobs come with the server state)."""
+    from ..client.queue import describe, place
+    if job.phase != "scheduled" or SESSION.client is None:
+        return PHASE_TEXT.get(job.phase, job.phase)
+    pl = place(SESSION.client.active_jobs(), job.id)
+    return describe(pl, SESSION.client.profile.user) if pl else PHASE_TEXT["scheduled"]
+
+
 def draw_jobs(layout, context, limit: int | None = None) -> None:
     cq = context.scene.comfyq
     recs = list(cq.jobs)[-(limit or cq.show_jobs):]
@@ -354,7 +375,7 @@ def draw_jobs(layout, context, limit: int | None = None) -> None:
             if job.progress is not None and job.phase == "executing":
                 box.progress(factor=job.progress, type="BAR", text=f"{phase} {job.progress * 100:.0f}%")
             else:
-                box.label(text=phase, icon="SORTTIME")
+                box.label(text=queue_text(job), icon="SORTTIME")
             head.operator("comfyq.cancel", text="", icon="X").job_id = rec.job_id
         elif job.ok:
             head.operator("comfyq.open_folder", text="", icon="FILE_FOLDER").job_id = rec.job_id
@@ -370,6 +391,8 @@ def draw_jobs(layout, context, limit: int | None = None) -> None:
             box.label(text=phase, icon="ERROR")
             for line in wrap(job.error or "", 60):
                 box.label(text=line)
+        if job.done:
+            head.operator("comfyq.remove_job", text="", icon="TRASH").job_id = rec.job_id
 
 
 _FILE_ICON = {".mp4": "FILE_MOVIE", ".mov": "FILE_MOVIE", ".webm": "FILE_MOVIE", ".gif": "FILE_MOVIE",

@@ -13,6 +13,16 @@ from urllib.parse import quote
 import requests
 
 
+def _unreachable(base: str, e: Exception) -> str:
+    """Plain words for a network failure, with what to do next."""
+    if isinstance(e, requests.ReadTimeout):        # connected, but no answer in time
+        what = "is too slow to answer (it may be loading a model)"
+    else:
+        what = "is not answering"
+    return (f"The ComfyQ server at {base} {what}. Check that the server PC is on and ComfyQ is running, "
+            f"then press Connect again (address: Preferences › Add-ons › ComfyQ Bridge).")
+
+
 class ComfyQError(RuntimeError):
     def __init__(self, message: str, status: int | None = None, access_required: bool = False):
         super().__init__(message)
@@ -52,7 +62,7 @@ class Http:
             r = self.session.get(self.base + path, params=params or None,
                                  headers=self._headers(), timeout=self.timeout)
         except requests.RequestException as e:
-            raise ComfyQError(f"Cannot reach ComfyQ at {self.base}: {e.__class__.__name__}") from e
+            raise ComfyQError(_unreachable(self.base, e)) from e
         return self._check(r)
 
     def post_json(self, path: str, body: dict[str, Any], admin: bool = False, timeout: float | None = None) -> Any:
@@ -60,14 +70,14 @@ class Http:
             r = self.session.post(self.base + path, json=body, headers=self._headers(admin),
                                   timeout=timeout or self.timeout)
         except requests.RequestException as e:
-            raise ComfyQError(f"Cannot reach ComfyQ at {self.base}: {e.__class__.__name__}") from e
+            raise ComfyQError(_unreachable(self.base, e)) from e
         return self._check(r)
 
     def delete(self, path: str, admin: bool = False, timeout: float | None = None) -> Any:
         try:
             r = self.session.delete(self.base + path, headers=self._headers(admin), timeout=timeout or self.timeout)
         except requests.RequestException as e:
-            raise ComfyQError(f"Cannot reach ComfyQ at {self.base}: {e.__class__.__name__}") from e
+            raise ComfyQError(_unreachable(self.base, e)) from e
         return self._check(r)
 
     def upload(self, path: str, file_path: Path, field: str = "file") -> Any:

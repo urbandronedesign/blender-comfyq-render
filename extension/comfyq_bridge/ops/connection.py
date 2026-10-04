@@ -74,9 +74,11 @@ class COMFYQ_OT_set_student_name(bpy.types.Operator):
 class COMFYQ_OT_disconnect(bpy.types.Operator):
     bl_idname = "comfyq.disconnect"
     bl_label = "Disconnect"
+    bl_description = "Disconnect from the ComfyQ server (jobs keep running there)"
 
     def execute(self, context):
         SESSION.close()
+        self.report({"INFO"}, "Disconnected from ComfyQ")
         return {"FINISHED"}
 
 
@@ -87,7 +89,10 @@ class COMFYQ_OT_refresh(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return SESSION.client is not None
+        if SESSION.client is None:
+            cls.poll_message_set("Connect to ComfyQ first")
+            return False
+        return True
 
     def execute(self, context):
         client = SESSION.client

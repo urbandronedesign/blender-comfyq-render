@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import bpy
 
-from ..ops.generate import can_generate, generate
+from ..ops.generate import generate
 from ..prefs import prefs
 from ..runtime.session import SESSION
 from .studio import draw_jobs, draw_studio
@@ -99,8 +99,10 @@ class COMFYQ_OT_studio(bpy.types.Operator):
         draw_studio(self.layout, context, columns=4, dialog=True)
 
     def execute(self, context):
-        if not can_generate(context):
-            self.report({"WARNING"}, "Connect and choose a served workflow first")
+        from ..ops.generate import why_not_generate
+        why = why_not_generate(context.scene, context.scene.comfyq.workflow_id)
+        if why:
+            self.report({"WARNING"}, why)
             return {"CANCELLED"}
         return {"FINISHED"} if generate(context, self.report) else {"CANCELLED"}
 

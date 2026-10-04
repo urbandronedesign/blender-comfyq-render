@@ -277,6 +277,9 @@ change that session: the user must reinstall from the UI or restart Mixar.
   `.claude/skills/blender-ui-audit`. **Phase A done**: teacher controls (Solo, Teacher tools, Load Model) locked
   unless the profile holds ComfyQ's admin password (`prefs.teacher_unlocked`); model switches ask first; student
   name asked at the first Connect (`name_confirmed`), "name · server" row; Clean Up asks first; GUI -Ui 91/91.
+  **Phase B done**: `poll_message_set` reasons; Generate greyed + reason when not served (`why_not_generate`);
+  queue place `client/queue.py`; job card Remove; graph Stop (`Run.stop`, cancels SAM3 jobs too); model-load timer;
+  plain connection errors. Next: phase C (wording/tooltips/icons), then E, D, F.
 
 ## Next steps
 1. Whatever the user asks next. Open candidates: run the 16 never-run workflows (3D / upscale / audio /

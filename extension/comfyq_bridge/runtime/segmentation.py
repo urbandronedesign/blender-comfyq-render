@@ -36,7 +36,7 @@ def safe(label: str) -> str:
 
 def segment(client: ComfyQClient, image: Path, labels: list[str], out_dir: Path, hop: Callable[[Callable], Any],
             threshold: float | None = None, progress: Callable[[str], None] | None = None,
-            timeout_s: float = 900) -> dict[str, Any]:
+            timeout_s: float = 900, on_booked: Callable[[list[str]], None] | None = None) -> dict[str, Any]:
     """`labels` like "floor" or "wall|left wall|right wall": ComfyQ's SAM3 returns ONE surface per phrase
     (the best match), so a label made of several phrases gets one job per phrase and the union mask."""
     from ..passes import segment as seg
@@ -53,6 +53,8 @@ def segment(client: ComfyQClient, image: Path, labels: list[str], out_dir: Path,
         if thkey and threshold is not None:
             values[thkey] = threshold
         jobs[phrase] = client.submit(SAM3_ID, values, prompt=f"SAM3 · {phrase}", specs=specs)
+    if on_booked:
+        on_booked(list(jobs.values()))                 # so a Stop can cancel them
     say(f"{len(jobs)} SAM3 jobs booked")
     clips: dict[str, Path] = {}
     errors: dict[str, str] = {}
