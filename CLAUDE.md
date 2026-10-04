@@ -17,7 +17,7 @@ Git: local repo, branch `main`, no remote. Commit author = repo-local `urbandron
 ## Environment (this machine)
 | Thing | Where |
 |---|---|
-| **Blender 5.2.2 LTS** (Python 3.13.13) — the host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (build of 2026-10-04 12:00 = `da3e068` + image-upload fix + MCP image nodes; commit pending), Allow Online Access on, **AI agents (MCP server) ON** (port 8790), **Teacher tools ON** (agents may load models; set 2026-10-04 by a startup script + `save_userpref`). Theme = Mixar's **"Mixar Forest"** with Input node colour changed from #ff284d to #3d4640 (calmer graph headers) (exported from `%APPDATA%\Mixar\Mixar\5.2\config\mixar_userpref.blend`, preset `scripts\presets\interface_theme\mixar_forest.xml`; previous prefs backed up as `config\userpref.before_mixar_theme.blend`) Default of `smoke_test.ps1` and `comfyq.ps1` |
+| **Blender 5.2.2 LTS** (Python 3.13.13) — the host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (build of commit `0537d86`: library, solo mode, image-upload fix, MCP image nodes), Allow Online Access on, **AI agents (MCP server) ON** (port 8790), **Teacher tools ON** (agents may load models; set 2026-10-04 by a startup script + `save_userpref`). Theme = Mixar's **"Mixar Forest"** with Input node colour changed from #ff284d to #3d4640 (calmer graph headers) (exported from `%APPDATA%\Mixar\Mixar\5.2\config\mixar_userpref.blend`, preset `scripts\presets\interface_theme\mixar_forest.xml`; previous prefs backed up as `config\userpref.before_mixar_theme.blend`) Default of `smoke_test.ps1` and `comfyq.ps1` |
 | Mixar 4.2.0 | **uninstalled 2026-10-03** (was `C:\Program Files\Mixar\mixar.exe`, profile `%APPDATA%\Mixar\Mixar\5.2`) |
 | ComfyQ server (Node, Socket.IO, SQLite) | `F:\ComfyQ`, http://127.0.0.1:3000 — user works with b2renger, full control of its code |
 | ComfyUI 0.37, torch 2.8 cu128, RTX 5090 32 GB | `F:\ComfyUI_windows_portable_nvidia\…`, :8188 (listens on 0.0.0.0 — P1.0 issue) |
@@ -81,6 +81,10 @@ tools/make_preset_library.py  headless (sandbox profile): one saved preset per i
                          presets/library/<Image|Image edit|Image → video|Video → video>/*.json (docs/CLASS.md §3)
 tools/preset_run.py      run every library preset through the MCP on the open scene (Solo on), resumable
 tools/contact_sheet.py   review sheets of results (start/mid/end frames, audio) — ComfyUI's python (cv2, av)
+tools/preset_shots.py    visible sandbox Blender: each preset's graph rebuilt with its run result → screenshots
+tools/preset_report.py   HTML report of a run (description, graph shot, inputs, prompt/settings sent, output,
+                         verdict from live_check/presets/notes.json) → baselines/<date>/ (gitignored);
+                         --baseline <dir> shows the earlier output side by side. Baseline: baselines/2026-10-04
 presets/library/         the generated workflow library (48 presets, committed; copied to the user's presets folder)
 ```
 
@@ -255,9 +259,8 @@ change that session: the user must reinstall from the UI or restart Mixar.
   "image workflow → V2V start image" never run live in the graph.
 
 ## Next steps
-00. Uncommitted at the end of 2026-10-04 (ask the user): image-upload fix, MCP image nodes, smoke checks,
-   tools/preset_run.py + contact_sheet.py, docs/preset-run.md + docs/RUNBOOK.md. ComfyQ was left serving
-   `video_edit_wan_idv2v_restyle_hires` (main) + `image_qwen_image_2_1_t2i` (lane); Solo is ON in the user's prefs.
+00. State at the end of 2026-10-04 (all committed, `0537d86`): ComfyQ serves `video_edit_wan_idv2v_restyle_hires`
+   (main) + `image_qwen_image_2_1_t2i` (lane); Solo is ON in the user's prefs. Hand-over: docs/RUNBOOK.md.
 0. **User tests the MCP teacher tools tomorrow (2026-10-05)** from an agent connected to their Blender (choice made:
    "agent drives Blender", not a chat panel inside Blender). Status at stop: Blender 5.2 running with the
    `a3786b2` build, connected, 20 tools answering over HTTP (checked with a direct JSON-RPC call:

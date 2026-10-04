@@ -26,7 +26,7 @@ start, middle and end frames of every video (`tools/contact_sheet.py`).
 Legend: ✅ ran and the result fits the inputs · ⚠️ ran, but the result ignores part of the inputs (see
 note) · ❌ failed.
 
-## Image (t2i) — 10 / 10
+## Image (t2i) — 9 / 9
 | Preset | Time | Output | Verdict |
 |---|---|---|---|
 | Flux2 Dev — text to image | 112 s | 1024×576 | ✅ |
@@ -42,7 +42,7 @@ note) · ❌ failed.
 Qwen and Krea give square images: their size settings are not recognised by the scene matching (see the
 runbook, "what is missing").
 
-## Image edit — 12 / 12
+## Image edit — 13 / 13
 | Preset | Time | Output | Verdict |
 |---|---|---|---|
 | Flux2 Dev — image edit | 143 s | 1360×768 | ✅ cube on a beach |
@@ -107,5 +107,11 @@ next run should use an animated character scene and prompts written for it.
 3. **Two presets had an empty Prompt node.** The Wan ID-V2V workflows have no example prompt, so the
    preset's prompt starts empty. The bridge refuses with a clear "Prompt … is required", which is
    correct behaviour. The test tool now fills in a prompt.
+
+**Visual baseline:** `baselines/2026-10-04/index.html` (local, not in git, ~100 MB): for every workflow its
+description, a screenshot of its graph in Blender, the inputs actually uploaded, the prompt and settings
+sent, the output (images, playable videos), time and verdict. A new run is compared with it:
+`tools/preset_run.py` → `tools/preset_shots.py` → `tools/preset_report.py baselines/<date> --baseline baselines/2026-10-04`
+(each card then shows the earlier output next to the new one).
 
 Raw data: `live_check/presets/results.json`, contact sheets in `live_check/presets/sheets/` (not in git).

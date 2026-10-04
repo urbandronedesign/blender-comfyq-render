@@ -7,3 +7,6 @@ dist/
 *.part
 live_check/
 docs/private/
+
+# HTML reports of preset runs (media, ~100 MB each): local reference for comparisons
+baselines/

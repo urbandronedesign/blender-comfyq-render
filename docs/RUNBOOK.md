@@ -143,7 +143,7 @@ switches took about 30 s each.
 | Visible GUI check, every button (`smoke_test.ps1 -Ui`) | 92 / 92 (before the library and solo mode) |
 | Agent round trip, Claude Code → MCP → render → book → import | ✅ |
 | Workflow sweep (calibrate + run each workflow from Blender) | 24 / 66 (LTX 2.5, Flux 2, Qwen 2.1, Krea 2) |
-| **Preset library run through the MCP (all 48, solo mode)** | **46 / 48 run**; 2 fail in ComfyUI ([preset-run.md](preset-run.md)) |
+| **Preset library run through the MCP (all 48, solo mode)** | **46 / 48 run**; 2 fail in ComfyUI ([preset-run.md](preset-run.md)). Visual baseline: `baselines/2026-10-04/index.html` (local, not in git: per workflow its description, the Blender graph, inputs, prompt + settings sent, the output image/video) |
 | Overall, by workflow | **47 of 66 run from Blender** (48 image/video + LTX deblur-upscale); **17 never run**: 3D ×5, upscalers ×3 (SeedVR2 image ×2, PiD), SeedVR2 video ×2, Marigold ×2, SAM3, frame interpolation, Gemma ×2, Stable Audio |
 
 ## 7. What is missing
@@ -224,4 +224,6 @@ switches took about 30 s each.
 .\tools\comfyq.ps1 doctor                # classroom health check
 blender -b --online-mode --python tools\make_preset_library.py -- presets\library   # regenerate the library
 python tools\preset_run.py               # run every preset through the MCP (Blender open, Solo on; GPU, ~1.5 h)
+blender <scene copy> --python tools\preset_shots.py -- <results.json> <shots dir>   # graph screenshots (sandbox, no GPU)
+python tools\preset_report.py baselines\<date> [--baseline baselines\2026-10-04]      # HTML report (+ comparison)
 ```
