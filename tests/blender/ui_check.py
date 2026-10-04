@@ -72,13 +72,14 @@ def ctx(where):
     return bpy.context.temp_override(window=win, screen=win.screen, area=area, region=ui_region(area))
 
 
-def click(op, where, **props):
-    """Press button `op` in `where`: greyed out (poll fails) → "GREYED", else the operator's result."""
+def click(op, where, _mode="INVOKE_DEFAULT", **props):
+    """Press button `op` in `where`: greyed out (poll fails) → "GREYED", else the operator's result.
+    `_mode="EXEC_DEFAULT"` = the button's confirmation / dialog already answered (a popup would block the run)."""
     fn = getattr(bpy.ops.comfyq, op)
     with ctx(where):
         if not fn.poll():
             return "GREYED"
-        return fn("INVOKE_DEFAULT", **props)
+        return fn(_mode, **props)
 
 
 def redraw():
@@ -168,8 +169,11 @@ def step_start():
 
 
 def step_connect():
-    res = click("connect", v3d)
-    check("Connect button", res == {"FINISHED"}, res)
+    p = ext("prefs").prefs()
+    check("no student name confirmed yet: Connect asks for it first (dialog)", not p.name_confirmed)
+    res = click("connect", v3d, _mode="EXEC_DEFAULT", student_name="UI Check")   # = the name typed in the dialog
+    check("Connect button (name typed in its dialog)", res == {"FINISHED"} and p.student_name == "UI Check"
+          and p.name_confirmed, res)
     yield lambda: S().connected and S().workflows
     check("connected", S().connected, S().status)
     wf = bpy.context.scene.comfyq.workflow_id
@@ -423,7 +427,7 @@ def step_cleanup():
     redraw()
     check("bar warns about result strips in the scene", results_mod.scene_has_result_strips(sc))
     shot("06_strip_warning")
-    res = click("cleanup", v3d)
+    res = click("cleanup", v3d, _mode="EXEC_DEFAULT")        # its "Clean Up?" confirmation answered
     check("Clean up removes them", res == {"FINISHED"} and not results_mod.scene_has_result_strips(sc), res)
     yield 0.1
 
@@ -568,8 +572,12 @@ def step_graph():
     check(f"toolbar › Video › {wf} adds a node with its inputs as sockets",
           r2 == {"FINISHED"} and node is not None and [x.identifier for x in node.inputs] == want,
           node and [x.identifier for x in node.inputs])
-    vid = next(x for x in node.inputs if gtree.socket_kind(x) == "video")
-    tree.links.new(anim.outputs[0], vid)
+    vid = next((x for x in node.inputs if gtree.socket_kind(x) == "video"), None)
+    feed = anim
+    if vid is None:          # what ComfyQ serves changes (gotcha 32): an image model gets a Scene Render
+        feed = tree.nodes.new("ComfyQSceneRenderNode")   # (the Scene Animation stays for the N4 output checks)
+        vid = next(x for x in node.inputs if gtree.socket_kind(x) in ("image", "mask"))
+    tree.links.new(feed.outputs[0], vid)
     anim.location = (node.location.x - 360, node.location.y)
     node.select = True
     tree.nodes.active = node
@@ -706,6 +714,14 @@ def _graph_n4(tree):
     viewer, save, rr = added["ComfyQViewerNode"], added["ComfyQSaveNode"], added["NodeReroute"]
     if anim is None or viewer is None or save is None or rr is None:
         return
+    if not ext("graph.tree").animation_path():   # Clean Up removed it and no video model ran (served set changes): render it
+        sc_ = bpy.context.scene
+        keep = sc_.frame_end
+        sc_.frame_end = min(keep, sc_.frame_start + 23)
+        try:
+            ext("passes.animation").animation_pass(sc_, "CLAY", 512, force=True)
+        finally:
+            sc_.frame_end = keep
     x, y = anim.location
     viewer.location, rr.location, save.location = (x + 360, y + 380), (x + 330, y - 380), (x + 420, y - 420)
     tree.links.new(anim.outputs[0], viewer.inputs[0])

@@ -273,6 +273,11 @@ change that session: the user must reinstall from the UI or restart Mixar.
   UI; EEVEE shadow catcher needs `eevee_lit` tuning; `blender_graph_describe` output is huge on big graphs
   (the user's graph: 136k chars) — consider a filter (node names / last preset).
 
+- **UX/UI audit (2026-10-04):** plan `docs/ux-audit-plan.md` (phases A→B→C→E→D→F, decisions answered), skill
+  `.claude/skills/blender-ui-audit`. **Phase A done**: teacher controls (Solo, Teacher tools, Load Model) locked
+  unless the profile holds ComfyQ's admin password (`prefs.teacher_unlocked`); model switches ask first; student
+  name asked at the first Connect (`name_confirmed`), "name · server" row; Clean Up asks first; GUI -Ui 91/91.
+
 ## Next steps
 1. Whatever the user asks next. Open candidates: run the 16 never-run workflows (3D / upscale / audio /
    describe / utility presets, extend the library to those categories); a re-run of the library on an

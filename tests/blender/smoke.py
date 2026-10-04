@@ -470,6 +470,12 @@ if t2i:
     unlinked.change_workflow(t2i)
     _pp = bpy.context.preferences.addons["bl_ext.user_default.comfyq_bridge"].preferences
     _pp.solo_mode = True
+    from bl_ext.user_default.comfyq_bridge.prefs import teacher_unlocked as _unlocked
+    _had_admin = os.environ.pop("COMFYQ_ADMIN_PASSWORD", None)
+    check(not _unlocked(_pp) and not grun.solo_on(),
+          "solo: locked without the admin password in the profile (a student cannot switch models)")
+    os.environ["COMFYQ_ADMIN_PASSWORD"] = "smoke"          # the teacher's PC (this process only)
+    check(_unlocked(_pp) and grun.solo_on(), "solo: on with the admin password in the profile")
     real_serve, real_blockers, real_choose, asked = gserving.serve, gserving.blockers, gserving.choose, []
     gserving.choose = lambda client, wf_id, how="auto", force=False: "main"   # (the live GPU may be busy)
     pump_until(lambda: (grun.tick_all(), tree.name not in grun.RUNS)[1], 60, "the previous graph run to end")
@@ -490,6 +496,7 @@ if t2i:
     grun.SWITCH_TIMEOUT_S = 900
     gserving.serve, gserving.blockers, gserving.choose = real_serve, real_blockers, real_choose
     _pp.solo_mode = False
+    os.environ.pop("COMFYQ_ADMIN_PASSWORD", None)
 tree.nodes.remove(unlinked)
 tree.nodes.remove(b_node)
 wnode.result, wnode.result_hash = "", ""
@@ -932,6 +939,13 @@ check(not {"comfyq_serve", "comfyq_unserve", "comfyq_calibrate"} & set(names),
 err, out = mcp_tool("comfyq_serve", workflow_id=wf)
 check(err and "Teacher tools are off" in out["error"], "… and refused if called anyway")
 _p = bpy.context.preferences.addons["bl_ext.user_default.comfyq_bridge"].preferences
+_admin_env = os.environ.pop("COMFYQ_ADMIN_PASSWORD", None)
+_p.mcp_teacher = True                                    # ticked on a PC without the admin password
+names_l = [t["name"] for t in mcp_rpc("tools/list")["result"]["tools"]]
+check(not bmcp.STATE["teacher"] and not {"comfyq_serve", "comfyq_unserve", "comfyq_calibrate"} & set(names_l),
+      "Teacher tools stay hidden without the admin password in the profile, even when ticked")
+os.environ["COMFYQ_ADMIN_PASSWORD"] = "smoke"            # the teacher's PC (this process only)
+_p.mcp_teacher = False
 _p.mcp_teacher = True
 names_t = [t["name"] for t in mcp_rpc("tools/list")["result"]["tools"]]
 check(bmcp.STATE["teacher"] and {"comfyq_serve", "comfyq_unserve", "comfyq_calibrate"} <= set(names_t),
@@ -947,6 +961,7 @@ if _main:                                # never a side lane: that call would re
     err, out = mcp_tool("comfyq_unserve", workflow_id=_main)
     check(err and "main workflow" in out["error"], f"MCP comfyq_unserve refuses the main workflow ({out})")
 _p.mcp_teacher = False
+os.environ.pop("COMFYQ_ADMIN_PASSWORD", None)
 check(not bmcp.STATE["teacher"], "… unticking turns them off again")
 bmcp.stop()
 check(not bmcp.info_path().exists(), "MCP server stops and removes its connection file")

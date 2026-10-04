@@ -32,6 +32,7 @@ def _tick() -> float:
         for window in bpy.context.window_manager.windows:
             workflow.ensure_loaded(window.scene)   # settings of the chosen workflows, after (re)connects/loads
         graph.sync_all()                           # graph nodes follow the workflows' parameters
+        _teacher_state()
     except Exception:  # noqa: BLE001 - never let this stop the pump timer
         traceback.print_exc()
     if SESSION.pump():
@@ -47,7 +48,9 @@ def _auto_connect() -> None:
         p = prefs.prefs()
     except KeyError:
         return
-    if p.auto_connect and bpy.app.online_access and SESSION.client is None:
+    # no name typed yet: the student is asked at the first Connect (button), never connected as nobody
+    named = p.name_confirmed and p.student_name.strip()
+    if p.auto_connect and named and bpy.app.online_access and SESSION.client is None:
         SESSION.connect(p.profile, p.student_name.strip(), p.url.strip())
     return
 
@@ -58,9 +61,19 @@ def _start_mcp() -> None:
         p = prefs.prefs()
     except KeyError:
         return
-    mcp.STATE["teacher"] = bool(p.mcp_teacher)
+    _teacher_state()
     if p.mcp_enabled and not mcp.running():
         mcp.start(p.mcp_port)
+
+
+def _teacher_state() -> None:
+    """The agents' teacher tools: ticked in the preferences AND the profile holds ComfyQ's admin password
+    (read by the MCP server's threads, which must not touch bpy)."""
+    try:
+        p = prefs.prefs()
+    except KeyError:
+        return
+    mcp.STATE["teacher"] = bool(p.mcp_teacher) and prefs.teacher_unlocked(p)
 
 
 def _reattach_all() -> None:

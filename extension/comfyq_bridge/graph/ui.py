@@ -342,6 +342,32 @@ class COMFYQ_OT_graph_run(_NodeOp, bpy.types.Operator):
     def poll(cls, context):
         return SESSION.connected
 
+    def _targets(self, context):
+        """(tree, targets, after) of this press; targets None = nothing to run (outputs act at once)."""
+        from . import engine, run
+        tree = bpy.data.node_groups.get(self.tree) if self.tree else (
+            context.space_data.edit_tree if _in_graph(context) else None)
+        if tree is None:
+            return None, None, []
+        node = tree.nodes.get(self.node) if self.node else None
+        if node is not None and node.bl_idname in OUTPUT_NODES:
+            return tree, engine.feeding_workflows(run.describe(tree, context.scene), node.name), [node.name]
+        return tree, ([self.node] if self.node else engine.leaves(run.describe(tree, context.scene))), []
+
+    def invoke(self, context, event):
+        # solo mode: a run that loads models switches what ComfyQ serves for everyone: ask first
+        from . import run
+        if run.solo_on():
+            tree, targets, _after = self._targets(context)
+            models = run.models_to_load(tree, context.scene, targets, self.force) if tree and targets else []
+            if models:
+                return context.window_manager.invoke_confirm(
+                    self, event, title=f"Load {len(models)} Model(s) in ComfyQ?",
+                    message=("Solo mode loads " + ", ".join(models) + ". Each switch can restart ComfyQ "
+                             "(1 to 2 minutes) for everyone connected."),
+                    confirm_text="Load and Run", icon="WARNING")
+        return self.execute(context)
+
     def execute(self, context):
         from . import engine, run
         tree = bpy.data.node_groups.get(self.tree) if self.tree else (
@@ -695,6 +721,11 @@ def _header(self, context):
     run.scale_x = 1.2
     run.operator(COMFYQ_OT_graph_run.bl_idname, text="Run Graph" if room >= _RUN_LABEL_NEED else "", icon="PLAY")
     layout.operator(COMFYQ_OT_graph_clear.bl_idname, text="", icon="TRASH")
+    from .run import solo_on
+    if solo_on():
+        sub = layout.row()
+        sub.alert = True
+        sub.label(text="Solo", icon="ERROR")
 
 
 def _add_menu(self, context):
@@ -867,6 +898,14 @@ class COMFYQ_OT_graph_load_model(bpy.types.Operator):
     def poll(cls, context):
         from .run import solo_on
         return SESSION.connected and solo_on()
+
+    def invoke(self, context, event):
+        from .run import _wf_name
+        return context.window_manager.invoke_confirm(
+            self, event, title="Load This Model in ComfyQ?",
+            message=(f"“{_wf_name(self.workflow_id)}” is loaded beside the current model when it fits, otherwise "
+                     "it replaces it: ComfyQ then restarts (1 to 2 minutes) for everyone connected."),
+            confirm_text="Load", icon="WARNING")
 
     def execute(self, context):
         from ..runtime import serving

@@ -1,0 +1,720 @@
+
+## Best Practice¶
+
+When writing your own scripts Python is great for new developers to pick up and become productive,
+but you can also pick up bad practices or at least write scripts that are not easy for others to understand.
+For your own work this is of course fine,
+but if you want to collaborate with others or have your work included with Blender there are practices we encourage.
+
+## Style Conventions¶
+
+For Blender Python development we have chosen to follow Python suggested style guide to avoid mixing styles
+among our own scripts and make it easier to use Python scripts from other projects.
+Using our style guide for your own scripts makes it easier if you eventually want to contribute them to Blender.
+
+This style guide is known as pep8
+and here is a brief listing of pep8 criteria:
+
+- 
+Camel caps for class names: MyClass
+
+- 
+All lower case underscore separated module names: my_module
+
+- 
+Indentation of 4 spaces (no tabs)
+
+- 
+Spaces around operators: 1 + 1, not 1+1
+
+- 
+Only use explicit imports (no wildcard importing *)
+
+- 
+Don’t use multiple statements on a single line: if val: body, separate onto two lines instead.
+
+As well as pep8 we have additional conventions used for Blender Python scripts:
+
+- 
+Use single quotes for enums, and double quotes for strings.
+
+Both are of course strings, but in our internal API enums are unique items from a limited set, e.g:
+
+```
+bpy.context.scene.render.image_settings.file_format = 'PNG'
+bpy.context.scene.render.filepath = "//render_out"
+
+```
+
+- 
+pep8 also defines that lines should not exceed 79 characters;
+we have decided that this is too restrictive so it is optional per script.
+
+## User Interface Layout¶
+
+Some notes to keep in mind when writing UI layouts:
+
+UI code is quite simple. Layout declarations are there to easily create a decent layout.
+The general rule here is: If you need more code for the layout declaration,
+than for the actual properties, then the approach should be reconsidered.
+
+Example layouts:
+
+layout()
+The basic layout is a simple top-to-bottom layout.
+
+```
+layout.prop()
+layout.prop()
+
+```
+
+layout.row()
+Use row(), when you want more than one property in a single line.
+
+```
+row = layout.row()
+row.prop()
+row.prop()
+
+```
+
+layout.column()
+Use column(), when you want your properties in a column.
+
+```
+col = layout.column()
+col.prop()
+col.prop()
+
+```
+
+layout.split()
+This can be used to create more complex layouts.
+For example, you can split the layout and create two column() layouts next to each other.
+Do not use split, when you simply want two properties in a row. Use row() instead.
+
+```
+split = layout.split()
+
+col = split.column()
+col.prop()
+col.prop()
+
+col = split.column()
+col.prop()
+col.prop()
+
+```
+
+Declaration names:
+
+Try to only use these variable names for layout declarations:
+
+row:
+
+for a row() layout
+
+col:
+
+for a column() layout
+
+split:
+
+for a split() layout
+
+flow:
+
+for a column_flow() layout
+
+sub:
+
+for a sub layout (a column inside a column for example)
+
+## Script Efficiency¶
+
+## List Manipulation (General Python Tips)¶
+
+## Searching for List Items¶
+
+In Python there are some handy list functions that save you having to search through the list.
+Even though you are not looping on the list data Python is,
+so you need to be aware of functions that will slow down your script by searching the whole list.
+
+```
+my_list.count(list_item)
+my_list.index(list_item)
+my_list.remove(list_item)
+if list_item in my_list: ...
+
+```
+
+## Modifying Lists¶
+
+In Python you can add and remove from a list, this is slower when the list length is modified,
+especially at the start of the list, since all the data after the index of
+modification needs to be moved up or down one place.
+
+The fastest way to add onto the end of the list is to use
+my_list.append(list_item) or my_list.extend(some_list) and
+to remove an item is my_list.pop() or del my_list[-1].
+
+To use an index you can use my_list.insert(index, list_item) or list.pop(index)
+for list removal, but these are slower.
+
+Sometimes it’s faster (but less memory efficient) to just rebuild the list.
+For example if you want to remove all triangular polygons in a list.
+Rather than:
+
+```
+polygons = mesh.polygons[:]  # Make a list copy of the meshes polygons.
+p_idx = len(polygons)        # Loop backwards
+while p_idx:                 # While the value is not 0.
+    p_idx -= 1
+
+    if len(polygons[p_idx].vertices) == 3:
+        polygons.pop(p_idx)  # Remove the triangle.
+
+```
+
+It’s faster to build a new list with list comprehension:
+
+```
+polygons = [p for p in mesh.polygons if len(p.vertices) != 3]
+
+```
+
+## Adding List Items¶
+
+If you have a list that you want to add onto another list, rather than:
+
+```
+for l in some_list:
+    my_list.append(l)
+
+```
+
+Use:
+
+```
+my_list.extend([a, b, c...])
+
+```
+
+Note that insert can be used when needed,
+but it is slower than append especially when inserting at the start of a long list.
+This example shows a very suboptimal way of making a reversed list:
+
+```
+reverse_list = []
+for list_item in some_list:
+    reverse_list.insert(0, list_item)
+
+```
+
+Python provides more convenient ways to reverse a list using the slice method,
+but you may want to time this before relying on it too much:
+
+```
+some_reversed_list = some_list[::-1]
+
+```
+
+## Removing List Items¶
+
+Use my_list.pop(index) rather than my_list.remove(list_item).
+This requires you to have the index of the list item but is faster since remove() will search the list.
+Here is an example of how to remove items in one loop,
+removing the last items first, which is faster (as explained above):
+
+```
+list_index = len(my_list)
+
+while list_index:
+    list_index -= 1
+    if my_list[list_index].some_test_attribute == 1:
+        my_list.pop(list_index)
+
+```
+
+This example shows a fast way of removing items,
+for use in cases where you can alter the list order without breaking the script’s functionality.
+This works by swapping two list items, so the item you remove is always last:
+
+```
+pop_index = 5
+
+# Swap so the pop_index is last.
+my_list[-1], my_list[pop_index] = my_list[pop_index], my_list[-1]
+
+# Remove last item (pop_index).
+my_list.pop()
+
+```
+
+When removing many items in a large list this can provide a good speed-up.
+
+## Avoid Copying Lists¶
+
+When passing a list or dictionary to a function,
+it is faster to have the function modify the list rather than returning
+a new list so Python doesn’t have to duplicate the list in memory.
+
+Functions that modify a list in-place are more efficient than functions that create new lists.
+This is generally slower so only use for functions when it makes sense not to modify the list in place:
+
+```
+>>> my_list = some_list_func(my_list)
+
+```
+
+This is generally faster since there is no re-assignment and no list duplication:
+
+```
+>>> some_list_func(vec)
+
+```
+
+Also note that, passing a sliced list makes a copy of the list in Python memory:
+
+```
+>>> foobar(my_list[:])
+
+```
+
+If my_list was a large array containing 10,000’s of items, a copy could use a lot of extra memory.
+
+## Writing Strings to a File (Python General)¶
+
+Here are three ways of joining multiple strings into one string for writing.
+This also applies to any area of your code that involves a lot of string joining:
+
+String concatenation
+This is the slowest option, do not use this if you can avoid it, especially when writing data in a loop.
+
+```
+>>> file.write(str1 + " " + str2 + " " + str3 + "\n")
+
+```
+
+String formatting
+Use this when you are writing string data from floats and ints.
+
+```
+>>> file.write("%s %s %s\n" % (str1, str2, str3))
+
+```
+
+String joining
+Use this to join a list of strings (the list may be temporary). In the following example, the strings are joined with
+a space “ “ in between, other examples are “” or “, “.
+
+```
+>>> file.write(" ".join((str1, str2, str3, "\n")))
+
+```
+
+Join is fastest on many strings, string formatting is quite fast too (better for converting data types).
+String concatenation is the slowest.
+
+## Parsing Strings (Import/Exporting)¶
+
+Since many file formats are ASCII,
+the way you parse/export strings can make a large difference in how fast your script runs.
+
+There are a few ways to parse strings when importing them into Blender.
+
+## Parsing Numbers¶
+
+Use float(string) rather than eval(string), if you know the value will be an int then int(string),
+float() will work for an int too but it is faster to read ints with int().
+
+## Checking String Start/End¶
+
+If you are checking the start of a string for a keyword, rather than:
+
+```
+>>> if line[0:5] == "vert ": ...
+
+```
+
+Use:
+
+```
+>>> if line.startswith("vert "):
+
+```
+
+Using startswith() is slightly faster (around 5%) and also avoids a possible error
+with the slice length not matching the string length.
+
+my_string.endswith("foo_bar") can be used for line endings too.
+
+If you are unsure whether the text is upper or lower case, use the lower() or upper() string function:
+
+```
+>>> if line.lower().startswith("vert ")
+
+```
+
+## Error Handling¶
+
+The try statement is useful to save time writing error checking code.
+However, try is significantly slower than an if since an exception has to be set each time,
+so avoid using try in areas of your code that execute in a loop and runs many times.
+
+There are cases where using try is faster than checking whether the condition will raise an error,
+so it is worth experimenting.
+
+## Value Comparison¶
+
+Python has two ways to compare values a == b and a is b,
+the difference is that == may run the object’s comparison function __eq__() whereas is compares identity,
+that is, that both variables reference the same item in memory.
+
+In cases where you know you are checking for the same value which is referenced from multiple places, is is faster.
+
+## Time Your Code¶
+
+While developing a script it is good to time it to be aware of any changes in performance, this can be done simply:
+
+```
+import time
+time_start = time.time()
+
+# Do something...
+
+print("My Script Finished: %.4f sec" % (time.time() - time_start))
+
+```
+
+        <div  
+## Best Practices ¶ 
+- Keep the UI calm. Avoid strong changes in colors, big jumps in
+ layouts, or popping elements on simple interactions. For example
+ strong mouse hover highlights can be very flashy and cause distracting
+ visual noise; some subtle changes can be okay. 
+- Inconsistencies should be well founded and documented. There are
+ cases where consistency hurts usability more than it helps. Breaking
+ can be an acceptable trade-off if there are good reasons to do so -
+ but only then. 
+## Workflow Oriented ¶ 
+ Emphasize actions, not things (verbs over nouns). It's a common
+fallacy to think everything needs a name, and that this name needs to be
+a noun. Instead, put yourself in the users mind: What is the simplest,
+most natural way to describe what the user is trying to do? And how can
+the UI be modeled as close as possible to that? Turns out that sometimes
+you don't even need to name a thing, just expose the possible options
+directly. Entities and names often just add unnecessary abstractions.
+Verbs are a powerful language construct, and are often a lot closer to
+the user's mental model. 
+Examples: 
+- What is a more natural/usable expression: "Make a vertex selection" 
+ or "select a vertex" ? "Make a connection between two vertices" ,
+ "Create an edge between two vertices" or "connect two vertices" ? 
+- The context menu is an action/workflow oriented UI: A simple right
+ click immediately provides common actions (usually a list of verbs).
+ You don't have to first open a Context (noun) > Common Actions 
+ (another noun) menu first. 
+- Instead of a Text or Font menu, place text formatting (bold,
+ italic, etc.) in a Format menu. 
+- A menu entry like Create Asset Data could be named Package as
+ Asset or Mark as Asset instead. 
+Current Blender is not following this guideline well. 
+  
+## Writing Style ¶ 
+## Common Rules ¶ 
+- Use American English. 
+- Keep text short and to the point. 
+- Capitalize titles. Entity names are not titles. 
+- Do not capitalize mesh , object , vertex group , etc. 
+- Not capitalizing entity names is an arguable guideline, but avoids
+ many fuzzy cases. 
+- Brand / product names such as Cycles , Grease Pencil , Line Art , Freestyle 
+ are always capitalized. EEVEE is always uppercase. 
+- “Channel” identifiers, like X , Y , Z , R , G , B , etc. are always capitalized. 
+- Do not use abbreviations like verts , VGroups , loc , or rot ,
+ fac . Instead, use plain words like vertices , vertex groups ,
+ location , rotation , factor . 
+- Do not use English contractions like aren’t , can’t , etc. It's
+ preferred to keep full spelling, are not or cannot are not that
+ much longer, and it helps keeping consistent styling over the whole
+ UI. 
+- 
+Do not use implementation specific language. 
+Examples 
+- Instead of ID , use data-block . 
+- Do not use terms like flag , string , RNA , DNA . 
+- 
+Do not use pronouns, such as you . This sounds like an accusation towards the user.
+Example 
+ Don't : Your mesh is very dense 
+ Do : The mesh is very dense 
+- Use the ampersand ( & ) in labels, but and in text (e.g. in tooltip descriptions). 
+- Text should generally not contain code snippets, or involved details (e.g.
+ troubleshooting, corner cases that might not work, etc.). 
+Formatting with new lines ( \n ) and bullet points ( \u2022 ) is fine. 
+## UI Labels ¶ 
+- 
+ Must use English MLA title case (see this
+ overview , also
+ #79589 ). 
+Examples 
+- Like in This Example 
+- Set Offset from Cursor 
+- Alexander and the Terrible, Horrible, No Good, Very Bad Day 
+- Be Careful What You Wish For 
+Tip: There are various online converters available. 
+- 
+Append an ellipsis ("...") to labels when an operation expects further input from the user (for example, by opening a new popup or window). This does not apply to menus that open a sub-menu, those should never include an ellipsis. 
+Examples 
+- Save As... 
+- Batch Rename... 
+- 
+Prepend an asterisk ( * ) to labels when something related to it has been modified, and needs the user attention. 
+Examples 
+- * Save Preferences 
+- * Image 
+- 
+ Avoid redundancy. For example do not use Enable , Activate , Is , Use , or similar
+ words for boolean properties (e.g. labels in checkboxes). 
+Example 
+ Don't : Use Transparency 
+ Do : Transparency 
+  
+## Tooltips ¶ 
+Tooltips are little popups that give more information about the element
+under the mouse cursor. 
+## General rules ¶ 
+Follow the general writing style
+guidelines . 
+What tooltips should contain: 
+- The name of the item, not followed by a period 
+- A description of the item (see below ) 
+- A "disabled hint" for disabled buttons: If a button is disabled, this
+ text will explain why (TODO document how to set this!). 
+- The shortcut, if any 
+- The library path, if any 
+- Additional useful information (expressions for drivers, BPY
+ path, etc. - These fields may be automatically generated and may be
+ disabled through a Preference option ) 
+## The Item Description ¶ 
+Tooltips should first and foremost be helpful. If more than a short
+sentence is needed to achieve that, by all means, use more than one.
+Yet, try to keep it short. In other words: Short and to the
+point. 
+- It is recommended to start descriptions with verbs. Using the
+ imperative conjugation 
+ generally works best.
+ Don't : "The factor determine s how the geometry end factor is
+ mapped to a spline"
+ Do : "Determine how the geometry end factor is mapped to a spline" 
+- Do not use more than a couple of lines, try to stick with two or
+ three. 
+- Do not end the description with a period, unless there are multiple sentences. 
+- It's fine to mention examples of situations where you might use the
+ tool. 
+- Do not document default values; these can change and are hard to
+ keep updated. 
+- Do not use the described term to explain itself. 
+- Limit Surface 
+ Don't: "Put vertices at the limit surface"
+ Do : "Place vertices at the surface that would be produced with
+infinite levels of subdivision (smoothest possible object)" 
+- Proportional Editing 
+ Don't : "Enable Proportional Editing"
+ Do : "Transform the neighbouring elements in a falloff from the
+ selection" 
+- Explanations of how the result is affected by different values are
+ fine.
+ For example: "Higher values reduce render time, lower values render with more
+ detail." 
+- Only describe the positive state of a toggle, not the negative
+ Don't : "Hide in Viewport"
+ Do : "Show in Viewport" 
+- Do not use redundant words such as " enables ", " activates "
+ etc.
+ Don't : "Enables snapping during transform"
+ Do : "Snap during transform" 
+  
+## Layouts ¶ 
+## Property Split ¶ 
+When to use it, why it makes sense... 
+## Order of importance ¶ 
+In general, the most important and most commonly used widgets should be
+exposed more accessibly. Lesser used widgets should be placed below, or
+in sub-panels where applicable. 
+In this situation, every setting in the panel depends on the enabling
+property, so it always accessible in the panel's header. 
+## Enums ¶ 
+Enums should be represented as dropdown if: 
+- It contains more than 2-3 items. 
+- Its labels do not fit the default editor size on supported screen
+ resolutions. 
+Exceptions for this rule apply when e.g. quick toggling is important for
+a workflow, or if the enum can be represented as icon-only (e.g.
+viewport shading modes). 
+## Mode toggling buttons ¶ 
+An enum should be expanded to full width at the top of a panel if it
+meets the following criteria: 
+- The property plays a significant role in defining the functionality
+ of the panel. 
+- The name of the property can be inferred from the panel's label. For
+ example, "mode" or "type" properties fit well. 
+- The text of the choices fits in default width of the UI area for
+ supported screen resolutions. 
+## Headings ¶ 
+Related properties should be grouped with headings where possible.
+Headings reduce the amount of repetition needed in UI text, meaning it's
+easier and faster to scan to find what you're looking for.
+This is especially applicable for widgets that contain text, like
+check-boxes. 
+## Sub-panels ¶ 
+When a label would help give context to multiple buttons, it often makes
+sense to organize them in a subpanel. The use of subpanels is generally
+preferred over a single label button in a row above a block of buttons. 
+The subpanel title takes only a little more space than a regular label
+button, it helps organization more, and allows collapsing. 
+One the other hand, instead of a subpanel with a checkbox in its header
+and one button inside, it's usually better to align them on the same row
+with a header. 
+## Decorators ¶ 
+A quick and visual way to animate properties that also provides a visual
+representation of whether a property is animate-able and its animation
+state... 
+## Boxes ¶ 
+When to use a box instead of a subpanel... Box style panels... 
+## Lists ¶ 
+When to use, when to avoid... 
+Is the same data already represented somewhere else? For instance,
+collections provide a more integrated way to deal with lists of
+objects... 
+## Pie Menus ¶ 
+ Pie menus should generally be limited to 8 items. Sometimes it's
+hard to avoid more items. If in such cases the quick gesture based
+selection is an significant time saver (compared to regular menus), a
+pie menu may still be acceptable. 
+ Pie menus should not contain menus, popovers, radio buttons, etc. 
+Besides displaying operators, pie menus can be an alternative way to
+display an enumeration, or to toggle simple options. But avoid complex
+interactions. The idea of pies is that you can use them with quick
+gestures. 
+ The same item should always appear at the same position. Don't
+confuse users by having items be in different places based on context.
+Muscle memory is key to an efficient usage of pie menus. 
+## Things to Avoid ¶ 
+ Do not do this : Spacial layouts to communicate
+meaning.
+ Do not use "fancy" spacial layouts to communicate meaning. While
+such layouts arguably help users understand the purpose of options, they
+just don't integrate well with surrounding UI patterns. It's not just a
+visual, but also a practical issue (for example, it needs special
+handling for properties searching). The Blender layout and widget system
+isn't designed for such cases and doesn't handle them too well, not
+living up to our quality demands.
+If things can be improved so that such layouts become more appealing and
+practical, they could become a common pattern. 
+ Do not use complex pie menus . As mentioned above, pie menus should
+be limited to 8 items. For add-ons it's common to have more complex
+pies, that is fine. But not for pie menus implemented as core user
+interfaces. 
+  
+## Icons ¶ 
+Icons are awesome and an important tool for designing quality user interfaces. But if not used carefully,
+they can also become a real usability issue. 
+## Icons Can Hurt Usability ¶ 
+There is plenty of UX research showing usability issues with icons. Icons can be ambiguous, reduce
+accessibility and make UIs slower to use - see the references below for much more detail on that.
+Labels avoid such issues and should generally be the first choice. 
+There are still many reasons to use icons, or icons without labels even. Follow the guidelines
+below. 
+ References 
+Others have described the usability issues with icons: 
+- https://devtalk.blender.org/t/design-resources-educational-material/18346/7 
+- https://uxmyths.com/post/715009009/myth-icons-enhance-usability 
+- https://ia.net/topics/on-icons 
+- https://sympli.io/blog/when-you-should-and-shouldnt-use-icons/ 
+- https://archive.uie.com/brainsparks/2006/02/20/orbitz-cant-get-a-date/ 
+- https://www.nngroup.com/articles/icon-usability/ 
+- https://ux.stackexchange.com/a/5087 
+## Icon Usage ¶ 
+- 
+ The default choice is a label. 
+Nothing beats the clarity and accessibility of a label. Only add an icon if it adds real value,
+as discussed in the following guidelines. 
+In some (rather rare) occasions, icons add real value simply by making the UI look more visually
+appealing. This should still be done sparingly though, with careful judgment. 
+- 
+ Use universally understood icons. 
+Many icons are well-known and understood by users, even outside of Blender. For example, the
+trash icon for deletion, the plus icon for adding new items, or the magnifying glass for
+searching. Usage of them can be more relaxed since they don't carry many of the issues common to
+more custom icons. A save icon without a label will still be clear enough. 
+Such icon use should still be un-ambiguous. For example, a play icon can mean different things in
+an animation context, compared to a scripting or game development context. Only use the icon
+without label if context is clear. 
+- 
+ Icons without label may be used if space is clearly limited. 
+For example, adding labels to the vertical tabs of the Properties editor would significantly
+increase the amount of needed space, making them a hassle to deal with. 
+Often it's suggested to remove labels to save space when there isn't an actual lack of space.
+Critically judge the trade-offs of that decision, and consider the other icon guidelines. 
+- 
+ Icons without label may be used to reduce prominence of an option. 
+Sometimes, using a label increases the size of a UI element so that it looks way more visually
+important than it should be. In such cases, an icon without label can be used to reduce its
+prominence. However, first consider moving the element to a less prominent location, such as a
+menu or sidebar. 
+- 
+ Icons without label may be used to provide additional information, such as indicating status or type of content. 
+A status indication, like "animated" or "modified by a library override" adds useful context. So
+do warning/error icons when there's a need to indicate a problem or warning. 
+Using labels for such indicators would take space and distract from the main content. Therefore
+it's better to omit the label. However, give the icon a tooltip, as the following guideline
+explains. 
+- 
+ When using an icon without label, give it a tooltip. 
+Icons are often displayed without any label for aesthetic, or space saving reasons. The meaning
+of icons is often less obvious than it seems. Solve this by giving the icon a tooltip.
+ Tool icons display their name, description and shortcut in a tooltip. 
+When the icon symbolizes some status, that should be explained in the tooltip as well:
+ An error icon tooltip can explain the reason for the error. 
+- 
+ Use icons as visual anchors to structure content. 
+ Research suggests that
+users remember the location of icons more than the actual icon itself. This can be "exploited" to
+visually structure content. An icon can serve as a visual anchor. For example, a more prominent
+play icon can quickly indicate a blob of playback control buttons. Or menu sections can be
+differentiated quickly by placing a single anchoring icon (see the following guideline). 
+- 
+ Do not add icons to every menu entry, use them as visual anchors. 
+When using many icons inside a menu (or any other UI element), that adds a lot of visual noise.
+Individual icons "drown" in that noise and loose meaning. It becomes harder to focus a single
+icon and distinguish it from other similar ones. 
+As mentioned in the previous guideline, use icons as visual anchors to structure content. Only add
+icons to the first item in a section of menu entries. 
+ By only adding icons to the first item in a section, the icon helps quickly locating and describing the section. 
+If an action has a commonly used icon associated with it (e.g. copying, pasting or deleting),
+users may expect to find that specific icon. It should therefore be included, even if more items
+in the section have an icon already. Similarly, some menus let users choose from a bunch of
+variants where each has a dedicated icon that we show in other places. In these cases the
+icon should be included too. 
+ The menu to add constraints lets users choose the type of constraint to add. Each has its dedicated icon that should be displayed 
+- 
+ Do not reuse icons for different purposes. 
+Slight variation of icons are fine. Composing an icon out of multiple other icons is fine as
+well. But generally the rule is: One icon for one thing. 
+- 
+ Do not use the Blender logo on its own, unless it is referring to Blender itself. 
+An icon may consist out of multiple symbols though, including the Blender logo if the icon
+indicates something as Blender specific. 
+## Icon Design ¶ 
+## Main Icon set ¶ 
+## Tool Icons ¶ 
+The colors are used to convey different information to the icons. For
+instance: 
+- Green: Added geometry 
+- Red: Removed geometry. 
+- Purple: Edited geometry. 
+## Default Thumbnails/Previews ¶ 
+ 

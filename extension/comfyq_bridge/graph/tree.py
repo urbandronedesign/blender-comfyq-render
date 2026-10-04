@@ -684,10 +684,13 @@ class ComfyQSurfacesNode(_Node, bpy.types.Node):
         from pathlib import Path
 
         from ..ui.studio import wrap
-        from .run import running
+        from .run import running, solo_on
         served = self.workflow_id in SESSION.served_ids()
-        layout.label(text="SAM3 " + ("served" if served else "not served (solo mode loads it on Run)"),
-                     icon="CHECKMARK" if served else "INFO")
+        row = layout.row()
+        row.alert = not served and not solo_on()
+        row.label(text="SAM3 served" if served else ("SAM3 loads on Run" if solo_on() else
+                                                     "SAM3 not served: ask the teacher"),
+                  icon="CHECKMARK" if served else ("IMPORT" if solo_on() else "ERROR"))
         layout.label(text="One surface per line — label: material", icon="MATERIAL")
         draw_text_field(layout, self, "text", "text_block", self, "", True,
                         "floor: oak parquet; wall|left wall|right wall: white plaster")

@@ -64,7 +64,7 @@ args = ["C:/Users/<you>/AppData/Roaming/Blender Foundation/Blender/5.2/extension
 
 ### Teacher tools: loading models from the agent
 Off by default, and **hidden** from the agent while off. Turn them on only on the teacher's PC:
-**Preferences › Add-ons › ComfyQ Bridge › Teacher tools: agents may load models**, then reconnect the
+**Preferences › Add-ons › ComfyQ Bridge › Teacher › Teacher tools: agents may load models** (the Teacher box is locked unless the profile holds ComfyQ's admin password), then reconnect the
 agent (`/mcp` in Claude Code). They use ComfyQ's own admin routes, so ComfyQ's code is unchanged.
 
 | Tool | Does |

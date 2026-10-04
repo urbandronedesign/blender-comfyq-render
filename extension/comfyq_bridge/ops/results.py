@@ -116,6 +116,22 @@ class COMFYQ_OT_cleanup(bpy.types.Operator):
                       "in renders), delete temporary renders and duplicate previews. Job results are kept")
     bl_options = {"REGISTER", "UNDO"}
 
+    def invoke(self, context, event):
+        from ..runtime.session import cache_dir
+        ed_strips = 0
+        for sc in bpy.data.scenes:
+            if sc.sequence_editor is not None and sc.name != "ComfyQ Results":
+                ed = sc.sequence_editor
+                strips = ed.strips if hasattr(ed, "strips") else ed.sequences
+                ed_strips += sum(1 for st in strips if st.get("comfyq_job") or st.name.startswith("ComfyQ "))
+        passes = cache_dir() / "passes"
+        n_files = sum(1 for p in passes.rglob("*") if p.is_file()) if passes.is_dir() else 0
+        return context.window_manager.invoke_confirm(
+            self, event, title="Clean Up?",
+            message=(f"Remove {ed_strips} result strip(s) from the 3D scenes and delete {n_files} temporary "
+                     "render file(s). Job results are kept. Deleted files cannot be restored."),
+            confirm_text="Clean Up", icon="WARNING")
+
     def execute(self, context):
         from ..importers.media import remove_result_strips
         from ..passes import animation

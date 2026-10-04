@@ -44,6 +44,24 @@ def _chars_for(context) -> int:
     return max(24, int(width / scale / 8.0))   # ~8 px per character keeps lines from being clipped
 
 
+def _who(layout) -> None:
+    """Who the jobs are booked as, on which server; the solo warning on the teacher's PC."""
+    from ..graph.run import solo_on
+    from ..prefs import prefs
+    try:
+        p = prefs()
+    except KeyError:
+        return
+    row = layout.row(align=True)
+    host = SESSION.client.profile.url.split("://")[-1] if SESSION.client is not None else ""
+    row.label(text=f"{p.student_name or '?'}  ·  {host}", icon="USER")
+    row.operator("comfyq.set_student_name", text="", icon="GREASEPENCIL")
+    if solo_on():
+        sub = layout.row()
+        sub.alert = True
+        sub.label(text="Solo: this PC switches the model ComfyQ serves for everyone", icon="ERROR")
+
+
 def draw_studio(layout: bpy.types.UILayout, context, columns: int = 2, dialog: bool = False) -> None:
     scene = context.scene
     cq = scene.comfyq
@@ -86,6 +104,7 @@ def draw_studio(layout: bpy.types.UILayout, context, columns: int = 2, dialog: b
         _messages(layout)
         return
 
+    _who(layout)
     wf = next((w for w in SESSION.workflows if w.id == cq.workflow_id), None)
     served = SESSION.served_ids()
     box = layout.box()

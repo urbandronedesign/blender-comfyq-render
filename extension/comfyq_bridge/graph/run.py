@@ -461,11 +461,24 @@ def _wf_name(wf_id: str) -> str:
 
 
 def solo_on() -> bool:
-    from ..prefs import prefs
+    """Solo mode: ticked AND this is the teacher's PC (the profile holds ComfyQ's admin password)."""
+    from ..prefs import prefs, teacher_unlocked
     try:
-        return bool(prefs().solo_mode)
+        p = prefs()
     except KeyError:
         return False
+    return bool(p.solo_mode) and teacher_unlocked(p)
+
+
+def models_to_load(tree, scene, targets: list[str], force: bool = False) -> list[str]:
+    """Names of the models a solo run of `targets` would load (what ComfyQ does not serve now)."""
+    try:
+        todo = engine.plan(describe(tree, scene), targets, force=force)
+    except engine.CycleError:
+        return []
+    served = SESSION.served_ids()
+    wfs = dict.fromkeys(tree.nodes[n].workflow_id for n in todo if tree.nodes.get(n) is not None)
+    return [_wf_name(w) for w in wfs if w and w not in served]
 
 
 def act_outputs(tree, scene, names) -> list[str]:

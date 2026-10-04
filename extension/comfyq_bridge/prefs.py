@@ -6,20 +6,38 @@ stay in the profiles file or the environment (see client/profile.py).
 """
 from __future__ import annotations
 
-import getpass
+import os
 from pathlib import Path
 
 import bpy
 from bpy.props import BoolProperty, IntProperty, StringProperty
 
-from .client.profile import config_path, list_profiles
+from .client.profile import config_path, list_profiles, load_profile
+
+_UNLOCK: dict = {"key": None, "on": False}
 
 
-def _default_user() -> str:
+def teacher_unlocked(p=None) -> bool:
+    """True on the teacher's PC: the active profile carries ComfyQ's admin password (profiles file or
+    COMFYQ_ADMIN_PASSWORD). Solo mode, Load Model and the agents' teacher tools need it, so a student
+    cannot switch what ComfyQ serves for the whole class. Cached; re-read when the profiles file changes."""
     try:
-        return getpass.getuser()
-    except Exception:  # noqa: BLE001
-        return "student"
+        p = p or prefs()
+    except KeyError:
+        return False
+    path = config_path()
+    try:
+        mtime = path.stat().st_mtime if path.is_file() else 0.0
+    except OSError:
+        mtime = 0.0
+    key = (p.profile, os.environ.get("COMFYQ_ADMIN_PASSWORD", ""), os.environ.get("COMFYQ_BRIDGE_PROFILE", ""), mtime)
+    if _UNLOCK["key"] != key:
+        try:
+            _UNLOCK["on"] = bool(load_profile(p.profile or None).admin_password)
+        except Exception:  # noqa: BLE001 - a broken profiles file = locked
+            _UNLOCK["on"] = False
+        _UNLOCK["key"] = key
+    return _UNLOCK["on"]
 
 
 def _mcp_toggle(self, context) -> None:
@@ -30,15 +48,17 @@ def _mcp_toggle(self, context) -> None:
 
 def _teacher_toggle(self, context) -> None:
     from . import mcp
-    mcp.STATE["teacher"] = bool(self.mcp_teacher)
+    mcp.STATE["teacher"] = bool(self.mcp_teacher) and teacher_unlocked(self)
 
 
 class ComfyQPreferences(bpy.types.AddonPreferences):
     bl_idname = __package__
 
     student_name: StringProperty(
-        name="Student name", default=_default_user(),
-        description="Shown on your jobs in ComfyQ; you can only cancel jobs booked under this name")
+        name="Student Name", default="",
+        description="Name shown on jobs in ComfyQ. Only jobs booked under this name can be cancelled")
+    name_confirmed: BoolProperty(default=False, options={"HIDDEN"},
+                                 description="The student typed this name (asked once, at the first Connect)")
     profile: StringProperty(
         name="Profile", default="",
         description="Profile from the profiles file (empty = its default, or the local machine)")
@@ -74,8 +94,6 @@ class ComfyQPreferences(bpy.types.AddonPreferences):
         col.prop(self, "url")
         col.prop(self, "auto_connect")
         col.separator()
-        col.prop(self, "solo_mode")
-        col.separator()
         from . import mcp
         row = col.row(align=True)
         row.prop(self, "mcp_enabled")
@@ -88,9 +106,19 @@ class ComfyQPreferences(bpy.types.AddonPreferences):
             col.label(text=f"Running on {mcp.STATE['url']} · connection file {mcp.info_path()}", icon="CHECKMARK")
             launcher = Path(__file__).parent / "mcp" / "launcher.py"
             col.label(text="Agents run:  python " + str(launcher).replace("\\", "/"), icon="CONSOLE")
-        row = col.row()
-        row.enabled = self.mcp_enabled
-        row.prop(self, "mcp_teacher")
+        col.separator()
+        box = col.box().column()
+        box.label(text="Teacher", icon="COMMUNITY")
+        if teacher_unlocked(self):
+            box.prop(self, "solo_mode")
+            if self.solo_mode:
+                box.label(text="Solo is on: this PC switches the model ComfyQ serves for everyone", icon="ERROR")
+            row = box.row()
+            row.enabled = self.mcp_enabled
+            row.prop(self, "mcp_teacher")
+        else:
+            box.label(text="Solo mode and the agents' teacher tools appear when the profile holds ComfyQ's "
+                           "admin password (admin_password in the profiles file)", icon="LOCKED")
         col.separator()
         col.label(text=f"Profiles file: {config_path()}", icon="FILE_TEXT")
         if not bpy.app.online_access:
