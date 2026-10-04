@@ -83,9 +83,9 @@ Health check from a terminal: `.\tools\comfyq.ps1 doctor`.
 
 ### 3.3 AI agents (MCP server inside Blender, off by default)
 Preferences › *AI agents (MCP server)*. The server listens on 127.0.0.1 only, with a new token each
-start; agents connect through `mcp/launcher.py` (stdio). It offers **17 tools**:
+start; agents connect through `mcp/launcher.py` (stdio). It offers **18 tools**:
 - **Scene:** `blender_scene_info`, `blender_select`, `blender_render` (still / mask / animation),
-  `blender_import`.
+  `blender_import` (3D placed beside the scene / at the cursor, on the ground, sized), `blender_transform`.
 - **Graph:** `blender_graph_describe`, `blender_graph_add_preset`, `blender_graph_set` (settings,
   prompts, files, images), `blender_graph_run`, `blender_graph_status`.
 - **ComfyQ:** `comfyq_list_workflows`, `comfyq_describe_workflow`, `comfyq_submit`, `comfyq_job_status`,
@@ -144,7 +144,8 @@ switches took about 30 s each.
 | Agent round trip, Claude Code → MCP → render → book → import | ✅ |
 | Workflow sweep (calibrate + run each workflow from Blender) | 24 / 66 (LTX 2.5, Flux 2, Qwen 2.1, Krea 2) |
 | **Preset library run through the MCP (all 48, solo mode)** | **46 / 48 run**; 2 fail in ComfyUI ([preset-run.md](preset-run.md)). Visual baseline: `baselines/2026-10-04/index.html` (local, not in git: per workflow its description, the Blender graph, inputs, prompt + settings sent, the output image/video) |
-| Overall, by workflow | **47 of 66 run from Blender** (48 image/video + LTX deblur-upscale); **17 never run**: 3D ×5, upscalers ×3 (SeedVR2 image ×2, PiD), SeedVR2 video ×2, Marigold ×2, SAM3, frame interpolation, Gemma ×2, Stable Audio |
+| Image → 3D (2026-10-04, via MCP): Flux2 Klein supercar → TRELLIS2 → GLB imported | ✅ 461k faces + 2 × 2048 textures in ~6 min; the model was complete and textured (checked from 3 angles). It landed at the origin inside the scene's cube → Import placement added |
+| Overall, by workflow | **48 of 66 run from Blender** (48 image/video + LTX deblur-upscale + TRELLIS2, minus 2 failing); **16 never run**: 3D ×4, upscalers ×3 (SeedVR2 image ×2, PiD), SeedVR2 video ×2, Marigold ×2, SAM3, frame interpolation, Gemma ×2, Stable Audio |
 
 ## 7. What is missing
 
@@ -186,7 +187,7 @@ switches took about 30 s each.
    student page reconnects. Lanes avoid that, but nothing heavy fits next to a 30 GB model on 32 GB.
 
 ### 7.2 On the bridge side
-- **17 workflows never run from Blender** (section 6). The library covers only image and video; 3D,
+- **16 workflows never run from Blender** (section 6; TRELLIS2 image → 3D now works). The library covers only image and video; 3D,
   upscale, audio, describe and utility presets are next.
 - **Agents:** the Codex round trip has not been tried (no Codex CLI on this PC). There has been no class
   rehearsal with several PCs.

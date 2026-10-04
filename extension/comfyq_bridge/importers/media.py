@@ -7,9 +7,11 @@ audio → Sequencer sound strip. Everything is tagged with its job and workflow.
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 
 import bpy
+from mathutils import Matrix, Vector
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".exr", ".tif", ".tiff"}
 VIDEO_EXTS = {".mp4", ".mov", ".webm", ".mkv", ".avi", ".gif"}
@@ -114,7 +116,59 @@ def _job_collection(scene: bpy.types.Scene, job_id: str) -> bpy.types.Collection
     return coll
 
 
-def _import_objects(scene, op, path: Path, job_id: str, workflow_id: str) -> str:
+@dataclass(frozen=True)
+class Placement:
+    """Where an imported 3D model / splat goes. Generators put it at the origin at their own scale
+    (TRELLIS2: ~1 unit), i.e. inside whatever is there: by default it is set beside the scene instead."""
+    where: str = "BESIDE"        # BESIDE (right of the scene's objects) | CURSOR | ORIGIN | ASIS (as the file says)
+    on_ground: bool = True       # lowest point at z = 0 (the cursor's z for CURSOR)
+    size: float = 0.0            # longest side in scene units; 0 = as made
+
+
+DEFAULT_PLACEMENT = Placement()
+
+
+def _bbox(objs) -> tuple[Vector, Vector] | None:
+    pts = [o.matrix_world @ Vector(c) for o in objs if o.type in ("MESH", "POINTCLOUD", "CURVE", "CURVES")
+           for c in o.bound_box]
+    if not pts:
+        return None
+    return (Vector([min(p[i] for p in pts) for i in range(3)]), Vector([max(p[i] for p in pts) for i in range(3)]))
+
+
+def place(scene: bpy.types.Scene, new: list, placement: Placement) -> str:
+    """Move / scale what an import created (its top-level objects) as `placement` says."""
+    if placement.where == "ASIS" or not new:
+        return ""
+    bpy.context.view_layer.update()
+    box = _bbox(new)
+    if box is None:
+        return ""
+    lo, hi = box
+    dims = hi - lo
+    f = placement.size / max(dims) if placement.size > 0 and max(dims) > 0 else 1.0
+    anchor = Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, lo.z if placement.on_ground else (lo.z + hi.z) / 2))
+    if placement.where == "CURSOR":
+        target = scene.cursor.location.copy()
+    else:
+        target = Vector((0.0, 0.0, 0.0))
+        others = _bbox([o for o in scene.objects if o not in new and o.visible_get()])
+        if placement.where == "BESIDE" and others is not None:
+            olo, ohi = others
+            margin = max(0.5, 0.25 * max(dims * f))
+            target = Vector((ohi.x + margin + dims.x * f / 2, (olo.y + ohi.y) / 2, 0.0))
+        if not placement.on_ground:
+            target.z = dims.z * f / 2
+    m = Matrix.Translation(target) @ Matrix.Scale(f, 4) @ Matrix.Translation(-anchor)
+    roots = [o for o in new if o.parent not in new]
+    for o in roots:
+        o.matrix_world = m @ o.matrix_world
+    where = {"BESIDE": "beside the scene", "CURSOR": "at the 3D cursor", "ORIGIN": "at the origin"}[placement.where]
+    return f", placed {where}" + (f", {max(dims) * f:.2f} long" if f != 1.0 else "")
+
+
+def _import_objects(scene, op, path: Path, job_id: str, workflow_id: str,
+                    placement: Placement = DEFAULT_PLACEMENT) -> str:
     before = set(bpy.data.objects)
     ctx = {}
     win = bpy.context.window or next(iter(bpy.context.window_manager.windows), None)
@@ -130,10 +184,11 @@ def _import_objects(scene, op, path: Path, job_id: str, workflow_id: str) -> str
         coll.objects.link(o)
         tag(o, job_id, workflow_id)
     tag(coll, job_id, workflow_id)
-    return f"{len(new)} object(s) in collection “{coll.name}”"
+    return f"{len(new)} object(s) in collection “{coll.name}”" + place(scene, new, placement)
 
 
-def import_files(files: list[Path], job_id: str, workflow_id: str, scene: bpy.types.Scene | None = None) -> list[str]:
+def import_files(files: list[Path], job_id: str, workflow_id: str, scene: bpy.types.Scene | None = None,
+                 placement: Placement = DEFAULT_PLACEMENT) -> list[str]:
     """Import what we can; return a short description per file."""
     scene = scene or bpy.context.scene
     done: list[str] = []
@@ -145,9 +200,10 @@ def import_files(files: list[Path], job_id: str, workflow_id: str, scene: bpy.ty
             elif ext in VIDEO_EXTS:
                 done.append(import_video(scene, f, job_id, workflow_id))
             elif ext in MODEL_EXTS:
-                done.append(_import_objects(scene, bpy.ops.import_scene.gltf, f, job_id, workflow_id))
+                done.append(_import_objects(scene, bpy.ops.import_scene.gltf, f, job_id, workflow_id,
+                                            placement))
             elif ext in PLY_EXTS:
-                done.append(_import_objects(scene, bpy.ops.wm.ply_import, f, job_id, workflow_id))
+                done.append(_import_objects(scene, bpy.ops.wm.ply_import, f, job_id, workflow_id, placement))
             elif ext in AUDIO_EXTS:
                 done.append(import_audio(scene, f, job_id, workflow_id))
             else:

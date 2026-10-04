@@ -249,6 +249,11 @@ change that session: the user must reinstall from the UI or restart Mixar.
   (b2renger). Fixed during the run: `image_pass` builds the upload from pixels (image.copy() of a file
   image had no pixels), `blender_graph_set` loads a file into an Image node. Overall 47/66 workflows run
   from Blender; 17 never (3D, upscalers, SeedVR2 video, Marigold, SAM3, interpolation, Gemma, audio).
+- **Image → 3D verified (2026-10-04, MCP):** Flux2 Klein "supercar on white" → preset image_3d → TRELLIS2
+  (`3d_trellis2_image_to_textured_mesh`, ~6 min, 461k faces, 2×2048 textures) → Import node → scene. Models
+  came in at the origin at ~1 m (inside the cube) → **placement** added: importers/media.py `Placement`
+  (BESIDE default / CURSOR / ORIGIN / ASIS, on_ground, size) on the Import node + MCP `blender_import`,
+  new MCP `blender_transform` (18 tools). The user's test1_AI.blend has the car at the origin (old build).
 - **Multi-model orchestration page** (for the user and b2renger): https://claude.ai/artifact/C8EPx3vgnJVsRXvZNjB7ug
   (private until the user shares it), local copy `docs/private/multi-model-orchestration.html` (gitignored).
   Proposes: stage runner in the graph (group nodes by model, switch between stages), ComfyQ bundles for

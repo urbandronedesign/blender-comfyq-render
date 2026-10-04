@@ -677,9 +677,33 @@ class ComfyQImportNode(_OutputNode, bpy.types.Node):
     replace: BoolProperty(name="Replace previous import", default=True,
                           description="Remove what this node imported last time (strips, objects) before importing")
     imported: StringProperty()             # JSON: what the last import created (to replace it)
+    # 3D models / splats: generators put them at the origin at their own scale (inside the scene)
+    place: EnumProperty(
+        name="Place", default="BESIDE",
+        items=(("BESIDE", "Beside the scene", "To the right of the scene's objects, so it is never hidden inside them"),
+               ("CURSOR", "At the 3D cursor", "Where the 3D cursor is"),
+               ("ORIGIN", "At the origin", "At the world origin"),
+               ("ASIS", "As made", "Where and how big the file says")),
+        description="Where an imported 3D model or splat goes")
+    on_ground: BoolProperty(name="On the ground", default=True,
+                            description="Its lowest point at the ground (z = 0, or the 3D cursor's height)")
+    size: FloatProperty(name="Size", default=0.0, min=0.0, soft_max=50.0, subtype="DISTANCE",
+                        description="Scale it so its longest side is this long (0 = keep the size it was made at; "
+                                    "e.g. 4.5 m for a car)")
+
+    def placement(self):
+        from ..importers.media import Placement
+        return Placement(self.place, self.on_ground, self.size)
 
     def draw_body(self, context, layout, media) -> None:
         layout.prop(self, "replace")
+        if media is None or media.kind in ("model", "splat"):
+            col = layout.column(align=True)
+            col.prop(self, "place", text="")
+            row = col.row(align=True)
+            row.enabled = self.place != "ASIS"
+            row.prop(self, "on_ground", toggle=True)
+            row.prop(self, "size")
 
 
 class ComfyQSaveNode(_OutputNode, bpy.types.Node):

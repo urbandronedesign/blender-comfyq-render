@@ -376,15 +376,43 @@ def blender_render(args: dict) -> dict:
 
 
 def blender_import(args: dict) -> dict:
-    from ..importers.media import import_files
+    from ..importers.media import Placement, import_files
     p = Path(args["path"])
     if not p.is_file():
         raise ToolError(f"No such file: {p}")
+    placement = Placement(args.get("place", "BESIDE"), bool(args.get("on_ground", True)), float(args.get("size", 0)))
 
     def go():
         view = SESSION.jobs.get(args.get("job_id", ""))
         return {"imported": import_files([p], args.get("job_id", "") or "agent",
-                                         view.job.workflow_id if view else "", bpy.context.scene)}
+                                         view.job.workflow_id if view else "", bpy.context.scene, placement)}
+    return on_main(go)
+
+
+def blender_transform(args: dict) -> dict:
+    """Move / rotate / scale objects (e.g. an imported model and its parent empty)."""
+    import math
+
+    def go():
+        out = {}
+        for name in args["names"]:
+            o = bpy.data.objects.get(name)
+            if o is None:
+                raise ToolError(f"No object {name!r} (see blender_scene_info)")
+            if "location" in args:
+                o.location = args["location"]
+            if "rotation_deg" in args:
+                o.rotation_euler = [math.radians(a) for a in args["rotation_deg"]]
+            if "scale" in args:
+                s = args["scale"]
+                o.scale = (s, s, s) if isinstance(s, (int, float)) else s
+            if args.get("hide") is not None:
+                o.hide_set(bool(args["hide"]))
+                o.hide_render = bool(args["hide"])
+            out[name] = {"location": [round(v, 3) for v in o.location],
+                         "rotation_deg": [round(math.degrees(v), 1) for v in o.rotation_euler],
+                         "scale": [round(v, 3) for v in o.scale], "hidden": o.hide_get()}
+        return out
     return on_main(go)
 
 
@@ -592,8 +620,17 @@ TOOLS = [
                                                                   "(short tests; the scene is not changed)"}}),
          blender_render),
     Tool("blender_import", "Bring a result file into Blender: image → Image Editor, video/audio → the "
-         "“ComfyQ Results” scene, GLB/PLY → a collection.",
-         obj({"path": _S, "job_id": _S}, ("path",)), blender_import),
+         "“ComfyQ Results” scene, GLB/PLY → a collection, placed `place` = BESIDE the scene (default) / CURSOR "
+         "/ ORIGIN / ASIS, `on_ground` (default true), `size` = longest side in m (0 = as made).",
+         obj({"path": _S, "job_id": _S, "place": {"type": "string", "enum": ["BESIDE", "CURSOR", "ORIGIN", "ASIS"]},
+              "on_ground": {"type": "boolean"}, "size": {"type": "number", "minimum": 0}}, ("path",)),
+         blender_import),
+    Tool("blender_transform", "Move / rotate / scale / hide objects by name (e.g. an imported model's parent "
+         "empty, or the object hiding it). `location` [x,y,z] m, `rotation_deg` [x,y,z], `scale` number or "
+         "[x,y,z], `hide` true/false.",
+         obj({"names": {"type": "array", "items": _S}, "location": {"type": "array", "items": {"type": "number"}},
+              "rotation_deg": {"type": "array", "items": {"type": "number"}}, "scale": {},
+              "hide": {"type": "boolean"}}, ("names",)), blender_transform),
     Tool("blender_graph_describe", "The ComfyQ node graph: nodes (type, workflow, settings, prompt, links "
          "into each input, result) — what the student sees in the graph editor.", obj(), blender_graph_describe),
     Tool("blender_graph_add_preset", "Add a class preset to the graph: built in `render_image`, `clay_v2v`, "

@@ -153,6 +153,28 @@ results_sc = bpy.data.scenes.get("ComfyQ Results")
 check(results_sc is not None and any(s.type == "SOUND" for s in results_sc.sequence_editor.strips),
       "audio imported into the separate ComfyQ Results scene")
 check(scene.sequence_editor is None or not len(scene.sequence_editor.strips), "the 3D scene's sequencer stays empty")
+# placement: generators put models at the origin (inside the scene); by default they go beside it, on the ground
+from bl_ext.user_default.comfyq_bridge.importers import media as _media
+
+bpy.context.view_layer.update()
+_glb_objs = [o for o in coll.objects if o.type == "MESH" and o.get("comfyq_job")] if coll else []
+_rest = [o for o in scene.objects if o.type == "MESH" and o not in _glb_objs and o.get("comfyq_job") is None]
+_b, _r = _media._bbox(_glb_objs[:1]), _media._bbox(_rest)
+check(_b is not None and _r is not None and _b[0].x > _r[1].x and abs(_b[0].z) < 1e-4,
+      f"an imported model is placed beside the scene, on the ground (x {_b and round(_b[0].x, 2)} > "
+      f"{_r and round(_r[1].x, 2)}, z {_b and round(_b[0].z, 4)})")
+scene.cursor.location = (0.0, -6.0, 1.0)
+before_objs = set(bpy.data.objects)
+import_files([glb], "smoketest-0001", "smoke_workflow", scene, _media.Placement("CURSOR", True, 4.5))
+bpy.context.view_layer.update()
+_new = [o for o in bpy.data.objects if o not in before_objs and o.type == "MESH"]
+_nb = _media._bbox(_new)
+check(_nb is not None and abs(max(_nb[1] - _nb[0]) - 4.5) < 1e-3 and abs(_nb[0].z - 1.0) < 1e-3
+      and abs((_nb[0].y + _nb[1].y) / 2 + 6.0) < 1e-3,
+      f"Place at the 3D cursor, size 4.5: longest side {_nb and round(max(_nb[1] - _nb[0]), 3)}, on the cursor's height")
+for _o in [o for o in bpy.data.objects if o not in before_objs]:
+    bpy.data.objects.remove(_o)
+scene.cursor.location = (0.0, 0.0, 0.0)
 
 # -- connect + workflow --------------------------------------------------------------
 check(bpy.app.online_access, "online access enabled (--online-mode)")
@@ -163,7 +185,8 @@ served = sorted(SESSION.served_ids())
 check(bool(served), f"served: {served}")
 if not served:
     sys.exit(1)
-wf = served[0]
+# a served workflow with a prompt (solo mode / sweeps leave whatever was last loaded, e.g. a 3D one)
+wf = next((w for w in served if any(s.kind == "prompt" for s in SESSION.client.params(w))), served[0])
 bpy.ops.comfyq.set_workflow(workflow_id=wf)
 check(wait_params(wf, "params"), f"{wf}: {len(items(wf))} params synced to the scene")
 
@@ -485,14 +508,16 @@ scene.comfyq.workflow_id = wf
 from bl_ext.user_default.comfyq_bridge.ops.workflow import sync_params
 
 sync_params(scene, wf, SESSION.specs[wf])
-bar_prompt =next(s for s in SESSION.specs[wf] if s.kind == "prompt")
-param_item(scene, bar_prompt.key, wf).s = "bar prompt for the graph"
+bar_prompt = next((s for s in SESSION.specs[wf] if s.kind == "prompt"), None)   # (a served 3D workflow has none)
+if bar_prompt is not None:
+    param_item(scene, bar_prompt.key, wf).s = "bar prompt for the graph"
 bar_num = next((s for s in SESSION.specs[wf] if s.kind == "float"), None)
 if bar_num is not None:
     param_item(scene, bar_num.key, wf).f = 0.61
 tmp_tree = bpy.data.node_groups.new("smoke open as graph", gtree_mod.TREE)
 from_bar = gui.node_from_bar(tmp_tree, scene, wf, 0.0, 0.0)
-check(from_bar.workflow_id == wf and from_bar.item(bar_prompt.key).s == "bar prompt for the graph"
+check(from_bar.workflow_id == wf
+      and (bar_prompt is None or from_bar.item(bar_prompt.key).s == "bar prompt for the graph")
       and (bar_num is None or abs(from_bar.item(bar_num.key).f - 0.61) < 1e-5),
       "Open as graph: the node has the bar's model, prompt and settings")
 fed = {x.identifier: x.links[0].from_node.bl_idname for x in from_bar.inputs if x.is_linked}
@@ -717,7 +742,7 @@ def mcp_tool(name, **args):
 
 check(mcp_rpc("ping", token="wrong") == 401, "MCP: a wrong token is refused")
 names = [t["name"] for t in mcp_rpc("tools/list")["result"]["tools"]]
-check(len(names) == 17 and "comfyq_submit" in names and "blender_graph_run" in names, f"MCP: {len(names)} tools")
+check(len(names) == 18 and "blender_transform" in names and "comfyq_submit" in names and "blender_graph_run" in names, f"MCP: {len(names)} tools")
 err, info = mcp_tool("blender_scene_info")
 check(not err and info["camera"] and info["frames"] == [scene.frame_start, scene.frame_end],
       f"MCP blender_scene_info: {info.get('scene')} {info.get('frames')} camera {info.get('camera')}")
@@ -725,7 +750,8 @@ err, wfs = mcp_tool("comfyq_list_workflows")
 check(not err and {w["id"] for w in wfs} == SESSION.served_ids() and all(w["served"] for w in wfs),
       f"MCP comfyq_list_workflows: served {[w['id'] for w in wfs]}")
 err, desc = mcp_tool("comfyq_describe_workflow", workflow_id=wf)
-check(not err and any(p["kind"] == "prompt" for p in desc["parameters"]), "MCP comfyq_describe_workflow")
+check(not err and desc["parameters"] and all("key" in p and "kind" in p for p in desc["parameters"]),
+      f"MCP comfyq_describe_workflow ({len(desc.get('parameters', []))} parameters)")
 err, still = mcp_tool("blender_render", kind="still", max_edge=512)
 check(not err and Path(still["path"]).is_file(), f"MCP blender_render still → {Path(still['path']).name}")
 err, short = mcp_tool("blender_render", kind="animation", max_edge=256, max_seconds=0.5)
@@ -753,6 +779,13 @@ err, st = mcp_tool("blender_graph_status")
 check(not err and not st["running"] and st["nodes"], "MCP blender_graph_status")
 err, imp = mcp_tool("blender_import", path=still["path"])
 check(not err and imp["imported"], f"MCP blender_import: {imp.get('imported')}")
+err, imp = mcp_tool("blender_import", path=str(glb), place="ORIGIN", size=2.0)
+_tn = [o.name for o in bpy.data.objects if o.get("comfyq_job") == "agent" and o.type == "MESH"]
+err2, tr = mcp_tool("blender_transform", names=_tn[-1:], location=[1, 2, 3], scale=0.5, hide=True)
+_to = bpy.data.objects.get(_tn[-1]) if _tn else None
+check(not err and "placed at the origin" in imp["imported"][0] and not err2 and _to is not None
+      and tuple(round(v, 3) for v in _to.location) == (1, 2, 3) and _to.hide_get(),
+      f"MCP blender_import place/size + blender_transform ({imp.get('imported')}, {tr})")
 # teacher tools (load models): hidden + refused while the preference is off; only safe calls here
 err, st = mcp_tool("comfyq_server_status", workflow_id=unserved or wf)
 check(not err and {s_["workflow_id"] for s_ in st["served"]} == SESSION.served_ids() and st["card_gb"]
@@ -768,12 +801,16 @@ _p.mcp_teacher = True
 names_t = [t["name"] for t in mcp_rpc("tools/list")["result"]["tools"]]
 check(bmcp.STATE["teacher"] and {"comfyq_serve", "comfyq_unserve", "comfyq_calibrate"} <= set(names_t),
       f"Preferences › Teacher tools lists them ({len(names_t)} tools)")
-err, out = mcp_tool("comfyq_serve", workflow_id=wf)
-check(not err and out.get("message") == "already served", f"MCP comfyq_serve on a served workflow: {out}")
+_now = sorted(SESSION.served_ids())      # served right now: the call must only answer "already served"
+if _now:
+    err, out = mcp_tool("comfyq_serve", workflow_id=_now[0])
+    check(not err and out.get("message") == "already served", f"MCP comfyq_serve on a served workflow: {out}")
 err, out = mcp_tool("comfyq_serve", workflow_id="no_such_workflow")
 check(err and "Unknown workflow" in out["error"], "MCP comfyq_serve refuses an unknown workflow")
-err, out = mcp_tool("comfyq_unserve", workflow_id=wf)
-check(err and "main workflow" in out["error"], f"MCP comfyq_unserve refuses the main workflow ({out})")
+_main = next((ln.workflow_id for ln in SESSION.client.lanes() if ln.primary), None)
+if _main:                                # never a side lane: that call would really stop it
+    err, out = mcp_tool("comfyq_unserve", workflow_id=_main)
+    check(err and "main workflow" in out["error"], f"MCP comfyq_unserve refuses the main workflow ({out})")
 _p.mcp_teacher = False
 check(not bmcp.STATE["teacher"], "… unticking turns them off again")
 bmcp.stop()

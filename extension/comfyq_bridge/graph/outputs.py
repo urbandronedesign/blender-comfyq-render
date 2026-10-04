@@ -214,7 +214,8 @@ def _import(node, scene, media: Media) -> str:
         node.imported = json.dumps({"texts": [txt.name]})
         return f"Imported text “{txt.name}”"
     before = _snapshot(scene)
-    msgs = import_files([Path(media.path)], media.job_id or f"graph {node.name}", media.workflow_id, scene)
+    msgs = import_files([Path(media.path)], media.job_id or f"graph {node.name}", media.workflow_id, scene,
+                        node.placement())
     after = _snapshot(scene)
     node.imported = json.dumps({k: sorted(after[k] - before[k]) for k in after})
     return "Imported " + "; ".join(msgs)
