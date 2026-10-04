@@ -142,9 +142,9 @@ def main() -> None:
                             if not (isinstance(v, str) and len(v) > 60))
         prompts = "".join(f'<blockquote><span class="lab">{esc(lab.get(k, k))}</span>{esc(job["params"][k])}'
                           f'</blockquote>' for k in prompt_keys)
-        for step, cj in enumerate(rec.get("chain_jobs") or [], 1):       # a chain: every step's job
-            if cj == rec.get("job_id"):
-                continue
+        chain = [cj for cj in rec.get("chain_jobs") or [] if cj != rec.get("job_id")]
+        steps = []
+        for step, cj in enumerate(chain, 1):                             # a chain: every earlier step's job
             try:
                 sj = requests.get(f"{SERVER}/jobs/{cj}", timeout=30).json()
                 sj = sj.get("job", sj)
@@ -159,12 +159,24 @@ def main() -> None:
                 labels[sw] = {p["key"]: p.get("label") or p["key"] for p in sps}
             sl = labels[sw]
             smedia = {f["param"] for f in sj.get("input_files") or []}
+            sparams = {k: v for k, v in (sj.get("params") or {}).items() if k != "prompt" and k not in smedia}
             rows = "".join(f"<tr><td>{esc(sl.get(k, k))}</td><td>{esc(v)}</td></tr>"
-                           for k, v in (sj.get("params") or {}).items() if k != "prompt" and k not in smedia)
+                           for k, v in sparams.items() if not (isinstance(v, str) and len(v) > 60))
+            quotes = "".join(f'<blockquote><span class="lab">{esc(sl.get(k, k))}</span>{esc(v)}</blockquote>'
+                             for k, v in sparams.items() if isinstance(v, str) and len(v) > 60)
             secs = round(((sj.get("finished_at") or 0) - (sj.get("started_at") or 0)) / 1000)
-            prompts = (f'<h4>Step {step}: {esc(wfs.get(sw, {}).get("name", sw))} · {secs} s · job '
-                       f'<code>{esc(cj[:8])}</code></h4><table>{rows}</table><h4>Step {step + 1}: '
-                       f'{esc(wfs.get(wf_id, {}).get("name", wf_id))}</h4>') + prompts
+            steps.append(f'<h4>Step {step}: {esc(wfs.get(sw, {}).get("name", sw))} · {secs} s · job '
+                         f'<code>{esc(cj[:8])}</code></h4>{quotes}<table>{rows}</table>')
+        if steps:
+            prompts = "".join(steps) + (f'<h4>Step {len(steps) + 1}: {esc(wfs.get(wf_id, {}).get("name", wf_id))}'
+                                        f'</h4>') + prompts
+        extra = []
+        for i, (cap, path) in enumerate(rec.get("steps_media") or []):       # pictures of the chain's steps
+            sp = Path(path) if Path(path).is_absolute() else ROOT / path
+            if sp.is_file():
+                extra.append(f'<div class="in"><span class="lab">{esc(cap)}</span>'
+                             f'{media(sp, copy(sp, mdir, f"step{i}"), cap)}</div>')
+        steps_html = f'<div class="col"><h4>Chain steps</h4>{"".join(extra)}</div>' if extra else ""
         shot = SHOTS / f"{n:02d}.png"
         shot_html = (f'<a href="{esc(copy(shot, mdir, "blender"))}" target="_blank"><img loading="lazy" class="shot" '
                      f'src="{esc((mdir / "blender.png").relative_to(OUT).as_posix())}" alt="Blender graph"></a>'
@@ -201,6 +213,7 @@ def main() -> None:
  <div class="row">
   <div class="col"><h4>Blender graph</h4>{shot_html}</div>
   <div class="col"><h4>Inputs sent</h4>{"".join(ins) or '<p class="dim">none (prompt only)</p>'}</div>
+  {steps_html}
   <div class="col out"><h4>Output</h4>{out_html}</div>
   {base_html}
  </div>
