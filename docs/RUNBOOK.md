@@ -83,10 +83,10 @@ Health check from a terminal: `.\tools\comfyq.ps1 doctor`.
 
 ### 3.3 AI agents (MCP server inside Blender, off by default)
 Preferences › *AI agents (MCP server)*. The server listens on 127.0.0.1 only, with a new token each
-start; agents connect through `mcp/launcher.py` (stdio). It offers **19 tools**:
+start; agents connect through `mcp/launcher.py` (stdio). It offers **20 tools**:
 - **Scene:** `blender_scene_info`, `blender_select`, `blender_render` (still / mask / animation),
   `blender_import` (3D placed beside the scene / at the cursor, on the ground, sized), `blender_transform`,
-  `blender_world` (HDRI lighting).
+  `blender_world` (HDRI lighting), `blender_shadow_catcher` (ground / objects that only catch shadows).
 - **Graph:** `blender_graph_describe`, `blender_graph_add_preset`, `blender_graph_set` (settings,
   prompts, files, images), `blender_graph_run`, `blender_graph_status`.
 - **ComfyQ:** `comfyq_list_workflows`, `comfyq_describe_workflow`, `comfyq_submit`, `comfyq_job_status`,

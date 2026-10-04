@@ -459,6 +459,124 @@ def blender_world(args: dict) -> dict:
     return on_main(go)
 
 
+CATCHER = "ComfyQ Shadow Catcher"
+
+
+def _catcher_material(strength: float, lit: float = 1.0):
+    """Two outputs. Cycles: a plain white diffuse — the object's Shadow Catcher flag does the rest (exact).
+    EEVEE has no such flag: transparent where lit, black (with alpha) in shadow: lit diffuse → Shader to
+    RGB → darkness = 1 − brightness / `lit` (how bright the fully lit ground is) → × strength → mix
+    Transparent / black. Shader to RGB is EEVEE-only (black in Cycles), hence the separate outputs."""
+    mat = bpy.data.materials.get(CATCHER) or bpy.data.materials.new(CATCHER)
+    try:
+        if not mat.use_nodes:
+            mat.use_nodes = True
+    except AttributeError:
+        pass
+    for attr, value in (("surface_render_method", "BLENDED"), ("blend_method", "BLEND")):
+        try:
+            setattr(mat, attr, value)
+            break
+        except (AttributeError, TypeError):
+            continue
+    nt = mat.node_tree
+    nt.nodes.clear()
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    out.target = "EEVEE"
+    cycles_out = nt.nodes.new("ShaderNodeOutputMaterial")
+    cycles_out.target = "CYCLES"
+    cycles_diffuse = nt.nodes.new("ShaderNodeBsdfDiffuse")
+    nt.links.new(cycles_diffuse.outputs[0], cycles_out.inputs["Surface"])
+    cycles_diffuse.location, cycles_out.location = (600, -400), (900, -400)
+    diffuse = nt.nodes.new("ShaderNodeBsdfDiffuse")
+    to_rgb = nt.nodes.new("ShaderNodeShaderToRGB")
+    bw = nt.nodes.new("ShaderNodeRGBToBW")
+    ratio = nt.nodes.new("ShaderNodeMath")
+    ratio.name = "Lit level"
+    ratio.operation = "DIVIDE"
+    ratio.inputs[1].default_value = max(lit, 1e-3)
+    dark = nt.nodes.new("ShaderNodeMath")
+    dark.operation, dark.use_clamp = "SUBTRACT", True
+    dark.inputs[0].default_value = 1.0
+    amount = nt.nodes.new("ShaderNodeMath")
+    amount.name = "Strength"
+    amount.operation, amount.use_clamp = "MULTIPLY", True
+    amount.inputs[1].default_value = strength
+    mix = nt.nodes.new("ShaderNodeMixShader")
+    transparent = nt.nodes.new("ShaderNodeBsdfTransparent")
+    black = nt.nodes.new("ShaderNodeEmission")
+    black.inputs["Color"].default_value = (0.0, 0.0, 0.0, 1.0)
+    links = nt.links
+    links.new(diffuse.outputs[0], to_rgb.inputs[0])
+    links.new(to_rgb.outputs["Color"], bw.inputs[0])
+    links.new(bw.outputs[0], ratio.inputs[0])
+    links.new(ratio.outputs[0], dark.inputs[1])
+    links.new(dark.outputs[0], amount.inputs[0])
+    links.new(amount.outputs[0], mix.inputs[0])
+    links.new(transparent.outputs[0], mix.inputs[1])
+    links.new(black.outputs[0], mix.inputs[2])
+    links.new(mix.outputs[0], out.inputs["Surface"])
+    for x, n in enumerate((diffuse, to_rgb, bw, ratio, dark, amount, mix, out)):
+        n.location = (x * 200 - 600, 0)
+    transparent.location, black.location = (400, 200), (400, -200)
+    return mat
+
+
+def blender_shadow_catcher(args: dict) -> dict:
+    """Make objects (or a new ground plane) catch shadows only: Cycles' Shadow Catcher flag + an EEVEE
+    material. `remove` undoes it (flag off, our material taken off)."""
+    def go():
+        scene = bpy.context.scene
+        objs = []
+        for name in args.get("names") or []:
+            o = bpy.data.objects.get(name)
+            if o is None:
+                raise ToolError(f"No object {name!r} (see blender_scene_info)")
+            objs.append(o)
+        if args.get("collection"):
+            coll = bpy.data.collections.get(args["collection"])
+            if coll is None:
+                raise ToolError(f"No collection {args['collection']!r}: {[c.name for c in bpy.data.collections]}")
+            objs += [o for o in coll.all_objects if o.type == "MESH" and o not in objs]
+        if args.get("plane") and not args.get("remove"):
+            from ..importers.media import _bbox
+            box = _bbox([o for o in scene.objects if o.type == "MESH" and o.visible_get()])
+            lo, hi = box if box else ((-5, -5, 0), (5, 5, 0))
+            size = max(10.0, 4 * max(hi[0] - lo[0], hi[1] - lo[1]))
+            mesh = bpy.data.meshes.new(CATCHER)
+            h = size / 2
+            mesh.from_pydata([(-h, -h, 0), (h, -h, 0), (h, h, 0), (-h, h, 0)], [], [(0, 1, 2, 3)])
+            plane = bpy.data.objects.new(CATCHER, mesh)
+            plane.location = ((lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, min(lo[2], 0.0) if box else 0.0)
+            scene.collection.objects.link(plane)
+            objs.append(plane)
+        if not objs:
+            raise ToolError("Give `names`, a `collection`, or `plane: true`")
+        mat = None if args.get("remove") else _catcher_material(float(args.get("strength", 1.0)),
+                                                                 float(args.get("eevee_lit", 1.0)))
+        done = []
+        for o in objs:
+            if o.type != "MESH":
+                continue
+            o.is_shadow_catcher = not args.get("remove")
+            o.visible_shadow = bool(args.get("remove"))           # a catcher casts no shadow itself
+            slots = o.data.materials
+            if args.get("remove"):
+                for i in reversed(range(len(slots))):
+                    if slots[i] is not None and slots[i].name == CATCHER:
+                        slots.pop(index=i)
+            else:
+                slots.clear()
+                slots.append(mat)
+            done.append(o.name)
+        return {"objects": done, "shadow_catcher": not args.get("remove"),
+                "note": "Cycles: Blender's Shadow Catcher flag (exact). EEVEE: an approximating material; if no "
+                        "shadow shows, call again with a higher eevee_lit (e.g. 1.5 under a bright HDRI + sun); if "
+                        "the whole ground darkens, lower it. The objects' own materials are replaced; remove: "
+                        "true takes ours off."}
+    return on_main(go)
+
+
 def blender_transform(args: dict) -> dict:
     """Move / rotate / scale objects (e.g. an imported model and its parent empty)."""
     import math
@@ -701,6 +819,16 @@ TOOLS = [
          "the scene in renders; false = transparent). `clear: true` = back to a plain world.",
          obj({"hdri": _S, "strength": {"type": "number", "minimum": 0}, "rotation_deg": {"type": "number"},
               "background": {"type": "boolean"}, "clear": {"type": "boolean"}}), blender_world),
+    Tool("blender_shadow_catcher", "Make objects catch shadows only (invisible except the shadows on them), "
+         "e.g. a ground under an imported model over an HDRI: `names` (objects), `collection` (all its meshes), "
+         "or `plane: true` (a new ground plane under the scene). Cycles: Blender's Shadow Catcher flag (exact). "
+         "EEVEE: an approximating material; `strength` = shadow darkness (1), `eevee_lit` = how bright the fully "
+         "lit ground is (1): raise it (e.g. 1.5 under a bright HDRI + sun) when no shadow shows, lower it when "
+         "the whole ground darkens. `remove: true` undoes it.",
+         obj({"names": {"type": "array", "items": _S}, "collection": _S, "plane": {"type": "boolean"},
+              "strength": {"type": "number", "minimum": 0}, "eevee_lit": {"type": "number", "minimum": 0.01},
+              "remove": {"type": "boolean"}}),
+         blender_shadow_catcher),
     Tool("blender_transform", "Move / rotate / scale / hide objects by name (e.g. an imported model's parent "
          "empty, or the object hiding it). `location` [x,y,z] m, `rotation_deg` [x,y,z], `scale` number or "
          "[x,y,z], `hide` true/false.",

@@ -742,7 +742,7 @@ def mcp_tool(name, **args):
 
 check(mcp_rpc("ping", token="wrong") == 401, "MCP: a wrong token is refused")
 names = [t["name"] for t in mcp_rpc("tools/list")["result"]["tools"]]
-check(len(names) == 19 and "blender_world" in names and "blender_transform" in names and "comfyq_submit" in names and "blender_graph_run" in names, f"MCP: {len(names)} tools")
+check(len(names) == 20 and "blender_shadow_catcher" in names and "blender_world" in names and "blender_transform" in names and "comfyq_submit" in names and "blender_graph_run" in names, f"MCP: {len(names)} tools")
 err, info = mcp_tool("blender_scene_info")
 check(not err and info["camera"] and info["frames"] == [scene.frame_start, scene.frame_end],
       f"MCP blender_scene_info: {info.get('scene')} {info.get('frames')} camera {info.get('camera')}")
@@ -796,6 +796,25 @@ err2, w2 = mcp_tool("blender_world", hdri="builtin:city")           # a second c
 _envs = [n for n in scene.world.node_tree.nodes if n.bl_idname == "ShaderNodeTexEnvironment"]
 check(_first and not err2 and len(_envs) == 1 and _envs[0].image.name.startswith("city"),
       f"MCP blender_world: HDRI, strength, rotation, background; a second call updates it ({w1.get('hdri')})")
+err, sc1 = mcp_tool("blender_shadow_catcher", plane=True, strength=0.8)
+_pl = bpy.data.objects.get(sc1.get("objects", ["?"])[0]) if not err else None
+check(_pl is not None and _pl.is_shadow_catcher and not _pl.visible_shadow and _pl.data.materials[0].name ==
+      "ComfyQ Shadow Catcher" and abs(_pl.data.materials[0].node_tree.nodes["Strength"].inputs[1].default_value
+                                      - 0.8) < 1e-4,
+      f"MCP blender_shadow_catcher plane: a ground plane, Cycles flag + EEVEE material ({sc1})")
+_sc_coll = bpy.data.collections.new("smoke catcher coll")
+scene.collection.children.link(_sc_coll)
+_sc_obj = bpy.data.objects.new("smoke catcher obj", bpy.data.meshes.new("smoke catcher obj"))
+_sc_coll.objects.link(_sc_obj)
+err, sc2 = mcp_tool("blender_shadow_catcher", collection="smoke catcher coll")
+err2, sc3 = mcp_tool("blender_shadow_catcher", names=["smoke catcher obj"], remove=True)
+check(not err and sc2["objects"] == ["smoke catcher obj"] and not err2 and not _sc_obj.is_shadow_catcher
+      and not any(m and m.name == "ComfyQ Shadow Catcher" for m in _sc_obj.data.materials),
+      "MCP blender_shadow_catcher on a collection, and remove undoes it")
+for _o in (_pl, _sc_obj):
+    if _o is not None:
+        bpy.data.objects.remove(_o)
+bpy.data.collections.remove(_sc_coll)
 err, w3 = mcp_tool("blender_world", clear=True)
 check(not err and scene.world.node_tree.nodes.get("ComfyQ HDRI") is None and not scene.render.film_transparent,
       "MCP blender_world clear: back to a plain world")
