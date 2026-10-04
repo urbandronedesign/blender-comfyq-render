@@ -59,10 +59,6 @@ class ComfyQPreferences(bpy.types.AddonPreferences):
         description="When you are the only one using ComfyQ: Run Graph loads the models a node needs (switching "
                     "what ComfyQ serves, one model at a time; ComfyQ restarts ~1–2 min per switch). Refused while "
                     "anyone else has a job on the server. Never in class: the queue needs one fixed model")
-    solo_restore: BoolProperty(
-        name="Then serve the previous main workflow again", default=True,
-        description="After a solo run that switched models, put back the workflow ComfyQ served before it "
-                    "(one more restart)")
     mcp_teacher: BoolProperty(
         name="Teacher tools: agents may load models", default=False, update=_teacher_toggle,
         description="Also give agents the tools that change what ComfyQ serves for the whole class: serve "
@@ -79,9 +75,6 @@ class ComfyQPreferences(bpy.types.AddonPreferences):
         col.prop(self, "auto_connect")
         col.separator()
         col.prop(self, "solo_mode")
-        sub = col.row()
-        sub.enabled = self.solo_mode
-        sub.prop(self, "solo_restore")
         col.separator()
         from . import mcp
         row = col.row(align=True)

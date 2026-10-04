@@ -455,8 +455,8 @@ if t2i:
     run_ = grun.RUNS.get(tree.name)
     pump_until(lambda: asked and run_.switch and run_.switch["state"] == "loading", 20, "solo switch asked")
     check(ok and "solo" in msg and asked == [(t2i, "main")] and unlinked.note.startswith("Loading its model")
-          and run_.restore_to == wf and not run_.booked,
-          f"solo: Run Graph asks ComfyQ to serve {t2i} ({asked}), waits, restores {run_.restore_to} after")
+          and not run_.booked,
+          f"solo: Run Graph asks ComfyQ to serve {t2i} ({asked}) and waits for it")
     grun.SWITCH_TIMEOUT_S, run_.switch["t0"] = 0, 0
     pump_until(lambda: (grun.tick_all(), tree.name not in grun.RUNS)[1], 10, "solo timeout")
     check("Could not load its model" in unlinked.note, f"solo: a model that never comes gives up ({unlinked.note})")

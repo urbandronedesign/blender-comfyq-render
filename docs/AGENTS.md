@@ -66,7 +66,7 @@ agent (`/mcp` in Claude Code). They use ComfyQ's own admin routes, so ComfyQ's c
 | `comfyq_unserve` | Stop a lane (frees its VRAM). Not the main workflow |
 | `comfyq_calibrate` | Measure VRAM peak and duration on ComfyQ's benchmark inputs (GPU busy for minutes) |
 
-With **Solo: load models on demand** on (Preferences), `blender_graph_run` also loads the models a graph needs by itself (same rules: one at a time, never while anyone has a job, previous main workflow restored).
+With **Solo: load models on demand** on (Preferences), `blender_graph_run` also loads the models a graph needs by itself (same rules: one at a time, never while anyone has a job; the last model stays loaded).
 
 ComfyQ's admin password, when one is set, comes from `COMFYQ_ADMIN_PASSWORD` or the profile
 (`admin_password`, `admin_password_env` or `admin_password_file` in `profiles.toml`), never from the .blend.

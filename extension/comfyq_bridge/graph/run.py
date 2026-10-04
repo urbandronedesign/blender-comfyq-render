@@ -82,7 +82,7 @@ def describe(tree, scene) -> dict[str, engine.GNode]:
 # -- a run -----------------------------------------------------------------------------------------------
 class Run:
     def __init__(self, tree, scene, todo: list[str], nodes: dict[str, engine.GNode], selected: list[str],
-                 after: list[str] | tuple = (), solo: bool = False, restore_to: str = ""):
+                 after: list[str] | tuple = (), solo: bool = False):
         self.tree_name, self.scene_name = tree.name, scene.name
         self.nodes = nodes
         self.pending = set(todo)
@@ -95,9 +95,9 @@ class Run:
         self.error = ""
         self.after = list(after)                       # output nodes to act on at the end (their Generate)
         # solo mode: nodes whose model ComfyQ does not serve wait until nothing runs, then the run switches
-        # ComfyQ to that model (one switch at a time) and goes on; `restore_to` is served again at the end
+        # ComfyQ to that model (one switch at a time) and goes on. The last model stays loaded: the user's
+        # next preset / run decides what comes next
         self.solo = solo
-        self.restore_to = restore_to
         self.switch: dict | None = None                # {"wf", "state": asking|loading|failed, "t0", "error"}
         self.switched = False
 
@@ -143,8 +143,6 @@ class Run:
                     act_outputs(tree, scene, self.after)
             else:
                 self._show_result(tree)
-            if self.switched and self.restore_to and self.restore_to not in SESSION.served_ids():
-                restore(self.restore_to)
             return False
         return True
 
@@ -346,19 +344,6 @@ def _wf_name(wf_id: str) -> str:
     return next((w.name for w in SESSION.workflows if w.id == wf_id), wf_id)
 
 
-def restore(wf_id: str) -> None:
-    """Solo mode, end of a run: serve the previous main workflow again (unless someone booked meanwhile)."""
-    client = SESSION.client
-    if client is None or serving.blockers(client):
-        return
-
-    def work():
-        serving.serve(client, wf_id, serving.choose(client, wf_id, "auto"))
-
-    SESSION.status_note = f"Solo: serving “{_wf_name(wf_id)}” again (ComfyQ restarts)…"
-    SESSION.run(work, on_error=lambda msg: setattr(SESSION, "status_note", f"Solo: could not restore: {msg}"))
-
-
 def solo_on() -> bool:
     from ..prefs import prefs
     try:
@@ -417,11 +402,7 @@ def start(tree, scene, targets: list[str], selected: list[str], force: bool = Fa
                     if s.is_media and s.required and s.key not in linked and not is_disabled(s, cur, specs)]
     if missing:
         return False, "Link these inputs first: " + "; ".join(missing)
-    restore_to = ""
-    if solo:
-        from ..prefs import prefs
-        restore_to = serving.main_workflow(SESSION.client) if prefs().solo_restore else ""
-    run = Run(tree, scene, todo, nodes, selected, after, solo=solo, restore_to=restore_to)
+    run = Run(tree, scene, todo, nodes, selected, after, solo=solo)
     RUNS[tree.name] = run
     run.tick()
     reused = [n for n in engine.order(nodes, targets) if n not in todo]

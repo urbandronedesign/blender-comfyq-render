@@ -17,7 +17,7 @@ Git: local repo, branch `main`, no remote. Commit author = repo-local `urbandron
 ## Environment (this machine)
 | Thing | Where |
 |---|---|
-| **Blender 5.2.2 LTS** (Python 3.13.13) — the host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (build of commit `40bdf7d`: graph N0–N5, MCP + teacher tools, clay MP4 with sound, open-folder windows to the front — confirmed by the user 2026-10-04), Allow Online Access on, **AI agents (MCP server) ON** (port 8790), **Teacher tools ON** (agents may load models; set 2026-10-04 by a startup script + `save_userpref`). Theme = Mixar's **"Mixar Forest"** with Input node colour changed from #ff284d to #3d4640 (calmer graph headers) (exported from `%APPDATA%\Mixar\Mixar\5.2\config\mixar_userpref.blend`, preset `scripts\presets\interface_theme\mixar_forest.xml`; previous prefs backed up as `config\userpref.before_mixar_theme.blend`) Default of `smoke_test.ps1` and `comfyq.ps1` |
+| **Blender 5.2.2 LTS** (Python 3.13.13) — the host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (build of commit `3435437`: graph N0–N5, MCP + teacher tools, preset library submenus, solo mode), Allow Online Access on, **AI agents (MCP server) ON** (port 8790), **Teacher tools ON** (agents may load models; set 2026-10-04 by a startup script + `save_userpref`). Theme = Mixar's **"Mixar Forest"** with Input node colour changed from #ff284d to #3d4640 (calmer graph headers) (exported from `%APPDATA%\Mixar\Mixar\5.2\config\mixar_userpref.blend`, preset `scripts\presets\interface_theme\mixar_forest.xml`; previous prefs backed up as `config\userpref.before_mixar_theme.blend`) Default of `smoke_test.ps1` and `comfyq.ps1` |
 | Mixar 4.2.0 | **uninstalled 2026-10-03** (was `C:\Program Files\Mixar\mixar.exe`, profile `%APPDATA%\Mixar\Mixar\5.2`) |
 | ComfyQ server (Node, Socket.IO, SQLite) | `F:\ComfyQ`, http://127.0.0.1:3000 — user works with b2renger, full control of its code |
 | ComfyUI 0.37, torch 2.8 cu128, RTX 5090 32 GB | `F:\ComfyUI_windows_portable_nvidia\…`, :8188 (listens on 0.0.0.0 — P1.0 issue) |
@@ -210,9 +210,12 @@ change that session: the user must reinstall from the UI or restart Mixar.
 - **Solo mode** (Preferences "Solo: load models on demand", off; never in class): Run Graph / MCP
   `blender_graph_run` loads the models nodes need (`runtime/serving.py`, shared with the MCP teacher tools):
   one switch at a time, only when nothing is booked and **no job of anyone** is unfinished on ComfyQ
-  (`client.active_jobs()`), then restores the previous main workflow (option). Nodes show *Loads on Run* +
-  a Load Model button. Smoke-tested with ComfyQ's switch faked; **never run live yet** (needs a real
-  switch = ComfyQ restart). `smoke_test.ps1 -Ui` 92/92,
+  (`client.active_jobs()`); the last model stays loaded (user's choice 2026-10-04: no restore, the next
+  preset decides). Nodes show *Loads on Run* +
+  a Load Model button. Smoke-tested with ComfyQ's switch faked. **Verified live 2026-10-04** (build `3435437`,
+  user pressed Run Graph on the library preset Flux2 Klein 9B t2i): ComfyQ switched to Klein, job `80f306d2`
+  made a 1024×576 image (checked), then LTX canny was served again (the restore step, removed since); Blender's socket reconnected by itself
+  (~10 s after ComfyQ was back). Turning Solo on is the user's own choice (a script ticking it was refused). `smoke_test.ps1 -Ui` 92/92,
   `-Ui -Book` green. **Not yet compared with the Moodboard screenshot by the user.**
 - **Done — P1.4 MCP** (docs/AGENTS.md): server inside the extension (off by default; ON in the user's
   prefs), 127.0.0.1 + token in `%APPDATA%\comfyq-bridge\mcp.json`, 17 tools (+3 **teacher tools** behind the

@@ -38,11 +38,6 @@ def serve(client: ComfyQClient, wf_id: str, how: str, force: bool = False) -> No
         client.activate(wf_id)
 
 
-def main_workflow(client: ComfyQClient) -> str:
-    """The workflow ComfyQ serves as its main one ('' if none)."""
-    return next((ln.workflow_id for ln in client.lanes() if ln.primary), "")
-
-
 def blockers(client: ComfyQClient) -> list[str]:
     """Jobs ComfyQ has not finished, anyone's: while there are some, nothing may be switched."""
     return [f"{j.user_id or '?'} · {j.workflow_id} ({j.phase})" for j in client.active_jobs()]
