@@ -14,12 +14,14 @@ boxes: floor, three walls with a window and a door, ceiling, sofa, table, rug, s
 | | Qwen 2.1 depth control (2 MP, 30 steps) | 93 s | very good, more photographic light; layout kept |
 | | Flux2 Klein 9B edit | 25 s | fast, nice, but ~1 MP and changed the layout (the shelf box became a bookcase **and** an extra door) |
 | One surface | **Flux2 Klein inpaint** + the SAM3 floor mask (`blender_mask_image`) | 32 s | only the floor changed (plank → herringbone), the rest untouched |
-| Upscale | **PiD ×4** (`utility_pid_image_upscale`) | 34 s | **best**: faithful colours, believable wood grain/book detail, 7616×4320 |
-| | SeedVR2 7B int8 (×4, colour "lab") | 65 s | sharper but invents jagged fake lettering and a screen-door pattern on the bookcase |
+| Upscale | **SeedVR2 4K** (`utility_seedvr2_4k_upscale`, 7B fp16 "sharp", ~×2 → 4096×2324) | 51 s | **best**: believable linen and rug weave, clean wood, no repeating pattern (book spines still get small fake letters) |
+| | PiD ×4 (7616×4320) | 34 s | turns every fabric into the same worm-like squiggles: the "recognisable pattern" (first choice, rejected by the user) |
+| | SeedVR2 7B int8 (×4, colour "lab") | 65 s | a grid / screen-door pattern on the rug and bookcase, jagged fake lettering |
+| | Qwen depth control rendered natively at 4 MP (2720×1536, 40 steps), no upscale | 162 s | **fails**: blurred all over, layout changed (rug gone, extra door, white table). Qwen control holds at 2 MP |
 
 Model switches (solo, ComfyQ restart or lane): ~50–70 s each.
 Result files (local, gitignored): `live_check/arch/` (state.json, base_cycles.png, each candidate, refine_floor,
-up_pid, up_seedvr2_7b, upscale_compare*.jpg) and the masks/overlay in
+up_pid, up_seedvr2_7b, up_seedvr2_4k, qwen_depth_4mp, upscale_compare_all.jpg = the four-way crops, pattern_check.jpg) and the masks/overlay in
 `%LOCALAPPDATA%\comfyq-bridge\cache\segment\arch\`.
 
 ## SAM3 in ComfyQ: what to know
@@ -46,14 +48,18 @@ For Qwen edit the prompt starts "Turn <image1>, a 3D render, into a real photogr
 ## Using it
 - **Agent (MCP)**: `blender_segment` (labels, materials, intro, outro → masks, overlay in the Image Editor,
   `prompt`) → `comfyq_submit` Qwen edit with the Cycles render + `prompt` → `blender_mask_image` (render + a
-  surface mask) → `comfyq_submit` Klein inpaint → `comfyq_submit` PiD → `blender_import`. Needs each model served
+  surface mask) → `comfyq_submit` Klein inpaint → `comfyq_submit` SeedVR2 4K → `blender_import`. Needs each model served
   (teacher tools / solo).
-- **Students (graph)**: class preset *Architecture: Cycles render → photoreal → 4× upscale (Qwen edit + PiD)*
+- **Students (graph)**: class preset *Architecture: Cycles render → photoreal → 4K upscale (Qwen edit + SeedVR2)*
   (edit the materials in its Prompt node).
 - **Headless, step by step** (what produced the table): `tools/arch_render.py <scene> <out> base | segment |
   render | refine --from=<png> --labels=floor --material="…" | upscale --from=<png>`.
 
 ## Limits / next
+- **No ComfyQ upscaler adds real detail to flat surfaces** (floor, walls stay as soft as the 2 MP render). The
+  standard fix is a *tiled re-detail* workflow (Qwen / Klein re-rendering overlapping tiles at low denoise) —
+  a new ComfyQ workflow, to ask b2renger for. Rendering bigger is not an option today: Qwen control breaks
+  at 4 MP and ComfyQ's upload box (1920×1080) caps the edit workflows' input.
 - Segmentation is not in the graph yet (no SAM3 node): the prompt node is filled by hand or by an agent.
 - Qwen outputs 1920×1088 (over ComfyQ's 1920×1080 upload box): masks and uploads are shrunk to 1904×1080.
 - Blender knows the exact surfaces (object/material IDs): a Blender ID-mask pass would be exact and free;

@@ -241,8 +241,8 @@ change that session: the user must reinstall from the UI or restart Mixar.
 - **Tests run:** unit+contract 68 pass (2 skipped); headless smoke passes (incl. solo with faked switch, placement,
   world, shadow catcher, Cycles still); GUI `-Ui` 92/92 last run before the library (not re-run since).
 - **Workflow coverage:** 48/66 run from Blender — preset library run 46/48 (docs/preset-run.md; ❌ Wan 2.1 ID-V2V
-  ×2 = ComfyUI `WanImageToVideo … 'ref_pad_image'`), LTX deblur-upscale (sweep), TRELLIS2 (3D chain), SAM3 + PiD + SeedVR2 7B image (arch chain) = 51/66. **Never
-  run (13):** Pixal3D ×3, TripoSplat, SeedVR2 image (4K/HD) + video ×2, Marigold ×2, frame
+  ×2 = ComfyUI `WanImageToVideo … 'ref_pad_image'`), LTX deblur-upscale (sweep), TRELLIS2 (3D chain), SAM3 + PiD + SeedVR2 7B image + SeedVR2 4K (arch chain) = 52/66. **Never
+  run (12):** Pixal3D ×3, TripoSplat, SeedVR2 video ×2 (HD, 3B int8), Marigold ×2, frame
   interpolation, Gemma ×2, Stable Audio. Earlier per-family sweep: docs/workflow-matrix.md (24/66).
 - **Visual baseline:** `baselines/2026-10-04/index.html` (local, gitignored, ~120 MB): per workflow description,
   Blender graph screenshot, inputs uploaded, prompt + settings sent, output (images, videos, GLB views),
@@ -261,8 +261,8 @@ change that session: the user must reinstall from the UI or restart Mixar.
 - **Architecture chain (docs/arch-render.md, 2026-10-04):** blocked-out room (`tools/make_arch_scene.py` →
   `E:\zaki\arch_room.blend`) → Cycles → SAM3 surfaces (`blender_segment`, `surfaces.py`, `passes/segment.py`,
   `runtime/segmentation.py`) → labelled prompt → **Qwen edit** (best of Klein edit / Qwen depth / Qwen edit) →
-  Klein inpaint of one surface (`blender_mask_image`) → **PiD ×4** (best vs SeedVR2 7B). Driver
-  `tools/arch_render.py` (steps); class preset *Architecture: Cycles → photoreal → 4× upscale*. Not in the user's
+  Klein inpaint of one surface (`blender_mask_image`) → **SeedVR2 4K ×2** (user rejected PiD ×4: squiggle pattern; SeedVR2 int8: grid; Qwen depth at 4 MP: blurred, layout lost). Driver
+  `tools/arch_render.py` (steps); class preset *Architecture: Cycles → photoreal → 4K upscale (Qwen edit + SeedVR2)*. Not in the user's
   Blender yet (sandbox only) until installed.
 - **Other:** theme Mixar Forest; multi-model orchestration page https://claude.ai/artifact/C8EPx3vgnJVsRXvZNjB7ug
   (local copy docs/private/); P1.0 hardening postponed; phase 2 not started.

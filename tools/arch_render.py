@@ -59,12 +59,16 @@ CANDIDATES = {
     "qwen_depth": ("image_qwen_image_2_1_control_depth", "loadimage_image_900",
                    {"resolutionselector_aspect_ratio_13": "16:9 (Widescreen)", "resolutionselector_megapixels_13": 2,
                     "ksampler_steps_459_458": 30}, ""),
+    "qwen_depth_4mp": ("image_qwen_image_2_1_control_depth", "loadimage_image_900",
+                       {"resolutionselector_aspect_ratio_13": "16:9 (Widescreen)", "resolutionselector_megapixels_13": 4,
+                        "ksampler_steps_459_458": 40}, ""),     # native 2K: real detail instead of an upscale
     "qwen_edit": ("image_qwen_image_2_1_image_edit", "loadimage_image_470", {"ksampler_steps_459_458": 30},
                   "Turn <image1>, a 3D render, into a real photograph. "),
 }
 INPAINT = ("image_edit_flux2_klein_inpaint_prompt", "loadimage_image_1", "cliptextencode_text_6")
 UPSCALERS = {
     "pid": ("utility_pid_image_upscale", "loadimage_image_1", {}),
+    "seedvr2_4k": ("utility_seedvr2_4k_upscale", "source_image_16", {"resolution_10": 3840}),   # fp16 7B "sharp", ×2
     "seedvr2_7b": ("utility_seedvr2_7b_int8_image_upscale", "loadimage_image_1",
                    {"seedvr2postprocessing_color_correction_method_66_59": "lab"}),
 }
