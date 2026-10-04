@@ -53,6 +53,7 @@ args = ["C:/Users/<you>/AppData/Roaming/Blender Foundation/Blender/5.2/extension
 | `comfyq_describe_workflow` | A workflow's parameters |
 | `comfyq_submit` | Book a job: settings, local files for media inputs, prompt → job id |
 | `comfyq_job_status` / `comfyq_wait` / `comfyq_cancel` / `comfyq_outputs` | Follow, wait (≤ 120 s per call), cancel, download results |
+| `blender_graph_set` on an Image node | `key: "image"` + a local file path loads the picture into it (references, characters, styles) |
 | `comfyq_server_status` | What the GPU serves (main workflow + lanes, busy, VRAM), card/used GB, what fits alongside now, the running serve/calibrate task |
 
 ### Teacher tools: loading models from the agent

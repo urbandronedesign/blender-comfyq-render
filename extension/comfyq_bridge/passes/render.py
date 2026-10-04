@@ -306,7 +306,17 @@ def image_pass(image: bpy.types.Image, max_edge: int | None = None) -> Path:
     if not w or not h:
         raise RuntimeError(f"Image “{image.name}” has no pixels (render it or reload it first)")
     tw, th = fit_size(w / h, max_edge)
-    copy = image.copy()
+    # A new image filled with the pixels, not `image.copy()`: the copy of a file image (loaded by a
+    # script, the MCP or from a saved .blend) can come without its pixel buffer ("does not have any
+    # image data" at save). Reading `pixels` also loads a file image that nothing displayed yet.
+    px = np.empty(w * h * 4, dtype=np.float32)
+    image.pixels.foreach_get(px)
+    copy = bpy.data.images.new("comfyq upload", w, h, alpha=True, float_buffer=image.is_float)
+    try:
+        copy.colorspace_settings.name = image.colorspace_settings.name
+    except TypeError:
+        pass
+    copy.pixels.foreach_set(px)
     try:
         if (tw, th) != (w, h) and (w > tw or h > th):
             copy.scale(tw, th)

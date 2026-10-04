@@ -482,6 +482,12 @@ def blender_graph_set(args: dict) -> dict:
         if n.bl_idname == "ComfyQPromptNode" and key in ("text", "prompt"):
             n.text_block, n.text = None, str(value)
             return {n.name: {"text": n.text}}
+        if n.bl_idname == "ComfyQImageNode" and key in ("image", "filepath"):
+            path = Path(str(value)).expanduser()
+            if not path.is_file():
+                raise ToolError(f"No image file at {path}")
+            n.image = bpy.data.images.load(str(path), check_existing=True)
+            return {n.name: {"image": n.image.filepath}}
         if key not in n.bl_rna.properties or key in ("name", "location", "handled", "imported"):
             raise ToolError(f"{n.name}: cannot set {key!r}")
         setattr(n, key, value)
@@ -594,7 +600,8 @@ TOOLS = [
          "`keyframe_v2v`, `image_3d`, `image_upscale` (workflows picked from what is served), or a saved "
          "preset's label.", obj({"preset": _S}, ("preset",)), blender_graph_add_preset),
     Tool("blender_graph_set", "Change a node: a workflow node's setting by key (or `prompt`), a Prompt "
-         "node's `text`, a source's `style`/`frame`/`filepath`, an output's `auto`/`folder`/`pattern`.",
+         "node's `text`, a source's `style`/`frame`/`filepath` (an Image node's `image` = a local image file), "
+         "an output's `auto`/`folder`/`pattern`.",
          obj({"node": _S, "key": _S, "value": {}}, ("node", "key", "value")), blender_graph_set),
     Tool("blender_graph_run", "Run the graph (or one node and what it needs). Up-to-date results are reused; "
          "`force` re-runs upstream. Returns at once: follow with blender_graph_status.",

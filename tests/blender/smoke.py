@@ -428,8 +428,10 @@ check(gengine.plan(grun.describe(tree, scene), [b_node.name]) == [wnode.name, b_
 unlinked = tree.nodes.new("ComfyQWorkflowNode")
 unlinked.workflow_id = wf                                  # the served workflow (v2v above is not served)
 unlinked.build(SESSION.specs[wf])
-ok, msg = grun.start(tree, scene, [unlinked.name], [])
-check(not ok and "Link these inputs" in msg, f"graph run: refused when a needed input is not linked ({msg[:60]})")
+if any(s.is_media and s.required for s in SESSION.specs[wf]):   # (a served t2i has nothing to link)
+    ok, msg = grun.start(tree, scene, [unlinked.name], [])
+    check(not ok and "Link these inputs" in msg,
+          f"graph run: refused when a needed input is not linked ({msg[:60]})")
 unserved = next((w.id for w in SESSION.workflows if w.id not in SESSION.served_ids()), None)
 if unserved:
     unlinked.change_workflow(unserved)
@@ -445,7 +447,9 @@ if t2i:
     unlinked.change_workflow(t2i)
     _pp = bpy.context.preferences.addons["bl_ext.user_default.comfyq_bridge"].preferences
     _pp.solo_mode = True
-    real_serve, real_blockers, asked = gserving.serve, gserving.blockers, []
+    real_serve, real_blockers, real_choose, asked = gserving.serve, gserving.blockers, gserving.choose, []
+    gserving.choose = lambda client, wf_id, how="auto", force=False: "main"   # (the live GPU may be busy)
+    pump_until(lambda: (grun.tick_all(), tree.name not in grun.RUNS)[1], 60, "the previous graph run to end")
     gserving.blockers = lambda client: ["someone · x (running)"]
     ok, msg = grun.start(tree, scene, [unlinked.name], [])
     check(not ok and "nobody is using the server" in msg, f"solo: refused while anyone has a job ({msg[:70]})")
@@ -461,7 +465,7 @@ if t2i:
     pump_until(lambda: (grun.tick_all(), tree.name not in grun.RUNS)[1], 10, "solo timeout")
     check("Could not load its model" in unlinked.note, f"solo: a model that never comes gives up ({unlinked.note})")
     grun.SWITCH_TIMEOUT_S = 900
-    gserving.serve, gserving.blockers = real_serve, real_blockers
+    gserving.serve, gserving.blockers, gserving.choose = real_serve, real_blockers, real_choose
     _pp.solo_mode = False
 tree.nodes.remove(unlinked)
 tree.nodes.remove(b_node)
@@ -735,6 +739,16 @@ wnode_name = next(n["name"] for n in g["nodes"] if n["type"] == "Workflow")
 err2, s = mcp_tool("blender_graph_set", node=wnode_name, key="prompt", value="set by an agent")
 check(not err and not err2 and bpy.data.node_groups["ComfyQ Graph"].nodes[wnode_name].current_values()
       .get(prompt_key) == "set by an agent", f"MCP blender_graph_describe + blender_graph_set ({s})")
+_img_node = bpy.data.node_groups["ComfyQ Graph"].nodes.new("ComfyQImageNode")
+err, s = mcp_tool("blender_graph_set", node=_img_node.name, key="image", value=still["path"])
+check(not err and _img_node.image is not None and Path(bpy.path.abspath(_img_node.image.filepath)).name ==
+      Path(still["path"]).name, f"MCP blender_graph_set loads a file into an Image node ({s})")
+_fresh = bpy.data.images.load(still["path"])                  # never displayed: pixels not read yet
+_fresh.name = "smoke fresh image"
+check(render.image_pass(_fresh, 256).is_file(),
+      "an image loaded from a file and never displayed uploads (image_pass reads its pixels first)")
+bpy.data.images.remove(_fresh)
+bpy.data.node_groups["ComfyQ Graph"].nodes.remove(_img_node)
 err, st = mcp_tool("blender_graph_status")
 check(not err and not st["running"] and st["nodes"], "MCP blender_graph_status")
 err, imp = mcp_tool("blender_import", path=still["path"])

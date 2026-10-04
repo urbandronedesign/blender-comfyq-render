@@ -17,7 +17,7 @@ Git: local repo, branch `main`, no remote. Commit author = repo-local `urbandron
 ## Environment (this machine)
 | Thing | Where |
 |---|---|
-| **Blender 5.2.2 LTS** (Python 3.13.13) — the host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (build of commit `3435437`: graph N0–N5, MCP + teacher tools, preset library submenus, solo mode), Allow Online Access on, **AI agents (MCP server) ON** (port 8790), **Teacher tools ON** (agents may load models; set 2026-10-04 by a startup script + `save_userpref`). Theme = Mixar's **"Mixar Forest"** with Input node colour changed from #ff284d to #3d4640 (calmer graph headers) (exported from `%APPDATA%\Mixar\Mixar\5.2\config\mixar_userpref.blend`, preset `scripts\presets\interface_theme\mixar_forest.xml`; previous prefs backed up as `config\userpref.before_mixar_theme.blend`) Default of `smoke_test.ps1` and `comfyq.ps1` |
+| **Blender 5.2.2 LTS** (Python 3.13.13) — the host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (build of 2026-10-04 12:00 = `da3e068` + image-upload fix + MCP image nodes; commit pending), Allow Online Access on, **AI agents (MCP server) ON** (port 8790), **Teacher tools ON** (agents may load models; set 2026-10-04 by a startup script + `save_userpref`). Theme = Mixar's **"Mixar Forest"** with Input node colour changed from #ff284d to #3d4640 (calmer graph headers) (exported from `%APPDATA%\Mixar\Mixar\5.2\config\mixar_userpref.blend`, preset `scripts\presets\interface_theme\mixar_forest.xml`; previous prefs backed up as `config\userpref.before_mixar_theme.blend`) Default of `smoke_test.ps1` and `comfyq.ps1` |
 | Mixar 4.2.0 | **uninstalled 2026-10-03** (was `C:\Program Files\Mixar\mixar.exe`, profile `%APPDATA%\Mixar\Mixar\5.2`) |
 | ComfyQ server (Node, Socket.IO, SQLite) | `F:\ComfyQ`, http://127.0.0.1:3000 — user works with b2renger, full control of its code |
 | ComfyUI 0.37, torch 2.8 cu128, RTX 5090 32 GB | `F:\ComfyUI_windows_portable_nvidia\…`, :8188 (listens on 0.0.0.0 — P1.0 issue) |
@@ -79,6 +79,8 @@ tools/agent_roundtrip.ps1  sandbox Blender + MCP on + `claude -p` doing render �
 tools/graph_send.py      build Scene Animation → served V2V node on a real file, Generate on the node, trace it
 tools/make_preset_library.py  headless (sandbox profile): one saved preset per image/video workflow →
                          presets/library/<Image|Image edit|Image → video|Video → video>/*.json (docs/CLASS.md §3)
+tools/preset_run.py      run every library preset through the MCP on the open scene (Solo on), resumable
+tools/contact_sheet.py   review sheets of results (start/mid/end frames, audio) — ComfyUI's python (cv2, av)
 presets/library/         the generated workflow library (48 presets, committed; copied to the user's presets folder)
 ```
 
@@ -190,7 +192,7 @@ change that session: the user must reinstall from the UI or restart Mixar.
     the images (Read tool) — black outputs happen with some ComfyUI flag mixes (the sweep flags mean < 0.02),
     and a workflow given an unsuitable input can echo it back (Krea character sheet on a cubes scene).
 
-## Status (2026-10-04; code last changed in `a3786b2` — MCP teacher tools)
+## Status (2026-10-04 afternoon) — **for b2renger and the teacher: docs/RUNBOOK.md**
 - **Host:** Blender 5.2.2 LTS (user's profile has the latest build). Mixar uninstalled. ComfyQ serves
   **LTX 2.5 IC-LoRA canny** (`video_edit_ltx2_5_iclora_canny_control`) — the state to restore after any test.
 - **Done — bar & tools:** P1.1 client + Socket.IO transport + CLI; P1.2 extension MVP; P1.3 imports
@@ -236,6 +238,13 @@ change that session: the user must reinstall from the UI or restart Mixar.
     `comfyq__bench-vi__sports_car.png` / `comfyq__bench-im__sports_car.png` missing in ComfyUI/input.
   - Method (user-approved per family): `--switch=<ids> --restore=video_edit_ltx2_5_iclora_canny_control`
     (calibrate + run each as the main workflow, canny restored at the end). Lanes side by side don't fit.
+- **Preset library run (2026-10-04, docs/preset-run.md): 46 / 48 run** on the user's `E:\zaki\test1_AI.blend`
+  (default cube, nothing animated) through the MCP with Solo on (`tools/preset_run.py`, resumable;
+  assets in `live_check/presets/assets`, contact sheets `tools/contact_sheet.py` with ComfyUI's python).
+  ~92 min GPU, ~30 s per model switch. 2 ❌ = Wan 2.1 ID-V2V ×2: ComfyUI `WanImageToVideo … 'ref_pad_image'`
+  (b2renger). Fixed during the run: `image_pass` builds the upload from pixels (image.copy() of a file
+  image had no pixels), `blender_graph_set` loads a file into an Image node. Overall 47/66 workflows run
+  from Blender; 17 never (3D, upscalers, SeedVR2 video, Marigold, SAM3, interpolation, Gemma, audio).
 - **Multi-model orchestration page** (for the user and b2renger): https://claude.ai/artifact/C8EPx3vgnJVsRXvZNjB7ug
   (private until the user shares it), local copy `docs/private/multi-model-orchestration.html` (gitignored).
   Proposes: stage runner in the graph (group nodes by model, switch between stages), ComfyQ bundles for
@@ -246,6 +255,9 @@ change that session: the user must reinstall from the UI or restart Mixar.
   "image workflow → V2V start image" never run live in the graph.
 
 ## Next steps
+00. Uncommitted at the end of 2026-10-04 (ask the user): image-upload fix, MCP image nodes, smoke checks,
+   tools/preset_run.py + contact_sheet.py, docs/preset-run.md + docs/RUNBOOK.md. ComfyQ was left serving
+   `video_edit_wan_idv2v_restyle_hires` (main) + `image_qwen_image_2_1_t2i` (lane); Solo is ON in the user's prefs.
 0. **User tests the MCP teacher tools tomorrow (2026-10-05)** from an agent connected to their Blender (choice made:
    "agent drives Blender", not a chat panel inside Blender). Status at stop: Blender 5.2 running with the
    `a3786b2` build, connected, 20 tools answering over HTTP (checked with a direct JSON-RPC call:
