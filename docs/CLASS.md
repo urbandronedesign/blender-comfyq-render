@@ -72,6 +72,12 @@ every PC can reach (or let students pick theirs).
 `presets\Video → video\…json`) appears under **Presets › Saved › <subfolder>**: use them to sort a
 long list by lesson or task.
 
+### Class presets in the repository
+`presets\class\` holds hand-made presets, copied into the presets folder's **Class** subfolder:
+- **Cycles render → photoreal (Flux2 Klein)**: a real Cycles render of the camera view (materials, lights,
+  HDRI, shadow catchers; rendered in a separate Blender so the GPU is free), made photoreal by Flux2 Klein 9B
+  image edit with the same composition. Viewer + Save. Tested on a supercar-on-a-driveway scene (2026-10-04).
+
 ### The workflow library (one preset per image / video workflow)
 `presets\library\` in this repository holds 48 ready-made graphs, one per workflow of ComfyQ's image and
 video categories, sorted into four submenus: **Image** (t2i, 9), **Image edit** (13), **Image → video**

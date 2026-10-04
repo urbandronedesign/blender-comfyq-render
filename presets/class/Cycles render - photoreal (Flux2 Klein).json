@@ -1,0 +1,100 @@
+{
+ "format": 1,
+ "label": "Cycles render → photoreal (Flux2 Klein)",
+ "description": "A real Cycles render of the camera view (materials, lights, HDRI, shadow catchers; rendered in a separate Blender so the GPU is free) made photoreal by Flux2 Klein 9B image edit, same composition. Viewer + Save",
+ "made": "2026-10-04 09:32",
+ "nodes": [
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "image_edit_flux2_klein_9b_image_edit",
+   "params": [],
+   "match_scene": true
+  },
+  {
+   "name": "Scene Render",
+   "type": "ComfyQSceneRenderNode",
+   "location": [
+    -820.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "Cycles render",
+   "parent": "",
+   "style": "CYCLES",
+   "frame": "CURRENT",
+   "cycles_samples": 64
+  },
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -820.0,
+    -330.0
+   ],
+   "width": 340.0,
+   "label": "Prompt",
+   "parent": "",
+   "text": "Turn this 3D render into a photorealistic photograph taken with a full-frame camera: realistic materials and reflections, natural soft shadows, realistic surroundings, natural daylight. Keep exactly the same composition, camera angle, object shapes and background."
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}"
+  }
+ ],
+ "links": [
+  {
+   "from": "Scene Render",
+   "from_socket": "Image",
+   "to": "Workflow",
+   "to_socket": "loadimage_image_76"
+  },
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "cliptextencode_text_75_74"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ]
+}
