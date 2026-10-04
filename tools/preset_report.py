@@ -27,7 +27,7 @@ import requests
 ROOT = Path(__file__).resolve().parents[1]
 SERVER = os.environ.get("COMFYQ_URL", "http://127.0.0.1:3000")
 CACHE = Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "comfyq-bridge" / "cache"
-GROUPS = ["Image", "Image edit", "Image → video", "Video → video"]
+GROUPS = ["Image", "Image edit", "Image → video", "Video → video", "Chains"]   # Chains: multi-step class presets
 IMG = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 VID = {".mp4", ".webm", ".mov", ".mkv"}
 AUD = {".wav", ".mp3", ".flac", ".ogg", ".m4a"}
@@ -118,8 +118,8 @@ def main() -> None:
                                    f'— {esc(rec["label"])}<br><small>{esc(job.get("prompt") or "")}</small>'
                                    f'</figcaption></figure>')
             continue
-        if out_rel:
-            manifest[wf_id] = {"output": out_rel, "date": rec.get("started"), "seconds": rec.get("seconds")}
+        if out_rel:   # by preset key: two presets can use the same workflow (a chain and the library one)
+            manifest[rec["key"]] = {"output": out_rel, "date": rec.get("started"), "seconds": rec.get("seconds")}
 
         ins = []
         for f in job.get("input_files") or []:
@@ -142,12 +142,12 @@ def main() -> None:
         shot_html = (f'<a href="{esc(copy(shot, mdir, "blender"))}" target="_blank"><img loading="lazy" class="shot" '
                      f'src="{esc((mdir / "blender.png").relative_to(OUT).as_posix())}" alt="Blender graph"></a>'
                      if shot.is_file() else '<p class="missing">no screenshot</p>')
-        verdict, note = notes.get(wf_id, ["ok" if rec.get("ok") else "fail", ""])
+        verdict, note = notes.get(rec["key"]) or notes.get(wf_id) or ["ok" if rec.get("ok") else "fail", ""]
         counts[verdict] = counts.get(verdict, 0) + 1
         w = wfs.get(wf_id, {})
         desc = (w.get("description") or "").strip()
         vram = w.get("vramPeakGb") or (w.get("runtime") or {}).get("vramPeakGb")
-        b = base.get(wf_id)
+        b = base.get(rec["key"]) or (base.get(wf_id) if rec["group"] != "Chains" else None)
         base_html = ""
         if b and BASE:
             bp = BASE / b["output"]
@@ -159,7 +159,7 @@ def main() -> None:
                 f'job <code>{esc((rec.get("job_id") or "—")[:8])}</code> · {esc(rec.get("started"))}'
                 + (f' · VRAM peak {vram:.1f} GB' if isinstance(vram, (int, float)) else ""))
         cards[rec["group"]].append(f'''
-<article class="card v-{verdict}" id="{esc(wf_id)}" data-verdict="{verdict}">
+<article class="card v-{verdict}" id="{esc(rec["key"])}" data-verdict="{verdict}">
  <header><span class="badge {verdict}">{ {"ok": "OK", "warn": "Check", "fail": "Failed"}.get(verdict, verdict)}</span>
   <h3>{esc(rec["label"])}</h3><code>{esc(wf_id)}</code></header>
  {f'<p class="note">{esc(note)}</p>' if note else ""}

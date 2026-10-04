@@ -113,5 +113,7 @@ description, a screenshot of its graph in Blender, the inputs actually uploaded,
 sent, the output (images, playable videos), time and verdict. A new run is compared with it:
 `tools/preset_run.py` → `tools/preset_shots.py` → `tools/preset_report.py baselines/<date> --baseline baselines/2026-10-04`
 (each card then shows the earlier output next to the new one).
+A **Chains** section holds multi-step class presets (records with group `Chains` in results.json, notes and
+comparisons keyed by preset): first one, *Cycles render → photoreal (Flux2 Klein)* on the user's supercar scene.
 
 Raw data: `live_check/presets/results.json`, contact sheets in `live_check/presets/sheets/` (not in git).

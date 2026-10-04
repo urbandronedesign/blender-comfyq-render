@@ -22,7 +22,8 @@ MOD = "bl_ext.user_default.comfyq_bridge"
 argv = sys.argv[sys.argv.index("--") + 1:]
 RESULTS, OUT = Path(argv[0]).resolve(), Path(argv[1]).resolve()    # Blender reads relative paths its own way
 ROOT = Path(__file__).resolve().parents[1]
-LIB = ROOT / "presets" / "library"
+LIBS = (ROOT / "presets" / "library", ROOT / "presets" / "class")
+ONLY = next((a.split("=", 1)[1] for a in argv[2:] if a.startswith("--only=")), None)   # a substring of keys
 ASSETS = RESULTS.parent / "assets"
 OUT.mkdir(parents=True, exist_ok=True)
 
@@ -50,9 +51,10 @@ def editor():
 
 
 def preset_file(label: str) -> Path | None:
-    for f in LIB.rglob("*.json"):
-        if json.loads(f.read_text(encoding="utf-8")).get("label") == label:
-            return f
+    for lib in LIBS:
+        for f in lib.rglob("*.json"):
+            if json.loads(f.read_text(encoding="utf-8")).get("label") == label:
+                return f
     return None
 
 
@@ -71,7 +73,7 @@ def steps():
     yield 1.0
     for n, rec in enumerate(records):
         f = preset_file(rec["label"])
-        if f is None or rec["key"].startswith("asset:"):
+        if f is None or rec["key"].startswith("asset:") or (ONLY and ONLY not in rec["key"]):
             continue
         try:
             data = json.loads(f.read_text(encoding="utf-8"))
