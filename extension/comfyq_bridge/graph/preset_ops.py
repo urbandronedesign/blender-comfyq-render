@@ -408,6 +408,9 @@ class COMFYQ_OT_graph_presets_folder(bpy.types.Operator):
         folder = presets.folders()[0]
         folder.mkdir(parents=True, exist_ok=True)
         open_file(folder)
+        saved = len(list(folder.glob("*.json")))
+        self.report({"INFO"}, f"Presets folder: {folder} ({saved} saved preset{'s' if saved != 1 else ''}"
+                              f"{'; use Save Graph as Preset' if not saved else ''})")
         return {"FINISHED"}
 
 

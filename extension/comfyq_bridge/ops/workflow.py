@@ -252,6 +252,14 @@ class COMFYQ_OT_match_scene(bpy.types.Operator):
 
 def open_file(path) -> None:
     if sys.platform == "win32":
+        # Windows keeps a window opened by another process behind the active one (Explorer opened
+        # behind Blender, looking like "nothing happened"). Blender has the focus when the button is
+        # pressed, so it may hand the foreground on to whatever opens the file (ASFW_ANY).
+        try:
+            import ctypes
+            ctypes.windll.user32.AllowSetForegroundWindow(-1)
+        except (AttributeError, OSError):
+            pass
         os.startfile(path)
     else:
         subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(path)])

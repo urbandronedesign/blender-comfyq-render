@@ -57,7 +57,8 @@ Good to know:
    the menu tooltip).
 3. Share it, either:
    - copy the `.json` file into `%APPDATA%\comfyq-bridge\presets\` on every student PC
-     (**Presets › Open Presets Folder** shows yours), or
+     (**Presets › Open Presets Folder** opens yours in Explorer and shows its path in the status bar; it is
+     empty until you use **Save Graph as Preset…**), or
    - put it in **one shared folder** and set the environment variable `COMFYQ_BRIDGE_PRESETS` to that
      folder on every PC (e.g. a network share of the teacher's PC). *Save in the shared folder* then
      saves there directly.
