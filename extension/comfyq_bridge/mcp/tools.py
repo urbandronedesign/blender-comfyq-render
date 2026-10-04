@@ -389,6 +389,76 @@ def blender_import(args: dict) -> dict:
     return on_main(go)
 
 
+def _builtin_hdri(name: str) -> Path | None:
+    folder = Path(bpy.utils.system_resource("DATAFILES", path="studiolights/world"))
+    p = folder / f"{name}.exr"
+    return p if p.is_file() else None
+
+
+def blender_world(args: dict) -> dict:
+    """Light the scene with an HDRI (world environment), or clear it. Our nodes are named so a new call
+    updates them instead of piling up."""
+    import math
+    src = str(args.get("hdri") or "")
+    if args.get("clear"):
+        path = None
+    elif src.startswith("builtin:"):
+        path = _builtin_hdri(src.split(":", 1)[1])
+        if path is None:
+            folder = Path(bpy.utils.system_resource("DATAFILES", path="studiolights/world"))
+            raise ToolError(f"No built-in HDRI {src!r}: {sorted(p.stem for p in folder.glob('*.exr'))}")
+    else:
+        path = Path(src).expanduser()
+        if not path.is_file():
+            raise ToolError(f"No HDRI file at {path} (or use builtin:forest, builtin:city…)")
+
+    def go():
+        scene = bpy.context.scene
+        world = scene.world or bpy.data.worlds.new("World")
+        scene.world = world
+        try:                                                # (always on, and deprecated, in Blender 5)
+            if not world.use_nodes:
+                world.use_nodes = True
+        except AttributeError:
+            pass
+        nt = world.node_tree
+        out = next((n for n in nt.nodes if n.bl_idname == "ShaderNodeOutputWorld"), None) or \
+            nt.nodes.new("ShaderNodeOutputWorld")
+        bg = nt.nodes.get("ComfyQ Background") or next(
+            (n for n in nt.nodes if n.bl_idname == "ShaderNodeBackground"), None) or nt.nodes.new("ShaderNodeBackground")
+        bg.name = "ComfyQ Background"
+        nt.links.new(bg.outputs[0], out.inputs["Surface"])
+        if path is None:                                    # back to a plain grey world
+            for name in ("ComfyQ HDRI", "ComfyQ Mapping", "ComfyQ Coordinates"):
+                if nt.nodes.get(name):
+                    nt.nodes.remove(nt.nodes[name])
+            bg.inputs["Color"].default_value = (0.05, 0.05, 0.05, 1.0)
+            bg.inputs["Strength"].default_value = 1.0
+            scene.render.film_transparent = False
+            return {"world": world.name, "hdri": None}
+        env = nt.nodes.get("ComfyQ HDRI") or nt.nodes.new("ShaderNodeTexEnvironment")
+        env.name = env.label = "ComfyQ HDRI"
+        env.image = bpy.data.images.load(str(path), check_existing=True)
+        mapping = nt.nodes.get("ComfyQ Mapping") or nt.nodes.new("ShaderNodeMapping")
+        mapping.name = mapping.label = "ComfyQ Mapping"
+        coords = nt.nodes.get("ComfyQ Coordinates") or nt.nodes.new("ShaderNodeTexCoord")
+        coords.name = coords.label = "ComfyQ Coordinates"
+        nt.links.new(coords.outputs["Generated"], mapping.inputs["Vector"])
+        nt.links.new(mapping.outputs["Vector"], env.inputs["Vector"])
+        nt.links.new(env.outputs["Color"], bg.inputs["Color"])
+        mapping.inputs["Rotation"].default_value[2] = math.radians(float(args.get("rotation_deg", 0)))
+        bg.inputs["Strength"].default_value = float(args.get("strength", 1.0))
+        scene.render.film_transparent = not bool(args.get("background", True))
+        for n, x in ((coords, -900), (mapping, -700), (env, -450), (bg, -150), (out, 100)):
+            n.location = (x, 300)
+        return {"world": world.name, "hdri": str(path), "size": list(env.image.size),
+                "strength": bg.inputs["Strength"].default_value, "rotation_deg": float(args.get("rotation_deg", 0)),
+                "background_in_renders": not scene.render.film_transparent,
+                "note": "Seen in Material Preview / Rendered viewport and EEVEE / Cycles renders. The bridge's "
+                        "clay / matcap passes (what ComfyQ gets) are Workbench and do not use it."}
+    return on_main(go)
+
+
 def blender_transform(args: dict) -> dict:
     """Move / rotate / scale objects (e.g. an imported model and its parent empty)."""
     import math
@@ -625,6 +695,12 @@ TOOLS = [
          obj({"path": _S, "job_id": _S, "place": {"type": "string", "enum": ["BESIDE", "CURSOR", "ORIGIN", "ASIS"]},
               "on_ground": {"type": "boolean"}, "size": {"type": "number", "minimum": 0}}, ("path",)),
          blender_import),
+    Tool("blender_world", "Light the scene with an HDRI (world environment): `hdri` = a local .hdr/.exr file or "
+         "`builtin:<name>` (Blender's city, courtyard, forest, interior, night, studio, sunrise, sunset), "
+         "`strength` (1), `rotation_deg` around Z (turns the sun), `background` (true = the HDRI is seen behind "
+         "the scene in renders; false = transparent). `clear: true` = back to a plain world.",
+         obj({"hdri": _S, "strength": {"type": "number", "minimum": 0}, "rotation_deg": {"type": "number"},
+              "background": {"type": "boolean"}, "clear": {"type": "boolean"}}), blender_world),
     Tool("blender_transform", "Move / rotate / scale / hide objects by name (e.g. an imported model's parent "
          "empty, or the object hiding it). `location` [x,y,z] m, `rotation_deg` [x,y,z], `scale` number or "
          "[x,y,z], `hide` true/false.",

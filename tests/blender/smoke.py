@@ -742,7 +742,7 @@ def mcp_tool(name, **args):
 
 check(mcp_rpc("ping", token="wrong") == 401, "MCP: a wrong token is refused")
 names = [t["name"] for t in mcp_rpc("tools/list")["result"]["tools"]]
-check(len(names) == 18 and "blender_transform" in names and "comfyq_submit" in names and "blender_graph_run" in names, f"MCP: {len(names)} tools")
+check(len(names) == 19 and "blender_world" in names and "blender_transform" in names and "comfyq_submit" in names and "blender_graph_run" in names, f"MCP: {len(names)} tools")
 err, info = mcp_tool("blender_scene_info")
 check(not err and info["camera"] and info["frames"] == [scene.frame_start, scene.frame_end],
       f"MCP blender_scene_info: {info.get('scene')} {info.get('frames')} camera {info.get('camera')}")
@@ -786,6 +786,19 @@ _to = bpy.data.objects.get(_tn[-1]) if _tn else None
 check(not err and "placed at the origin" in imp["imported"][0] and not err2 and _to is not None
       and tuple(round(v, 3) for v in _to.location) == (1, 2, 3) and _to.hide_get(),
       f"MCP blender_import place/size + blender_transform ({imp.get('imported')}, {tr})")
+err, w1 = mcp_tool("blender_world", hdri="builtin:forest", strength=1.5, rotation_deg=90, background=False)
+_wn = scene.world.node_tree.nodes if scene.world else None
+_first = (not err and _wn is not None and _wn.get("ComfyQ HDRI") is not None
+          and abs(_wn["ComfyQ Background"].inputs["Strength"].default_value - 1.5) < 1e-4
+          and abs(_wn["ComfyQ Mapping"].inputs["Rotation"].default_value[2] - 1.5708) < 1e-3
+          and scene.render.film_transparent)
+err2, w2 = mcp_tool("blender_world", hdri="builtin:city")           # a second call updates, no duplicates
+_envs = [n for n in scene.world.node_tree.nodes if n.bl_idname == "ShaderNodeTexEnvironment"]
+check(_first and not err2 and len(_envs) == 1 and _envs[0].image.name.startswith("city"),
+      f"MCP blender_world: HDRI, strength, rotation, background; a second call updates it ({w1.get('hdri')})")
+err, w3 = mcp_tool("blender_world", clear=True)
+check(not err and scene.world.node_tree.nodes.get("ComfyQ HDRI") is None and not scene.render.film_transparent,
+      "MCP blender_world clear: back to a plain world")
 # teacher tools (load models): hidden + refused while the preference is off; only safe calls here
 err, st = mcp_tool("comfyq_server_status", workflow_id=unserved or wf)
 check(not err and {s_["workflow_id"] for s_ in st["served"]} == SESSION.served_ids() and st["card_gb"]

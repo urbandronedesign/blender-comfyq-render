@@ -253,7 +253,8 @@ change that session: the user must reinstall from the UI or restart Mixar.
   (`3d_trellis2_image_to_textured_mesh`, ~6 min, 461k faces, 2×2048 textures) → Import node → scene. Models
   came in at the origin at ~1 m (inside the cube) → **placement** added: importers/media.py `Placement`
   (BESIDE default / CURSOR / ORIGIN / ASIS, on_ground, size) on the Import node + MCP `blender_import`,
-  new MCP `blender_transform` (18 tools). The user's test1_AI.blend has the car at the origin (old build).
+  new MCP `blender_transform`, then `blender_world` (HDRI file or Blender's builtin:<name>, strength,
+  rotation, background, clear; named nodes updated in place) → 19 tools. The user's test1_AI.blend has the car at the origin (old build).
 - **Multi-model orchestration page** (for the user and b2renger): https://claude.ai/artifact/C8EPx3vgnJVsRXvZNjB7ug
   (private until the user shares it), local copy `docs/private/multi-model-orchestration.html` (gitignored).
   Proposes: stage runner in the graph (group nodes by model, switch between stages), ComfyQ bundles for

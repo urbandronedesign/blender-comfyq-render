@@ -45,6 +45,7 @@ args = ["C:/Users/<you>/AppData/Roaming/Blender Foundation/Blender/5.2/extension
 | `blender_select` | Select objects (what a mask repaints) |
 | `blender_render` | `still` / `mask` / `animation` pass through the camera (clay, matcap, material) → file |
 | `blender_import` | A result into Blender (image → Image Editor, video/audio → *ComfyQ Results*, GLB/PLY → collection placed `place` BESIDE the scene (default) / CURSOR / ORIGIN / ASIS, `on_ground`, `size` = longest side in m) |
+| `blender_world` | Light the scene with an HDRI: a local .hdr/.exr or `builtin:forest` (city, courtyard, forest, interior, night, studio, sunrise, sunset), `strength`, `rotation_deg`, `background` (seen behind the scene in renders), `clear`. Not used by the clay/matcap passes ComfyQ gets |
 | `blender_transform` | Move / rotate / scale / hide objects by name (`location`, `rotation_deg`, `scale`, `hide`) |
 | `blender_graph_describe` | The ComfyQ node graph: nodes, models, settings, prompts, links, results |
 | `blender_graph_add_preset` | Add a class preset (`render_image`, `clay_v2v`, `keyframe_v2v`, `image_3d`, `image_upscale`, or a saved one) |
