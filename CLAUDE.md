@@ -55,6 +55,10 @@ extension/comfyq_bridge/
   ui/studio.py           the Mixar-style bar (tabs, chips, prompt, scene strip, references, job cards with "Sent" rows)
   ui/panel.py            panels: View3D sidebar, Image Editor sidebar, Queue popover, dialog (Ctrl+Shift+Q), header buttons
   ui/player.py           video player for the ComfyQ window (independent of the scene timeline)
+  ui/server.py           teacher's Server panel (lanes/VRAM via a thread every 5 s while open, queue, people, Load Model...)
+  help/student.html      students' quickstart, shipped in the zip, opened by ? (comfyq.help); docs/STUDENT.md points to it
+  surfaces.py            bpy-free SAM3 surface labels ("wall|left wall: material") → prompt (arch chain)
+  passes/segment.py runtime/segmentation.py   SAM3 on stills (3-frame MP4), union masks, overlay, fit_upload
   graph/                 node graph (Moodboard-style, docs/plans/node-graph.md): kinds.py + engine.py (bpy-free),
                          tree.py (nodes), ui.py (toolbar/operators/timer sync), run.py (running the graph),
                          outputs.py (Viewer/Import/Save), presets.py (bpy-free) + preset_ops.py (class presets)
@@ -225,6 +229,17 @@ change that session: the user must reinstall from the UI or restart Mixar.
 40. **Bash heredocs mangle backslashes**: a doubled backslash reaches Python as a single one, so `\a` becomes BEL,
     `\t` a tab, and `\` + newline joins lines. Write code with the Write/Edit tools, or build paths with `chr(92)`.
     In PowerShell run `Set-Location E:\zaki\MixarAI` first: after a `cd` into a subfolder, `.\tools\…` fails.
+    Even a quoted heredoc (`<<'EOF'`) halved `\\` in this Bash tool (2026-10-04, three times): write edit scripts
+    to the scratchpad with the Write tool, then run them.
+41. **A render started from Python logs no progress** (`bpy.ops.render.render` in `-b`: no "Sample n/m" lines, unlike
+    `-f`). The Cycles child script prints them from a `bpy.app.handlers.render_stats` handler. Pipe output arrives
+    live; `poll()` joins the reader thread at exit so the last counts / error lines are complete.
+42. **GUI checks: an open popup covers every later screenshot** (`wm.call_menu` / `call_panel` stay open in the
+    scripted run). Open menus and popovers in the LAST steps (`step_server_panel`, `step_presets_menu`).
+    `node.view_selected` needs `temp_override(window, area, region=<WINDOW region>)`, not just the area.
+43. **Look at the screenshots, not only the check results**: the GUI run passed while the presets' How to use note
+    cut its last step (frame too small) and a menu covered a shot. Frames show a Text block (`NodeFrame.text`) but
+    wrap long lines: keep note lines under ~45 characters, size `560 × (70 + 30 × lines)`.
 
 ## Status (2026-10-04 night, last commit `76a8543`, installed `76a8543`) — **hand-over for b2renger / the teacher: docs/RUNBOOK.md**
 - **Host:** Blender 5.2.2 LTS; the user's profile has build `76a8543` (MCP ON, Teacher tools ON, **Solo ON**).

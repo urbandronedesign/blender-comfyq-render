@@ -1,9 +1,10 @@
-# Runbook — Blender ↔ ComfyQ bridge (state of 2026-10-04)
+# Runbook — Blender ↔ ComfyQ bridge (state of 2026-10-04 night, build `76a8543`)
 
 For b2renger and the teacher. It covers what the bridge does today, how to install it, run it and demo
 it, how it uses ComfyQ, what was tested, and what is missing on each side. For more detail:
-[UI.md](UI.md) (every control), [CLASS.md](CLASS.md) (teacher guide), [AGENTS.md](AGENTS.md) (AI
-agents / MCP), [preset-run.md](preset-run.md) (the run of every preset), [workflow-matrix.md](workflow-matrix.md)
+[UI.md](UI.md) (every control), [CLASS.md](CLASS.md) (teacher guide), [STUDENT.md](STUDENT.md) (the students'
+quickstart), [AGENTS.md](AGENTS.md) (AI agents / MCP), [arch-render.md](arch-render.md) (architecture chain),
+[ux-audit-plan.md](ux-audit-plan.md) (the UI audit, phases A–F), [preset-run.md](preset-run.md) (the run of every preset), [workflow-matrix.md](workflow-matrix.md)
 (the earlier per-workflow sweep), [plans/node-graph.md](plans/node-graph.md) (graph design).
 
 ---
@@ -40,7 +41,7 @@ are used only by the opt-in teacher tools and solo mode (section 5).
 | 2. Install | Blender › Edit › Preferences › Get Extensions › ⌄ › *Install from Disk…*, or `blender -b --online-mode --command extension install-file -r user_default -e dist\comfyq_bridge-0.1.0.zip` (**not** `--factory-startup`: it resets the user's preferences) |
 | 3. Allow online access | Preferences › System › *Allow Online Access* (the bridge cannot connect without it) |
 | 4. Server address | Preferences › Add-ons › ComfyQ Bridge › Server › *Profile* (or *Advanced › Server Address*, for example `http://192.168.1.10:3000`; *Test Connection* checks it), or a shared `%APPDATA%\comfyq-bridge\profiles.toml` (the teacher copies one file to every PC, **without** `admin_password`, which only goes in the teacher's own file; access password / token there or in env vars, never in the .blend) |
-| 5. Student name | Same preferences page: shown on the jobs; you can only cancel your own |
+| 5. Student name | Asked in a dialog at the first *Connect* (lab PCs share Windows logins); shown on the jobs; you can only cancel your own. Change it with the ✎ beside the name in the bar |
 | 6. Connect | 3D View › sidebar › ComfyQ › *Connect* (or tick *Connect on startup*) |
 | 7. Presets (optional) | Copy `presets\library\*` (48 graphs) and the teacher's own presets into `%APPDATA%\comfyq-bridge\presets\`, or put them in one shared folder named by `presets_dir` in the deployed profile (or the *Shared Presets Folder* preference) |
 
@@ -58,24 +59,34 @@ Health check from a terminal: `.\tools\comfyq.ps1 doctor`.
 - Inputs: a clay or matcap still, the mask of the selected objects, the clay animation (always rendered
   again at Generate), files, and an "AI keyframe" chain (an image workflow makes the first frame of a
   video job).
-- Job cards show progress, "Sent" rows (what was sent), cancel, save a copy, import and download. They
-  are re-attached when the .blend is opened again.
+- Job cards show the queue place ("2nd in line · now running: Tom"), progress, "Sent" rows (what was sent),
+  cancel, save a copy, import, download and remove. **Retry** on a failed / cancelled job sends it again with the
+  same settings and files (no new render). Cards are re-attached when the .blend is opened again.
+- A greyed-out button always says why in its tooltip (not connected, model not served, settings loading…).
+- A **?** button (bar and graph header) opens the students' one-page quickstart in the browser.
 - A video player in the ComfyQ window.
 
 ### 3.2 Node graph (ComfyQ window › *Graph*, or Node Editor › ComfyQ Graph)
 - **Sources:** Scene Render (frame START / END / CURRENT, clay, matcap, material or **Cycles**: a real
-  render in a separate Blender process, so the GPU is free before the AI job), Mask, Scene Animation,
-  Image file, Video file, Audio file, Prompt.
+  render in a separate Blender process, so the GPU is free before the AI job; Blender stays usable meanwhile, the
+  node shows "Cycles 40/64" and a ✕), Mask, Scene Animation, Image file, Video file, Audio file, Prompt,
+  **Surfaces (SAM3)** (finds floor, walls, ceiling… in a picture and writes a prompt naming each one's material).
 - **Workflow nodes:** the inputs and settings come from ComfyQ's parameters. Nodes chain: one node's
   result feeds the next, and results that are still up to date are reused.
 - **Outputs:** Viewer (follows the selected node), Import, Save (folder and file name pattern), Reroute,
   Frame. Each node keeps a result history.
-- **Run Graph** books everything in dependency order and cancels cleanly. A node whose workflow is not
-  served says so before anything is booked.
+- **Run Graph** runs the selected chains (select a preset's Frame) or, with nothing selected, asks before running
+  them all; it books in dependency order, **Stop** cancels the run. A node whose workflow is not served says so
+  before anything is booked.
 - **Presets** (header › Presets):
   - 5 built-in presets made from *roles*, which pick the best served workflow: scene render → image,
-    clay animation → video, AI keyframe → video, image → 3D, image → upscale.
-  - Teacher presets: *Save Graph as Preset…* writes a JSON file; subfolders become submenus.
+    clay animation → video, AI keyframe → video, image → 3D, image → upscale. Each is added beside the graph in a
+    Frame, with a **How to use** note (numbered steps).
+  - Class presets in `presets/class/` (Cycles → photoreal; Text → 3D; **Architecture: Cycles → SAM3 surfaces →
+    Qwen edit → SeedVR2 4K**), each with its How to use note.
+  - Teacher presets: *Save Graph as Preset…* writes a JSON file; subfolders become submenus. The menu lists
+    **Saved on This PC** and **Shared** (a shared folder set by the *Shared Presets Folder* preference or the
+    profile's `presets_dir`).
   - The **workflow library: 48 presets**, one per t2i / image-edit / i2v / video-edit workflow, in 4
     submenus. Each one wires the scene sources, image file nodes for references, characters and styles,
     a Prompt node starting from the workflow's example prompt, and Viewer + Save. Settings follow the
@@ -84,10 +95,12 @@ Health check from a terminal: `.\tools\comfyq.ps1 doctor`.
 
 ### 3.3 AI agents (MCP server inside Blender, off by default)
 Preferences › *AI agents (MCP server)*. The server listens on 127.0.0.1 only, with a new token each
-start; agents connect through `mcp/launcher.py` (stdio). It offers **20 tools**:
+start; agents connect through `mcp/launcher.py` (stdio). It offers **23 tools** (+ 3 teacher tools):
 - **Scene:** `blender_scene_info`, `blender_select`, `blender_render` (still / mask / animation),
   `blender_import` (3D placed beside the scene / at the cursor, on the ground, sized), `blender_transform`,
-  `blender_world` (HDRI lighting), `blender_shadow_catcher` (ground / objects that only catch shadows).
+  `blender_world` (HDRI lighting), `blender_shadow_catcher` (ground / objects that only catch shadows),
+  `blender_segment` + `blender_task_status` (SAM3 surfaces of a render, in the background), `blender_mask_image`
+  (a repaint mask from found surfaces).
 - **Graph:** `blender_graph_describe`, `blender_graph_add_preset`, `blender_graph_set` (settings,
   prompts, files, images), `blender_graph_run`, `blender_graph_status`.
 - **ComfyQ:** `comfyq_list_workflows`, `comfyq_describe_workflow`, `comfyq_submit`, `comfyq_job_status`,
@@ -117,6 +130,16 @@ the model each node needs:
 
 Nodes say *Loads on Run* and have a **Load Model** button. In the run of the whole library, the 48
 switches took about 30 s each.
+
+### 3.5 New in UX phase F (2026-10-04)
+| What | Who | Where |
+|---|---|---|
+| **Retry** failed / cancelled jobs (same settings and files, no new render) | students | job cards |
+| **Cycles render without freezing Blender** (samples + ✕; graph Stop kills it) | everyone | Scene Render node, agents |
+| **? quickstart** + **How to use** notes on presets | students | bar, graph header, presets |
+| **Shared presets folder** (preference or `presets_dir` in the profile) | teacher | Preferences › Student; Presets › Shared |
+| **Server (Teacher)** panel: GPU memory, served models, queue, connected people, Load Model… | teacher PC only | 3D View sidebar › ComfyQ (closed by default) |
+| **Class mode** (`class_mode = true` in the students' profile): no teacher controls at all | student PCs | profiles.toml |
 
 ## 4. Demo (about 10 min, one PC, ComfyQ serving LTX 2.5 IC-LoRA canny)
 
@@ -150,14 +173,15 @@ switches took about 30 s each.
 
 | Test | Result |
 |---|---|
-| Unit + contract tests (`pytest tests/unit tests/contract`) | 68 pass (contract tests run against the live ComfyQ) |
-| Headless smoke test in Blender 5.2 (`tools/smoke_test.ps1`) | passes (passes, imports, graph, presets, MCP, teacher tools, solo with a faked switch, image upload) |
-| Visible GUI check, every button (`smoke_test.ps1 -Ui`) | 92 / 92 (before the library and solo mode) |
+| Unit + contract tests (`pytest tests/unit tests/contract`) | 79 pass, 2 skipped (contract tests run against the live ComfyQ) |
+| Headless smoke test in Blender 5.2 (`tools/smoke_test.ps1`) | passes (passes, imports, graph, presets, MCP, teacher tools, solo with a faked switch, image upload, Surfaces, UX phases A–F) |
+| Visible GUI check, every button (`smoke_test.ps1 -Ui`) | **103 / 103** (2026-10-04, after UX phase F) |
 | Agent round trip, Claude Code → MCP → render → book → import | ✅ |
 | Workflow sweep (calibrate + run each workflow from Blender) | 24 / 66 (LTX 2.5, Flux 2, Qwen 2.1, Krea 2) |
 | **Preset library run through the MCP (all 48, solo mode)** | **46 / 48 run**; 2 fail in ComfyUI ([preset-run.md](preset-run.md)). Visual baseline: `baselines/2026-10-04/index.html` (local, not in git: per workflow its description, the Blender graph, inputs, prompt + settings sent, the output image/video) |
 | Image → 3D (2026-10-04, via MCP): Flux2 Klein supercar → TRELLIS2 → GLB imported | ✅ 461k faces + 2 × 2048 textures in ~6 min; the model was complete and textured (checked from 3 angles). It landed at the origin inside the scene's cube → Import placement added |
-| Overall, by workflow | **48 of 66 run from Blender** (48 image/video + LTX deblur-upscale + TRELLIS2, minus 2 failing); **16 never run**: 3D ×4, upscalers ×3 (SeedVR2 image ×2, PiD), SeedVR2 video ×2, Marigold ×2, SAM3, frame interpolation, Gemma ×2, Stable Audio |
+| Architecture chain (2026-10-04): Cycles → SAM3 surfaces → Qwen edit → SeedVR2 4K | ✅ full class preset run headless in 388 s ([arch-render.md](arch-render.md)) |
+| Overall, by workflow | **52 of 66 run from Blender** (48 image/video + LTX deblur-upscale + TRELLIS2 + SAM3 + PiD + SeedVR2 7B image + SeedVR2 4K, minus 2 failing); **12 never run**: Pixal3D ×3, TripoSplat, SeedVR2 video ×2, Marigold ×2, frame interpolation, Gemma ×2, Stable Audio |
 
 ## 7. What is missing
 
@@ -204,21 +228,21 @@ switches took about 30 s each.
    student page reconnects. Lanes avoid that, but nothing heavy fits next to a 30 GB model on 32 GB.
 
 ### 7.2 On the bridge side
-- **16 workflows never run from Blender** (section 6; TRELLIS2 image → 3D now works). The library covers only image and video; 3D,
+- **12 workflows never run from Blender** (section 6). The library covers only image and video; 3D,
   upscale, audio, describe and utility presets are next.
 - **Agents:** the Codex round trip has not been tried (no Codex CLI on this PC). There has been no class
   rehearsal with several PCs.
 - **Untested end to end:** the bar's AI-keyframe chain, and "image workflow → video start image" in the
   graph with a live job.
-- **UI (audit 2026-10-04, `docs/ux-audit-plan.md`):** phases A–E are done:
-  - safety (admin-password gate, confirmations, student names);
-  - feedback (disabled buttons say why, queue position, Stop, Remove);
+- **UI (audit 2026-10-04, `docs/ux-audit-plan.md`): phases A–F are all done and installed:**
+  - safety (admin-password gate, Class mode, confirmations, student names);
+  - feedback (disabled buttons say why, queue position, Stop, Remove, Retry);
   - Blender HIG wording and icons, code health;
-  - layout (collapsed inputs, graph mode without the bar, presets in Frames, preference sections).
+  - layout (collapsed inputs, graph mode without the bar, presets in Frames, preference sections);
+  - phase F: non-blocking Cycles, teacher Server panel, student quickstart + How to use notes, shared presets folder.
 
-  Still open, phase F: a non-blocking Cycles render, a teacher Server panel and Class mode, in-app student help, a
-  shared presets folder preference, Retry on failed jobs. The dialog still does not redraw job progress live. The
-  graph has not been compared with the Moodboard reference.
+  Still open: the dialog does not redraw job progress live; the graph has not been compared with the Moodboard
+  reference; nobody has used phase F in a real class yet (a rehearsal with several PCs is the next test).
 - **Graph runs:** the multi-model "stage runner" with bundles across servers is only proposed. Solo mode
   covers one PC, one model at a time.
 - **Example prompts:** they describe other scenes. On a bare scene they pull results away (see the ⚠️ in
@@ -239,6 +263,9 @@ switches took about 30 s each.
 | An agent doesn't see new tools | Reconnect it (`/mcp` in Claude Code); Blender writes a new token at each start |
 | Solo mode waits forever | Someone has a scheduled or running job on ComfyQ; models never switch under a job |
 | ComfyQ unreachable for about 1 min after a switch | A main-workflow switch restarts ComfyQ; the bridge reconnects by itself |
+| Retry is greyed out | Its tooltip says why: the job was sent before Retry existed, an input file was deleted (Clean Up), or the model is not served |
+| No Server panel / Solo on the teacher PC | The profile needs `admin_password` and must not have `class_mode = true`; the panel is closed by default (click its header) |
+| A student PC shows teacher controls | Its profiles file has the admin password: deploy the class profile (with `class_mode = true`, without `admin_password`) |
 
 ## 9. Commands
 ```powershell
