@@ -34,6 +34,32 @@ def movie_meta(img: bpy.types.Image) -> tuple[int, float]:
     return _META[path]
 
 
+_PENDING: set[str] = set()
+
+
+def peek_meta(img: bpy.types.Image) -> tuple[int, float]:
+    """For draw code: the cached (frames, fps), or a cheap estimate while a timer reads the real values.
+    Loading a MovieClip writes ID data, which must never happen inside draw() (gotcha 17)."""
+    path = bpy.path.abspath(img.filepath)
+    if path in _META:
+        return _META[path]
+    if path not in _PENDING:
+        _PENDING.add(path)
+        name = img.name
+
+        def read():
+            _PENDING.discard(path)
+            im = bpy.data.images.get(name)
+            if im is not None:
+                movie_meta(im)
+                for win in bpy.context.window_manager.windows:
+                    for area in win.screen.areas:
+                        if area.type == "IMAGE_EDITOR":
+                            area.tag_redraw()
+        bpy.app.timers.register(read, first_interval=0.0)
+    return max(1, img.frame_duration), 24.0
+
+
 def forget_meta(img: bpy.types.Image) -> None:
     """The movie behind `img` changed (new clay render): re-read its frame count and fps."""
     _META.pop(bpy.path.abspath(img.filepath), None)
@@ -279,7 +305,7 @@ class COMFYQ_PT_player(bpy.types.Panel):
             if img is not None:
                 layout.label(text=f"Still image · {img.size[0]}×{img.size[1]}")
             return
-        frames, fps = movie_meta(img)
+        frames, fps = peek_meta(img)
         wm = context.window_manager
         playing = _PLAY["on"] and _PLAY["area"] == context.area.as_pointer()
         ctl = layout.row(align=True)
@@ -289,7 +315,7 @@ class COMFYQ_PT_player(bpy.types.Panel):
         ctl.operator(COMFYQ_OT_player.bl_idname, text="", icon="PAUSE" if playing else "PLAY").action = "TOGGLE"
         ctl.operator(COMFYQ_OT_player.bl_idname, text="", icon="FRAME_NEXT").action = "NEXT"
         ctl.operator(COMFYQ_OT_player.bl_idname, text="", icon="FF").action = "LAST"
-        ctl.prop(wm, "comfyq_player_loop", text="", icon="FILE_REFRESH", toggle=True)
+        ctl.prop(wm, "comfyq_player_loop", text="", icon="LOOP_FORWARDS", toggle=True)
         layout.prop(wm, "comfyq_player_pos", text=f"Frame {_PLAY['frame']} / {frames}", slider=True)
         row = layout.row(align=True)
         row.prop(wm, "comfyq_player_speed", expand=True)
@@ -297,7 +323,7 @@ class COMFYQ_PT_player(bpy.types.Panel):
         row.label(text=f"{frames} frames · {fps:g} fps · {frames / fps:.1f} s · {img.size[0]}×{img.size[1]}")
         row = layout.row(align=True)
         row.prop(wm, "comfyq_player_sync", text="Sync Scene Frame", toggle=True, icon="TIME")
-        row.operator("comfyq.open_media", text="", icon="WINDOW").path = bpy.path.abspath(img.filepath)
+        row.operator("comfyq.open_media", text="", icon="URL").path = bpy.path.abspath(img.filepath)
 
 
 class COMFYQ_OT_open_media(bpy.types.Operator):

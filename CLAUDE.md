@@ -281,7 +281,9 @@ change that session: the user must reinstall from the UI or restart Mixar.
   queue place `client/queue.py`; job card Remove; graph Stop (`Run.stop`, cancels SAM3 jobs too); model-load timer;
   plain connection errors. **Phase C done**: Title Case labels, "..." only on dialogs, no "you"/abbreviations
   (`wording.count`), verb-first tooltips, one icon one meaning (table in docs/UI.md), Copy Agent Command, model
-  tooltips = ComfyQ descriptions. Next: phase E (code health), then D (layout), F (large).
+  tooltips = ComfyQ descriptions. **Phase E done**: Player draw no longer loads a MovieClip (`peek_meta`,
+  timer reads it); per-draw parsing cached; header/menu draw functions appended once (`ui.append_once`).
+  Next: phase D (layout: node inputs, graph mode without the bar, presets in Frames, prefs, sub-panels), then F.
 
 ## Next steps
 1. Whatever the user asks next. Open candidates: run the 16 never-run workflows (3D / upscale / audio /

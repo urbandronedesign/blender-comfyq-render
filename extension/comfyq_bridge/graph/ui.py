@@ -996,8 +996,9 @@ classes = (COMFYQ_OT_graph_load_model, COMFYQ_OT_graph_add, *TAB_MENUS, COMFYQ_M
 
 
 def register_extras() -> None:
-    bpy.types.NODE_HT_header.append(_header)
-    bpy.types.NODE_MT_add.append(_add_menu)
+    from ..ui import append_once
+    append_once(bpy.types.NODE_HT_header, _header)
+    append_once(bpy.types.NODE_MT_add, _add_menu)
 
 
 def unregister_extras() -> None:

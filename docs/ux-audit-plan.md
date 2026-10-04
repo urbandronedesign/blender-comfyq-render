@@ -77,7 +77,7 @@ Severity uses Nielsen's 0–4 scale (4 = must fix before class).
 | D5 | The bar is one big box with nested boxes. In the narrow sidebar, labels get cut off ("LTX 2.5 IC-LoR…", "Qu…"). | Collapsible sub-panels (`layout.panel`): Model & Settings, Prompt, Scene, Inputs, Jobs. A short model-name form for narrow widths. |
 | D6 | Ctrl+Shift+Q doesn't work in the Node Editor, and the header buttons can't be hidden. | Add the keymap to the Node Editor. Add a preference for the header buttons. |
 
-## Phase E — code health that users feel (effort S)
+## Phase E — code health that users feel (effort S) — DONE 2026-10-04 (E1 `player.peek_meta`; E2 cached job inputs, Surfaces prompt, profile list — preset headers were already cached by mtime; E3 `ui.append_once` — the dialog's `check()` kept: returning False could stop it updating after edits; E4 no change: UNDO on async jobs is unsafe, gotcha 7)
 | # | Problem | Proposal |
 |---|---|---|
 | E1 | The Player loads and removes a MovieClip **inside draw()** (`player.py:28`). This breaks our own gotcha 17. | Read the movie data once when the movie is shown, or from the timer. |

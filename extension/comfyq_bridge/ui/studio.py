@@ -6,6 +6,9 @@ window) and a floating dialog — all from this code. Drawing only reads data.
 """
 from __future__ import annotations
 
+import functools
+import json
+
 import bpy
 
 from .. import match as scene_match
@@ -409,14 +412,19 @@ def _when(rec, job) -> str:
     return " · ".join(parts)
 
 
+@functools.lru_cache(maxsize=256)
+def _parsed(text: str) -> dict:
+    """A job's inputs JSON, parsed once per distinct string (drawing happens on every redraw)."""
+    try:
+        return json.loads(text) if text else {}
+    except ValueError:
+        return {}
+
+
 def _draw_sent(box, rec) -> None:
     """What this job was given (clay animation, start image…), each with a Show button."""
-    import json as _json
     from pathlib import Path as _Path
-    try:
-        sent = _json.loads(rec.inputs) if rec.inputs else {}
-    except ValueError:
-        sent = {}
+    sent = _parsed(rec.inputs)
     if not sent:
         return
     specs = {s.key: s for s in SESSION.specs.get(rec.workflow_id, ())}

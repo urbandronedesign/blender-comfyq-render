@@ -16,6 +16,25 @@ from .client.profile import config_path, list_profiles, load_profile
 _UNLOCK: dict = {"key": None, "on": False}
 
 
+_PROFILES: dict = {"key": None, "names": []}
+
+
+def _profiles() -> list[str]:
+    """Profile names of the profiles file, re-read only when the file changes (the preferences redraw often)."""
+    path = config_path()
+    try:
+        key = (str(path), path.stat().st_mtime if path.is_file() else 0.0)
+    except OSError:
+        key = (str(path), 0.0)
+    if _PROFILES["key"] != key:
+        try:
+            _PROFILES["names"] = list_profiles()
+        except Exception:  # noqa: BLE001 - a broken file: show nothing rather than break the preferences
+            _PROFILES["names"] = []
+        _PROFILES["key"] = key
+    return _PROFILES["names"]
+
+
 def teacher_unlocked(p=None) -> bool:
     """True on the teacher's PC: the active profile carries ComfyQ's admin password (profiles file or
     COMFYQ_ADMIN_PASSWORD). Solo mode, Load Model and the agents' teacher tools need it, so a student
@@ -89,7 +108,7 @@ class ComfyQPreferences(bpy.types.AddonPreferences):
         col.prop(self, "student_name")
         row = col.row(align=True)
         row.prop(self, "profile")
-        row.label(text="(" + ", ".join(list_profiles()) + ")")
+        row.label(text="(" + ", ".join(_profiles()) + ")")
         col.prop(self, "url")
         col.prop(self, "auto_connect")
         col.separator()

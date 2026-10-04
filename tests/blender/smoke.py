@@ -885,6 +885,26 @@ if "utility_video_segment_sam3" not in SESSION.served_ids():     # never books S
     check(err and "not served" in out["error"], "MCP blender_segment refuses while SAM3 is not served")
 err, out = mcp_tool("blender_task_status")
 check(not err and "task" in out, f"MCP blender_task_status ({(out.get('task') or {}).get('kind')})")
+# UX phase E: draw code never writes ID data; header buttons are never appended twice
+from bl_ext.user_default.comfyq_bridge.ui import player as _pl
+
+_mp4s = sorted((Path(os.environ.get("LOCALAPPDATA", "")) / "comfyq-bridge" / "cache").rglob("*.mp4"))
+if _mp4s:
+    _mimg = bpy.data.images.load(str(_mp4s[-1]), check_existing=False)
+    _pl.forget_meta(_mimg)
+    _nclips = len(bpy.data.movieclips)
+    _est = _pl.peek_meta(_mimg)                          # what the Player panel's draw() calls
+    check(len(bpy.data.movieclips) == _nclips and _est[0] >= 1,
+          f"Player draw reads movie info without creating data (estimate {_est}; the timer reads it)")
+    bpy.data.images.remove(_mimg)
+from bl_ext.user_default.comfyq_bridge import graph as _graph_pkg
+from bl_ext.user_default.comfyq_bridge.ui import panel as _panel_mod
+
+_graph_pkg.register_extras()                            # a second registration (failed reload)
+_panel_mod.register_extras()
+_hf = [f for f in getattr(bpy.types.NODE_HT_header.draw, "_draw_funcs", []) if f.__name__ == "_header"]
+_vf = [f for f in getattr(bpy.types.VIEW3D_HT_header.draw, "_draw_funcs", []) if f.__name__ == "_header_button"]
+check(len(_hf) == 1 and len(_vf) == 1, f"header buttons appended once even when registered twice ({len(_hf)}, {len(_vf)})")
 # UX phase B: why Generate is greyed out, Stop a graph run, remove a finished job from the list
 from bl_ext.user_default.comfyq_bridge.ops import generate as _gen
 

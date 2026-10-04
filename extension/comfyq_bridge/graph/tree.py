@@ -7,6 +7,7 @@ are chips inside the node (no setting sockets). Running the graph comes in N2.
 """
 from __future__ import annotations
 
+import functools
 import json
 
 import bpy
@@ -626,6 +627,17 @@ _INTRO = ("Photorealistic architectural photograph, natural daylight, soft reali
 _OUTRO = "Keep the exact layout, camera, perspective and proportions."
 
 
+@functools.lru_cache(maxsize=64)
+def _surfaces_prompt(regions_json: str, surfaces: str, intro: str, outro: str) -> str:
+    from ..surfaces import Region, materials_of, parse_surfaces, surface_prompt
+    try:
+        found = json.loads(regions_json) if regions_json else []
+    except ValueError:
+        found = []
+    regions = [Region(r["label"], r["coverage_pct"] / 100, tuple(r["bbox"]), r.get("mask", "")) for r in found]
+    return surface_prompt(regions, materials_of(parse_surfaces(surfaces)), intro, outro)
+
+
 class ComfyQSurfacesNode(_Node, bpy.types.Node):
     """SAM3 finds each named surface (floor, walls, window…) in the picture: Prompt = the surfaces it found,
     each with its material; Overlay = the picture with every surface tinted"""
@@ -676,11 +688,8 @@ class ComfyQSurfacesNode(_Node, bpy.types.Node):
 
     def prompt(self) -> str:
         """The surfaces SAM3 found, named with the materials of the list as it is NOW (editing a material
-        needs no new segmentation)."""
-        from ..surfaces import Region, materials_of, parse_surfaces, surface_prompt
-        regions = [Region(r["label"], r["coverage_pct"] / 100, tuple(r["bbox"]), r.get("mask", ""))
-                   for r in self.found()]
-        return surface_prompt(regions, materials_of(parse_surfaces(self.value())), self.intro, self.outro)
+        needs no new segmentation). Cached on its inputs: the node draws it on every redraw."""
+        return _surfaces_prompt(self.regions, self.value(), self.intro, self.outro)
 
     def draw_buttons(self, context, layout):
         from pathlib import Path

@@ -119,7 +119,8 @@ _keymaps: list = []
 
 
 def register_extras() -> None:
-    bpy.types.VIEW3D_HT_header.append(_header_button)
+    from . import append_once
+    append_once(bpy.types.VIEW3D_HT_header, _header_button)
     kc = bpy.context.window_manager.keyconfigs.addon
     if kc is not None:                      # None in background mode
         # Ctrl+Shift+Q ("Q" for ComfyQ): free in Blender and Mixar. Ctrl+Shift+G is taken by Object
