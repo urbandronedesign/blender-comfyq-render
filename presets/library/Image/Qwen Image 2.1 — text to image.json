@@ -1,0 +1,84 @@
+{
+ "format": 1,
+ "label": "Qwen Image 2.1 — text to image",
+ "description": "Make an image from a written description with Qwen Image 2.1. It is unusually good at TEXT inside the picture — signs, posters, packaging, handwriting — in Latin and Chinese alike, so put the words you want rendered i…\nFrom: Prompt. Viewer + Save",
+ "made": "2026-10-04 09:32",
+ "nodes": [
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "image_qwen_image_2_1_t2i",
+   "params": [],
+   "match_scene": true
+  },
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -820.0,
+    0.0
+   ],
+   "width": 340.0,
+   "label": "Prompt",
+   "parent": "",
+   "text": "A weathered enamel shop sign above a rainy Parisian street, the sign reads \"CAFÉ DES ARTS\" in cream lettering on deep green, warm window light spilling onto wet cobbles, shallow depth of field, photographic"
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}"
+  }
+ ],
+ "links": [
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "textencodeqwenimage21_prompt_459_452"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ],
+ "library": {
+  "workflow_id": "image_qwen_image_2_1_t2i",
+  "category": "t2i"
+ }
+}

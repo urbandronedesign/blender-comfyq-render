@@ -1,0 +1,84 @@
+{
+ "format": 1,
+ "label": "FastVideo FastH3 — text to video with sound (8 steps)",
+ "description": "Write a scene and get a short film back WITH its soundtrack — dialogue, effects and music are generated together with the picture, in sync.  This is MiniMax H3 distilled to 8 sampling steps by FastVideo, so it is seve…\nFrom: Prompt. Viewer + Save",
+ "made": "2026-10-04 09:32",
+ "nodes": [
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "video_fastvideo_fasth3_t2v",
+   "params": [],
+   "match_scene": true
+  },
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -820.0,
+    0.0
+   ],
+   "width": 340.0,
+   "label": "Prompt",
+   "parent": "",
+   "text": "[Shot 1] Cinematic wide shot, slow dolly through a sunlit forest, dust motes drifting in shafts of light, a deer lifts its head and looks into the lens. We hear birdsong, leaves under hoof, and a low warm drone underneath."
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}"
+  }
+ ],
+ "links": [
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "minimaxh3imagetovideo_prompt_105_104"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Video",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Video",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ],
+ "library": {
+  "workflow_id": "video_fastvideo_fasth3_t2v",
+  "category": "i2v"
+ }
+}

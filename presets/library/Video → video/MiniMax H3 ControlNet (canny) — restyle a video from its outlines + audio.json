@@ -1,0 +1,102 @@
+{
+ "format": 1,
+ "label": "MiniMax H3 ControlNet (canny) — restyle a video from its outlines + audio",
+ "description": "Upload a video and describe a new look. The clip is turned into an edge map (Canny) and MiniMax H3 generates a brand-new video that follows those outlines — new characters, materials, setting and lighting — with a mat…\nFrom: Clay animation, Prompt. Viewer + Save",
+ "made": "2026-10-04 09:32",
+ "nodes": [
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "video_edit_minimax_h3_fun_controlnet_canny",
+   "params": [],
+   "match_scene": true
+  },
+  {
+   "name": "Scene Animation",
+   "type": "ComfyQSceneAnimationNode",
+   "location": [
+    -820.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "Clay animation",
+   "parent": "",
+   "style": "CLAY"
+  },
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -820.0,
+    -330.0
+   ],
+   "width": 340.0,
+   "label": "Prompt",
+   "parent": "",
+   "text": "Scene: Hyperreal desert-storm aesthetic. A humanoid figure made of packed sand dances in a barren wasteland, each move shedding dust, the wind eroding and reshaping its body.\n[0s-2s] Pale desert, a sand humanoid begins to move from stillness, surface grains trickling off and dragging mist-like trails in the wind.\n[2s-4s] Spins and arm swings keep dissolving and rebuilding its edges, raised sand columns glowing gold in hard light under a searing white sky.\n[4s-5s] On the final pose, half the body has already been carried away by wind as a hanging line of sand, not yet fallen.\nCamera: medium fixed shot, focus pull from sand-grain close-up to full body.\nAudio: fine sand-scrape texture throughout, one distant desert wind call at 2s, no music.\nNegative: no dissolve transitions / no text overlays / no human face / no camera shake"
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}"
+  }
+ ],
+ "links": [
+  {
+   "from": "Scene Animation",
+   "from_socket": "Video",
+   "to": "Workflow",
+   "to_socket": "loadvideo_file_174"
+  },
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "primitivestringmultiline_value_138"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Video",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Video",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ],
+ "library": {
+  "workflow_id": "video_edit_minimax_h3_fun_controlnet_canny",
+  "category": "video-edit"
+ }
+}

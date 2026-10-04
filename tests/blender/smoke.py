@@ -608,7 +608,30 @@ wb = next(n for n in back.nodes if n.bl_idname == "ComfyQWorkflowNode" and n.wor
 check(same_types and len(back.links) == len(keep_tree.links) and all(lk.is_valid for lk in back.links)
       and (fkey is None or abs(wb.item(fkey.key).f - 0.73) < 1e-5),
       f"saved preset rebuilds the same graph ({len(back.nodes)} nodes, {len(back.links)} links, settings kept)")
-for t in (keep_tree, back):
+# the generated library (tools/make_preset_library.py): subfolders = submenus; workflow nodes saved with
+# no settings + "match_scene" take the workflow's defaults and the scene's duration / size / fps
+lib = json.loads(json.dumps(data))
+for d in lib["nodes"]:
+    if d["type"] == "ComfyQWorkflowNode":
+        d["params"], d["match_scene"] = [], True
+(shared / "Video → video").mkdir(exist_ok=True)
+(shared / "Video → video" / "lib.json").write_text(json.dumps({**lib, "label": "Smoke lib"}), encoding="utf-8")
+groups = {h["label"]: h["group"] for _f, h in gpo.saved_presets()}
+check(groups.get("Smoke lib") == "Video → video" and groups.get("Smoke class") == "",
+      f"presets in a subfolder are grouped (a submenu): {groups}")
+lib_back = bpy.data.node_groups.new("smoke lib back", gtree_mod.TREE)
+gpo.build_saved(lib, lib_back, scene)
+wl = next(n for n in lib_back.nodes if n.bl_idname == "ComfyQWorkflowNode" and n.workflow_id == wkey.workflow_id)
+from bl_ext.user_default.comfyq_bridge import match as _sm
+from bl_ext.user_default.comfyq_bridge.ops.workflow import scene_facts as _facts
+
+_want = {k: v for k, v in _sm.match(SESSION.specs[wl.workflow_id], _facts(scene)).values.items()
+         if wl.item(k) is not None and wl.item(k).kind in ("int", "seed", "float")}     # what _match_scene sets
+_got = {k: (wl.item(k).i if wl.item(k).kind in ("int", "seed") else wl.item(k).f) for k in _want}
+check(len(lib_back.links) == len(keep_tree.links) and all(abs(_got[k] - float(v)) < 1e-3 for k, v in _want.items())
+      and (fkey is None or abs(wl.item(fkey.key).f - 0.73) > 1e-5),
+      f"library preset: same links, workflow defaults, matched to the scene {_got}")
+for t in (keep_tree, back, lib_back):
     bpy.data.node_groups.remove(t)
 shutil.rmtree(shared, ignore_errors=True)
 del os.environ["COMFYQ_BRIDGE_PRESETS"]

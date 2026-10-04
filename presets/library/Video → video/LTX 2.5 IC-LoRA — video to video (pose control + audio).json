@@ -1,0 +1,121 @@
+{
+ "format": 1,
+ "label": "LTX 2.5 IC-LoRA — video to video (pose control + audio)",
+ "description": "Make a new character perform the movements of the people in your video. Upload a source video with people in it (and, optionally, a start image): the body, hand and face poses of every frame are detected (DWPose) and…\nFrom: Clay animation, First frame, Prompt. Viewer + Save",
+ "made": "2026-10-04 09:32",
+ "nodes": [
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "video_edit_ltx2_5_iclora_pose_control",
+   "params": [],
+   "match_scene": true
+  },
+  {
+   "name": "Scene Animation",
+   "type": "ComfyQSceneAnimationNode",
+   "location": [
+    -820.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "Clay animation",
+   "parent": "",
+   "style": "CLAY"
+  },
+  {
+   "name": "Scene Render",
+   "type": "ComfyQSceneRenderNode",
+   "location": [
+    -820.0,
+    -330.0
+   ],
+   "width": 300.0,
+   "label": "First frame",
+   "parent": "",
+   "style": "CLAY",
+   "frame": "START"
+  },
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -820.0,
+    -660.0
+   ],
+   "width": 340.0,
+   "label": "Prompt",
+   "parent": "",
+   "text": "A shiny chrome robot dancing on a neon-lit city rooftop at night, reflections sliding over its metal body, light rain, cinematic lighting. Upbeat electronic music."
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}"
+  }
+ ],
+ "links": [
+  {
+   "from": "Scene Animation",
+   "from_socket": "Video",
+   "to": "Workflow",
+   "to_socket": "loadvideo_file_5001"
+  },
+  {
+   "from": "Scene Render",
+   "from_socket": "Image",
+   "to": "Workflow",
+   "to_socket": "loadimage_image_2004"
+  },
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "primitivestringmultiline_value_5508"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Video",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Video",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ],
+ "library": {
+  "workflow_id": "video_edit_ltx2_5_iclora_pose_control",
+  "category": "video-edit"
+ }
+}

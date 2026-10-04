@@ -1,0 +1,156 @@
+{
+ "format": 1,
+ "label": "Wan 2.2 — key-frame animation (4 frames to video)",
+ "description": "Turn four still key frames into one continuous video. Wan 2.2 generates a smooth animated transition between each consecutive pair of frames (frame 1→2, 2→3, 3→4) and stitches the three segments into a single clip.  I…\nFrom: First frame, Key frame 2, Key frame 3, Last frame, Prompt. Viewer + Save",
+ "made": "2026-10-04 09:32",
+ "nodes": [
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "video_wan22_4_key_frames",
+   "params": [],
+   "match_scene": true
+  },
+  {
+   "name": "Scene Render",
+   "type": "ComfyQSceneRenderNode",
+   "location": [
+    -820.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "First frame",
+   "parent": "",
+   "style": "CLAY",
+   "frame": "START"
+  },
+  {
+   "name": "Image",
+   "type": "ComfyQImageNode",
+   "location": [
+    -820.0,
+    -330.0
+   ],
+   "width": 300.0,
+   "label": "Key frame 2",
+   "parent": ""
+  },
+  {
+   "name": "Image.001",
+   "type": "ComfyQImageNode",
+   "location": [
+    -820.0,
+    -660.0
+   ],
+   "width": 300.0,
+   "label": "Key frame 3",
+   "parent": ""
+  },
+  {
+   "name": "Scene Render.001",
+   "type": "ComfyQSceneRenderNode",
+   "location": [
+    -820.0,
+    -990.0
+   ],
+   "width": 300.0,
+   "label": "Last frame",
+   "parent": "",
+   "style": "CLAY",
+   "frame": "END"
+  },
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -820.0,
+    -1320.0
+   ],
+   "width": 340.0,
+   "label": "Prompt",
+   "parent": "",
+   "text": "Red minimalist line art animation of a man performing a capoeira meia lua de compasso. From a standing leaning stance, the man smoothly bends forward at the waist. His torso rotates downward toward the floor as his hands reach down to plant firmly onto the ground for support. His back begins to arch, and his weight shifts entirely onto his hands and pivoting front foot, preparing to unleash the spinning kick. Fluid transition, clean red lines on a plain white background."
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}"
+  }
+ ],
+ "links": [
+  {
+   "from": "Scene Render",
+   "from_socket": "Image",
+   "to": "Workflow",
+   "to_socket": "loadimage_image_62"
+  },
+  {
+   "from": "Image",
+   "from_socket": "Image",
+   "to": "Workflow",
+   "to_socket": "loadimage_image_122"
+  },
+  {
+   "from": "Image.001",
+   "from_socket": "Image",
+   "to": "Workflow",
+   "to_socket": "loadimage_image_124"
+  },
+  {
+   "from": "Scene Render.001",
+   "from_socket": "Image",
+   "to": "Workflow",
+   "to_socket": "loadimage_image_126"
+  },
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "cliptextencode_text_140_6"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Video",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Video",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ],
+ "library": {
+  "workflow_id": "video_wan22_4_key_frames",
+  "category": "i2v"
+ }
+}

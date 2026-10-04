@@ -1,0 +1,102 @@
+{
+ "format": 1,
+ "label": "Wan 2.2 Bernini-R — AI video editing",
+ "description": "Edit or restyle a short video by describing the change in words. Upload a clip and type an instruction — the Bernini-R model (Wan 2.2) regenerates the clip following your prompt while keeping its motion and timing. Th…\nFrom: Clay animation, Prompt. Viewer + Save",
+ "made": "2026-10-04 09:32",
+ "nodes": [
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "video_edit_bernini_r_video_editing",
+   "params": [],
+   "match_scene": true
+  },
+  {
+   "name": "Scene Animation",
+   "type": "ComfyQSceneAnimationNode",
+   "location": [
+    -820.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "Clay animation",
+   "parent": "",
+   "style": "CLAY"
+  },
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -820.0,
+    -330.0
+   ],
+   "width": 340.0,
+   "label": "Prompt",
+   "parent": "",
+   "text": "Restyle the video in the style of a frame by frame claymotion animation"
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}"
+  }
+ ],
+ "links": [
+  {
+   "from": "Scene Animation",
+   "from_socket": "Video",
+   "to": "Workflow",
+   "to_socket": "loadvideo_file_47"
+  },
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "primitivestringmultiline_value_76_114"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Video",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Video",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ],
+ "library": {
+  "workflow_id": "video_edit_bernini_r_video_editing",
+  "category": "video-edit"
+ }
+}

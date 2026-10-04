@@ -1,0 +1,101 @@
+{
+ "format": 1,
+ "label": "Krea 2 Turbo — generate in the style of 1–3 pictures",
+ "description": "Generate a new picture in the STYLE of one to three pictures you supply. Krea 2 Turbo reads the look — palette, material, light, brushwork, grain — from your references and applies it to whatever you describe, rather…\nFrom: Prompt, Style reference 1. Viewer + Save",
+ "made": "2026-10-04 09:32",
+ "nodes": [
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "image_krea2_turbo_style_reference",
+   "params": [],
+   "match_scene": true
+  },
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -820.0,
+    0.0
+   ],
+   "width": 340.0,
+   "label": "Prompt",
+   "parent": "",
+   "text": "a white yeti with horns reading a book that glows"
+  },
+  {
+   "name": "Image",
+   "type": "ComfyQImageNode",
+   "location": [
+    -820.0,
+    -330.0
+   ],
+   "width": 300.0,
+   "label": "Style reference 1",
+   "parent": ""
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}"
+  }
+ ],
+ "links": [
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "primitivestringmultiline_value_30_19"
+  },
+  {
+   "from": "Image",
+   "from_socket": "Image",
+   "to": "Workflow",
+   "to_socket": "loadimage_image_69"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ],
+ "library": {
+  "workflow_id": "image_krea2_turbo_style_reference",
+  "category": "t2i"
+ }
+}

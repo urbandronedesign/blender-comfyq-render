@@ -1,0 +1,122 @@
+{
+ "format": 1,
+ "label": "LTX 2.5 — first & last frame to video + audio",
+ "description": "Give a START image and an END image and LTX 2.5 generates a short video that travels from the first frame to the last, with a matching audio track. In the prompt, describe what happens in between — the motion, the cam…\nFrom: First frame, Last frame, Prompt. Viewer + Save",
+ "made": "2026-10-04 09:32",
+ "nodes": [
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "video_ltx2_5_flf2v",
+   "params": [],
+   "match_scene": true
+  },
+  {
+   "name": "Scene Render",
+   "type": "ComfyQSceneRenderNode",
+   "location": [
+    -820.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "First frame",
+   "parent": "",
+   "style": "CLAY",
+   "frame": "START"
+  },
+  {
+   "name": "Scene Render.001",
+   "type": "ComfyQSceneRenderNode",
+   "location": [
+    -820.0,
+    -330.0
+   ],
+   "width": 300.0,
+   "label": "Last frame",
+   "parent": "",
+   "style": "CLAY",
+   "frame": "END"
+  },
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -820.0,
+    -660.0
+   ],
+   "width": 340.0,
+   "label": "Prompt",
+   "parent": "",
+   "text": "Use the provided start image as the first frame and the provided end image as the final frame anchor. The video opens on the back of the robotic hand, four fingers slightly curled, joints glowing faintly in the darkness, a low electrical hum filling the space. The hand rotates slowly at the wrist, turning from the back view toward the palm side, the four visible fingers uncurling gently one by one, starting with the index finger, then the middle, ring, and pinky, each joint clicking softly. As the palm turns upward, the thumb swings out from the side of the hand into view, clearly separate from the four fingers, all five fingers spreading open. A blue energy crystal fades into existence above the palm, its hum rising into a resonant tone, thin energy threads coiling around it, particles crackling softly as they spiral away like sparks. The crystal rotates slowly, hovering above the fully open hand, light spilling between the five spread fingers, the crystal's steady hum filling the silence as the video ends on the open palm with the glowing crystal.\n"
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}"
+  }
+ ],
+ "links": [
+  {
+   "from": "Scene Render",
+   "from_socket": "Image",
+   "to": "Workflow",
+   "to_socket": "loadimage_image_31"
+  },
+  {
+   "from": "Scene Render.001",
+   "from_socket": "Image",
+   "to": "Workflow",
+   "to_socket": "loadimage_image_39"
+  },
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "primitivestringmultiline_value_251_252"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Video",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Video",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ],
+ "library": {
+  "workflow_id": "video_ltx2_5_flf2v",
+  "category": "i2v"
+ }
+}

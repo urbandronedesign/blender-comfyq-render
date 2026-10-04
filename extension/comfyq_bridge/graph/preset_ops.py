@@ -183,8 +183,10 @@ def serialize(tree, label: str, description: str) -> dict:
             "made": time.strftime("%Y-%m-%d %H:%M"), "nodes": nodes, "links": links}
 
 
-def build_saved(data: dict, tree) -> list:
-    """Re-create a saved graph (its workflows' parameters must be loaded)."""
+def build_saved(data: dict, tree, scene=None) -> list:
+    """Re-create a saved graph (its workflows' parameters must be loaded). A workflow node saved with
+    `"match_scene": true` (the generated library) keeps the workflow's defaults and takes duration /
+    size / fps from `scene`, like the built-in presets."""
     ox, oy = _origin(tree)
     made, placed = {}, []
     for d in data.get("nodes", []):
@@ -216,6 +218,8 @@ def build_saved(data: dict, tree) -> list:
                 if p.get("text"):
                     it.text = bpy.data.texts.new(f"ComfyQ prompt · {node.name}")
                     it.text.write(p["text"])
+            if d.get("match_scene") and scene is not None:
+                _match_scene(node, SESSION.specs[node.workflow_id], scene)
             node.refresh_visibility(SESSION.specs[node.workflow_id])
         elif d["type"] == "NodeFrame" and d.get("height"):
             node.height = d["height"]
@@ -240,13 +244,17 @@ def build_saved(data: dict, tree) -> list:
 
 
 def saved_presets() -> list[tuple[Path, dict]]:
-    """(file, its header) of every saved preset, user folder first then the shared one."""
+    """(file, its header) of every saved preset, user folder first then the shared one. Files in a
+    subfolder (one level) are grouped: header["group"] = the subfolder's name (a submenu)."""
     out = []
     for folder in presets.folders():
         if folder.is_dir():
-            for f in sorted(folder.glob("*.json")):
-                out.append((f, _header(f)))
-    return [(f, h) for f, h in out if h]
+            files = sorted(folder.glob("*.json")) + sorted(folder.glob("*/*.json"))
+            for f in files:
+                head = _header(f)
+                if head:
+                    out.append((f, {**head, "group": "" if f.parent == folder else f.parent.name}))
+    return out
 
 
 _HEADERS: dict[str, tuple[int, dict]] = {}
@@ -347,7 +355,7 @@ def add_preset(tree_name: str, scene_name: str, preset: str, done=None) -> str |
         label = data.get("label") or path.stem
 
         def then():
-            made = build_saved(data, bpy.data.node_groups.get(tree_name))
+            made = build_saved(data, bpy.data.node_groups.get(tree_name), bpy.data.scenes.get(scene_name))
             finish(True, f"Preset “{label}” added", [n.name for n in made])
 
     SESSION.status_note = f"Loading the workflows of “{label}”…"
@@ -432,12 +440,36 @@ class COMFYQ_MT_graph_presets(bpy.types.Menu):
             layout.separator()
             layout.label(text="Saved")
             for path, head in saved:
-                layout.operator(COMFYQ_OT_graph_preset.bl_idname, text=head["label"],
-                                icon="FILE").preset = str(path)
+                if not head["group"]:
+                    layout.operator(COMFYQ_OT_graph_preset.bl_idname, text=head["label"],
+                                    icon="FILE").preset = str(path)
+            groups = list(dict.fromkeys(h["group"] for _p, h in saved if h["group"]))
+            _GROUPS[:] = groups[:len(GROUP_MENUS)]
+            for i, name in enumerate(_GROUPS):
+                layout.menu(GROUP_MENUS[i].bl_idname, text=name, icon="FILE_FOLDER")
         layout.separator()
         layout.operator(COMFYQ_OT_graph_save_preset.bl_idname, icon="FILE_TICK")
         layout.operator(COMFYQ_OT_graph_presets_folder.bl_idname, icon="FILE_FOLDER")
 
 
+# Subfolders of the presets folders are submenus. Menus are classes, so a fixed pool is registered;
+# the Presets menu assigns the group names when it draws (before any submenu can open).
+_GROUPS: list[str] = []
+
+
+def _group_menu(i: int):
+    def draw(self, context):
+        if i >= len(_GROUPS):
+            return
+        for path, head in saved_presets():
+            if head["group"] == _GROUPS[i]:
+                self.layout.operator(COMFYQ_OT_graph_preset.bl_idname, text=head["label"],
+                                     icon="FILE").preset = str(path)
+    return type(f"COMFYQ_MT_graph_preset_group_{i}", (bpy.types.Menu,),
+                {"bl_idname": f"COMFYQ_MT_graph_preset_group_{i}", "bl_label": "Presets", "draw": draw})
+
+
+GROUP_MENUS = tuple(_group_menu(i) for i in range(12))
+
 classes = (COMFYQ_OT_graph_preset, COMFYQ_OT_graph_save_preset, COMFYQ_OT_graph_presets_folder,
-           COMFYQ_MT_graph_presets)
+           COMFYQ_MT_graph_presets, *GROUP_MENUS)

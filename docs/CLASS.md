@@ -68,6 +68,31 @@ A saved preset is an exact copy: the same workflows (if one is not served that d
 *Not served*), settings, prompts and links. Image files are referenced by their path, so use images
 every PC can reach (or let students pick theirs).
 
+**Subfolders are submenus.** A preset file in a subfolder of the presets folder (one level, e.g.
+`presets\Video → video\…json`) appears under **Presets › Saved › <subfolder>**: use them to sort a
+long list by lesson or task.
+
+### The workflow library (one preset per image / video workflow)
+`presets\library\` in this repository holds 48 ready-made graphs, one per workflow of ComfyQ's image and
+video categories, sorted into four submenus: **Image** (t2i, 9), **Image edit** (13), **Image → video**
+(i2v, 11), **Video → video** (15). Each one is wired the same way:
+
+- **Scene render** (clay, current frame) for the image to edit or the structure to follow; **First /
+  Last frame** of the scene for videos that start or end on an image; **Clay animation** for a source video;
+  **Mask (selected objects)** for inpainting;
+- an **image file node** wherever the workflow wants a picture the scene cannot give: a character, a
+  style or a reference, a portrait, a reference sheet, a stylized keyframe (the student picks the file);
+  an audio file node for speech; optional extra images are left free;
+- a **Prompt** node starting from the workflow's own example prompt; **Viewer + Save** on the result;
+- the workflow's **default settings**, with its duration / size / fps **matched to the scene** the
+  preset is added to (not frozen at the time it was made).
+
+Install: copy the four folders of `presets\library\` into each PC's presets folder (or into the shared
+`COMFYQ_BRIDGE_PRESETS` folder). Only workflows ComfyQ serves that day can run; the others show
+*Not served*. Regenerate after ComfyQ's workflows change (headless, no GPU, extension installed in the
+profile it runs with):
+`blender -b --online-mode --python tools\make_preset_library.py -- presets\library [t2i,image-edit,i2v,video-edit]`
+
 ## 4. Fair use of the GPU
 
 Every job goes through ComfyQ's queue (one GPU, first come first served): long videos block others.

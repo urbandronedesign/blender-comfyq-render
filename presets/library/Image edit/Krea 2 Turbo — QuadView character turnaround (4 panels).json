@@ -1,0 +1,101 @@
+{
+ "format": 1,
+ "label": "Krea 2 Turbo — QuadView character turnaround (4 panels)",
+ "description": "Upload a picture of a character and get back one landscape image (1536x1024) split into four panels of that same character: a face close-up, a front full-body view, a side full-body view and a back full-body view. It'…\nFrom: Character image, Prompt. Viewer + Save",
+ "made": "2026-10-04 09:32",
+ "nodes": [
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "image_edit_krea2_quadview",
+   "params": [],
+   "match_scene": true
+  },
+  {
+   "name": "Image",
+   "type": "ComfyQImageNode",
+   "location": [
+    -820.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "Character image",
+   "parent": ""
+  },
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -820.0,
+    -330.0
+   ],
+   "width": 340.0,
+   "label": "Prompt",
+   "parent": "",
+   "text": "Convert the character in the image to a Character Sheet showing a face close-up, front full body, side full body and back full body views"
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}"
+  }
+ ],
+ "links": [
+  {
+   "from": "Image",
+   "from_socket": "Image",
+   "to": "Workflow",
+   "to_socket": "loadimage_image_72"
+  },
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "krea2editgroundedencode_prompt_119"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ],
+ "library": {
+  "workflow_id": "image_edit_krea2_quadview",
+  "category": "image-edit"
+ }
+}

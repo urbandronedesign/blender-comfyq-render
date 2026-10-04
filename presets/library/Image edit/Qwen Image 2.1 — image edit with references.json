@@ -1,0 +1,120 @@
+{
+ "format": 1,
+ "label": "Qwen Image 2.1 — image edit with references",
+ "description": "Edit a picture with Qwen Image 2.1 — or, with no picture at all, just generate one from the prompt.  Upload up to 16 pictures and refer to them in the prompt as <image1>, <image2> and so on. Image 1 is the one being e…\nFrom: Prompt, Scene render, Image 2. Viewer + Save",
+ "made": "2026-10-04 09:32",
+ "nodes": [
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "image_qwen_image_2_1_image_edit",
+   "params": [],
+   "match_scene": true
+  },
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -820.0,
+    0.0
+   ],
+   "width": 340.0,
+   "label": "Prompt",
+   "parent": "",
+   "text": "Keep the character and pose in <image1> unchanged, put the light blue denim shirt from <image2> on the character, preserve the original facial features, hair, body shape and pose, keep the original background and lighting, realistic fabric texture, sharp details"
+  },
+  {
+   "name": "Scene Render",
+   "type": "ComfyQSceneRenderNode",
+   "location": [
+    -820.0,
+    -330.0
+   ],
+   "width": 300.0,
+   "label": "Scene render",
+   "parent": "",
+   "style": "CLAY",
+   "frame": "CURRENT"
+  },
+  {
+   "name": "Image",
+   "type": "ComfyQImageNode",
+   "location": [
+    -820.0,
+    -660.0
+   ],
+   "width": 300.0,
+   "label": "Image 2",
+   "parent": ""
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}"
+  }
+ ],
+ "links": [
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "textencodeqwenimage21_prompt_459_474"
+  },
+  {
+   "from": "Scene Render",
+   "from_socket": "Image",
+   "to": "Workflow",
+   "to_socket": "loadimage_image_470"
+  },
+  {
+   "from": "Image",
+   "from_socket": "Image",
+   "to": "Workflow",
+   "to_socket": "loadimage_image_475"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ],
+ "library": {
+  "workflow_id": "image_qwen_image_2_1_image_edit",
+  "category": "image-edit"
+ }
+}

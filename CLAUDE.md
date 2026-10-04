@@ -17,7 +17,7 @@ Git: local repo, branch `main`, no remote. Commit author = repo-local `urbandron
 ## Environment (this machine)
 | Thing | Where |
 |---|---|
-| **Blender 5.2.2 LTS** (Python 3.13.13) — the host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (build of commit `a3786b2`: graph N0–N5, MCP + teacher tools, clay MP4 with sound), Allow Online Access on, **AI agents (MCP server) ON** (port 8790), **Teacher tools ON** (agents may load models; set 2026-10-04 by a startup script + `save_userpref`). Theme = Mixar's **"Mixar Forest"** with Input node colour changed from #ff284d to #3d4640 (calmer graph headers) (exported from `%APPDATA%\Mixar\Mixar\5.2\config\mixar_userpref.blend`, preset `scripts\presets\interface_theme\mixar_forest.xml`; previous prefs backed up as `config\userpref.before_mixar_theme.blend`) Default of `smoke_test.ps1` and `comfyq.ps1` |
+| **Blender 5.2.2 LTS** (Python 3.13.13) — the host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (build of commit `40bdf7d`: graph N0–N5, MCP + teacher tools, clay MP4 with sound, open-folder windows to the front — confirmed by the user 2026-10-04), Allow Online Access on, **AI agents (MCP server) ON** (port 8790), **Teacher tools ON** (agents may load models; set 2026-10-04 by a startup script + `save_userpref`). Theme = Mixar's **"Mixar Forest"** with Input node colour changed from #ff284d to #3d4640 (calmer graph headers) (exported from `%APPDATA%\Mixar\Mixar\5.2\config\mixar_userpref.blend`, preset `scripts\presets\interface_theme\mixar_forest.xml`; previous prefs backed up as `config\userpref.before_mixar_theme.blend`) Default of `smoke_test.ps1` and `comfyq.ps1` |
 | Mixar 4.2.0 | **uninstalled 2026-10-03** (was `C:\Program Files\Mixar\mixar.exe`, profile `%APPDATA%\Mixar\Mixar\5.2`) |
 | ComfyQ server (Node, Socket.IO, SQLite) | `F:\ComfyQ`, http://127.0.0.1:3000 — user works with b2renger, full control of its code |
 | ComfyUI 0.37, torch 2.8 cu128, RTX 5090 32 GB | `F:\ComfyUI_windows_portable_nvidia\…`, :8188 (listens on 0.0.0.0 — P1.0 issue) |
@@ -77,6 +77,9 @@ tools/late_open.py       start Mixar THEN open a file (workaround for the launch
 tools/blender_mcp.py     repo wrapper of mcp/launcher.py (used by .mcp.json)
 tools/agent_roundtrip.ps1  sandbox Blender + MCP on + `claude -p` doing render → submit → wait → import
 tools/graph_send.py      build Scene Animation → served V2V node on a real file, Generate on the node, trace it
+tools/make_preset_library.py  headless (sandbox profile): one saved preset per image/video workflow →
+                         presets/library/<Image|Image edit|Image → video|Video → video>/*.json (docs/CLASS.md §3)
+presets/library/         the generated workflow library (48 presets, committed; copied to the user's presets folder)
 ```
 
 ## Commands
@@ -199,7 +202,11 @@ change that session: the user must reinstall from the UI or restart Mixar.
   nodes from ComfyQ's parameters, running with chains/reuse/cancel), N3 look (graph mode of the ComfyQ
   window, Open as Graph, video thumbnails, adaptive header), N4 outputs (Viewer / Import / Save, Reroute,
   Frame, result history, sidebar ComfyQ tab), N5 class presets (5 built in by role + teacher presets in
-  JSON, shared via `COMFYQ_BRIDGE_PRESETS`; teacher guide **docs/CLASS.md**). `smoke_test.ps1 -Ui` 92/92,
+  JSON, shared via `COMFYQ_BRIDGE_PRESETS`; teacher guide **docs/CLASS.md**). **Workflow library**: 48
+  generated presets (one per t2i / image-edit / i2v / video-edit workflow) in `presets/library/`, copied to
+  the user's `%APPDATA%\comfyq-bridge\presets` (2026-10-04); subfolders = submenus of Presets › Saved;
+  saved workflow nodes with `match_scene` keep defaults + take the scene's duration/size/fps. All 48 load
+  in a sandbox with every link; **none run on the GPU from the library yet**. `smoke_test.ps1 -Ui` 92/92,
   `-Ui -Book` green. **Not yet compared with the Moodboard screenshot by the user.**
 - **Done — P1.4 MCP** (docs/AGENTS.md): server inside the extension (off by default; ON in the user's
   prefs), 127.0.0.1 + token in `%APPDATA%\comfyq-bridge\mcp.json`, 17 tools (+3 **teacher tools** behind the

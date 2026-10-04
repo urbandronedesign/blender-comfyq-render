@@ -1,0 +1,84 @@
+{
+ "format": 1,
+ "label": "LTX 2.5 — text to video + audio",
+ "description": "Type a prompt and LTX 2.5 generates a short video from scratch, with a matching audio track — no input image needed. Describe the scene, the action as it unfolds over time, the camera move, and any sounds or dialogue.…\nFrom: Prompt. Viewer + Save",
+ "made": "2026-10-04 09:32",
+ "nodes": [
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "video_ltx2_5_t2v",
+   "params": [],
+   "match_scene": true
+  },
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -820.0,
+    0.0
+   ],
+   "width": 340.0,
+   "label": "Prompt",
+   "parent": "",
+   "text": "A close-up of an Arctic hunter's face, his eyes fixed straight ahead, narrowed and locked on something in the far distance directly in front of him, frost dusting his dark beard, one hand slowly reaching toward the rifle slung on his back, his breath quick and shallow, the tension in his jaw visible even through the scarf. The camera slowly pulls back, revealing him crouched at the edge of an ice floe, and ahead of him, in the exact direction of his gaze, a polar bear moves slowly along a distant ice ridge, its pale coat blending into the white haze, facing toward him. The pull-back continues, the hunter in the foreground and the bear far ahead, the two facing each other across the dark lead of water, the ice field and grey sea stretching around them, seabirds wheeling overhead. Midway through the shot, the complete title \"LTX-2.5\" fades in large and centered, plain white sans-serif letters with wide spacing, no glow, no shadow, no ornament, the lettering large enough to dominate the center of the frame, emerging slowly from the mist, resting still and blending into the snowscape, with the hunter and the bear still visible below on either side of the title, staying through the end of the scene. The wind carries the distant sound of shifting ice, a single low growl rolling across the water."
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}"
+  }
+ ],
+ "links": [
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "primitivestringmultiline_value_405_376"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Video",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Video",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ],
+ "library": {
+  "workflow_id": "video_ltx2_5_t2v",
+  "category": "i2v"
+ }
+}

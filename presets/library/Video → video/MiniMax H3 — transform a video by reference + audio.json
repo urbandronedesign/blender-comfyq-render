@@ -1,0 +1,102 @@
+{
+ "format": 1,
+ "label": "MiniMax H3 — transform a video by reference + audio",
+ "description": "Upload a source clip and describe how to transform it. MiniMax H3 watches your clip as a reference (call it \"Video 1\" in the prompt) and generates a new video that keeps what you ask it to keep — choreography, timing,…\nFrom: Clay animation, Prompt. Viewer + Save",
+ "made": "2026-10-04 09:32",
+ "nodes": [
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "video_edit_minimax_h3_v2v_video_reference",
+   "params": [],
+   "match_scene": true
+  },
+  {
+   "name": "Scene Animation",
+   "type": "ComfyQSceneAnimationNode",
+   "location": [
+    -820.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "Clay animation",
+   "parent": "",
+   "style": "CLAY"
+  },
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -820.0,
+    -330.0
+   ],
+   "width": 340.0,
+   "label": "Prompt",
+   "parent": "",
+   "text": "[subject_definitions]\n- Video 1: Source video of a dancer performing on a cloudy urban rooftop.\n\n[summary]\nTransform the dancer into a sleek, high-tech combat android dancing on the roof of a neon-drenched cyberpunk megacity at night.\n\n[retention_analysis]\n- Retain the exact dance choreography, rhythmic body pops, head turns, hand gestures, and footwork from Video 1.\n- Retain the camera distance, slight handheld panning, and shot timing from Video 1.\n- Replace the character's clothing and appearance, and completely overhaul the background and lighting.\n\n[detailed_description]\nThe dancer is now an advanced humanoid cyborg with matte-black carbon fiber armor plating, subtle glowing crimson circuits across the torso and arms, and luminous ocular sensors. He performs the sharp popping and fluid waving dance routine with robotic precision. The scene takes place at night on a rain-slicked skyscraper helipad high above a sprawling futuristic city. Holographic billboards, flying hovercraft light trails, and vibrant cyan and magenta neon signs illuminate the wet concrete surface with sharp reflections. \n\n[audio]\nDeep 808 synthwave beat with heavy kicks matching the dancer's body pops, mechanical servo whirs on sharp arm gestures, distant sci-fi city hum, and damp footsteps on wet metal."
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}"
+  }
+ ],
+ "links": [
+  {
+   "from": "Scene Animation",
+   "from_socket": "Video",
+   "to": "Workflow",
+   "to_socket": "loadvideo_file_147"
+  },
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "primitivestringmultiline_value_138"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Video",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Video",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ],
+ "library": {
+  "workflow_id": "video_edit_minimax_h3_v2v_video_reference",
+  "category": "video-edit"
+ }
+}

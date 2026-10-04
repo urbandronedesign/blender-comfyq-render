@@ -1,0 +1,101 @@
+{
+ "format": 1,
+ "label": "LivePortrait — animate a portrait from a driving video",
+ "description": "Bring a still portrait to life. Upload a clear, front-facing portrait photo and a short driving video of a face that moves and talks — LivePortrait transfers the video's head motion plus eye and lip movement onto your…\nFrom: Portrait image, Driving video. Viewer + Save",
+ "made": "2026-10-04 09:32",
+ "nodes": [
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "video_liveportrait_image2video",
+   "params": [],
+   "match_scene": true
+  },
+  {
+   "name": "Image",
+   "type": "ComfyQImageNode",
+   "location": [
+    -820.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "Portrait image",
+   "parent": ""
+  },
+  {
+   "name": "Video File",
+   "type": "ComfyQVideoFileNode",
+   "location": [
+    -820.0,
+    -330.0
+   ],
+   "width": 300.0,
+   "label": "Driving video",
+   "parent": "",
+   "filepath": ""
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}"
+  }
+ ],
+ "links": [
+  {
+   "from": "Image",
+   "from_socket": "Image",
+   "to": "Workflow",
+   "to_socket": "loadimage_image_196"
+  },
+  {
+   "from": "Video File",
+   "from_socket": "Video",
+   "to": "Workflow",
+   "to_socket": "vhs_loadvideo_video_8"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Video",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Video",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ],
+ "library": {
+  "workflow_id": "video_liveportrait_image2video",
+  "category": "i2v"
+ }
+}
