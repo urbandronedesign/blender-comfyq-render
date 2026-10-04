@@ -18,7 +18,7 @@ Git: local repo, branch `main`, no remote. Commit author = repo-local `urbandron
 ## Environment (this machine)
 | Thing | Where |
 |---|---|
-| **Blender 5.2.2 LTS** (Python 3.13.13) — the host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (build of commit `aa8c133`: everything up to UX phase D), Allow Online Access on, **AI agents (MCP server) ON** (port 8790), **Teacher tools ON** (agents may load models; set 2026-10-04 by a startup script + `save_userpref`). Theme = Mixar's **"Mixar Forest"** with Input node colour changed from #ff284d to #3d4640 (calmer graph headers) (exported from `%APPDATA%\Mixar\Mixar\5.2\config\mixar_userpref.blend`, preset `scripts\presets\interface_theme\mixar_forest.xml`; previous prefs backed up as `config\userpref.before_mixar_theme.blend`) Default of `smoke_test.ps1` and `comfyq.ps1` |
+| **Blender 5.2.2 LTS** (Python 3.13.13) — the host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (build of commit `76a8543`: everything up to UX phase F), Allow Online Access on, **AI agents (MCP server) ON** (port 8790), **Teacher tools ON** (agents may load models; set 2026-10-04 by a startup script + `save_userpref`). Theme = Mixar's **"Mixar Forest"** with Input node colour changed from #ff284d to #3d4640 (calmer graph headers) (exported from `%APPDATA%\Mixar\Mixar\5.2\config\mixar_userpref.blend`, preset `scripts\presets\interface_theme\mixar_forest.xml`; previous prefs backed up as `config\userpref.before_mixar_theme.blend`) Default of `smoke_test.ps1` and `comfyq.ps1` |
 | Mixar 4.2.0 | **uninstalled 2026-10-03** (was `C:\Program Files\Mixar\mixar.exe`, profile `%APPDATA%\Mixar\Mixar\5.2`) |
 | ComfyQ server (Node, Socket.IO, SQLite) | `F:\ComfyQ`, http://127.0.0.1:3000 — user works with b2renger, full control of its code |
 | ComfyUI 0.37, torch 2.8 cu128, RTX 5090 32 GB | `F:\ComfyUI_windows_portable_nvidia\…`, :8188 (listens on 0.0.0.0 — P1.0 issue) |
@@ -226,8 +226,8 @@ change that session: the user must reinstall from the UI or restart Mixar.
     `\t` a tab, and `\` + newline joins lines. Write code with the Write/Edit tools, or build paths with `chr(92)`.
     In PowerShell run `Set-Location E:\zaki\MixarAI` first: after a `cd` into a subfolder, `.\tools\…` fails.
 
-## Status (2026-10-04 night, last commit `aa8c133`, installed `aa8c133`) — **hand-over for b2renger / the teacher: docs/RUNBOOK.md**
-- **Host:** Blender 5.2.2 LTS; the user's profile has build `aa8c133` (MCP ON, Teacher tools ON, **Solo ON**).
+## Status (2026-10-04 night, last commit `76a8543`, installed `76a8543`) — **hand-over for b2renger / the teacher: docs/RUNBOOK.md**
+- **Host:** Blender 5.2.2 LTS; the user's profile has build `76a8543` (MCP ON, Teacher tools ON, **Solo ON**).
   **This PC is the teacher PC**: `%APPDATA%\comfyq-bridge\profiles.toml` = profile `teacher` (default,
   127.0.0.1:3000, random `admin_password`; ComfyQ itself has no admin password yet, so any value works). Without it
   Solo / Load Model / the agents' teacher tools are locked (UX phase A). Never copy that file to student PCs.
@@ -291,7 +291,7 @@ change that session: the user must reinstall from the UI or restart Mixar.
   (the user's graph: 136k chars) — consider a filter (node names / last preset).
 
 - **UX/UI audit (2026-10-04):** phases A, B, C, E, D DONE and installed (`e968ba9`, `6ad752c`, `d057b3e`, `8040216`,
-  `aa8c133`); **phase F next** (designs in `docs/ux-audit-plan.md` § Phase F). Plan `docs/ux-audit-plan.md` (phases A→B→C→E→D→F, decisions answered), skill
+  `aa8c133`) and **F** (`76a8543`). Plan `docs/ux-audit-plan.md` (phases A→B→C→E→D→F, decisions answered), skill
   `.claude/skills/blender-ui-audit`. **Phase A done**: teacher controls (Solo, Teacher tools, Load Model) locked
   unless the profile holds ComfyQ's admin password (`prefs.teacher_unlocked`); model switches ask first; student
   name asked at the first Connect (`name_confirmed`), "name · server" row; Clean Up asks first; GUI -Ui 91/91.
@@ -305,7 +305,7 @@ change that session: the user must reinstall from the UI or restart Mixar.
   viewer's Selected Node panel (`graph_mode_tree`); presets wrapped in a Frame, Run Graph = selection (`graph_targets`)
   or asks "Run N Chains?"; preferences in sections + Profile menu + Test Connection; bar in collapsible sections;
   Ctrl+Shift+Q in the Node Editor. GUI -Ui 97/97.
-  **Phase F done (2026-10-04, not committed / installed yet when written):** F5 **Retry** on failed / cancelled cards
+  **Phase F done (2026-10-04, commit `76a8543`, installed):** F5 **Retry** on failed / cancelled cards
   (`rec.values` stored by `generate.book`, `why_not_retry`, `comfyq.retry`); F4 **Shared Presets Folder** preference +
   profile `presets_dir` (`prefs.shared_presets_dirs`, `preset_ops.preset_folders`; menu sections *Saved on This PC* /
   *Shared*, Open Shared Presets Folder); F1 **non-blocking Cycles** (see Cycles source); F3 **student help**
@@ -317,8 +317,7 @@ change that session: the user must reinstall from the UI or restart Mixar.
   password). `prefs.active_profile()` is the one cached profile read. GUI -Ui 103/103.
 
 ## Next steps
-1. **UX phase F is built and tested**: commit (ask), install into the user's profile (ask) and copy the updated
-   `presets/class/*.json` (they gained *How to use* notes) to `%APPDATA%\comfyq-bridge\presets\Class\`.
+1. UX audit finished (A–F). Next UI work: follow `.claude/skills/blender-ui-audit`; user feedback on phase F in class.
 2. Other open candidates: run the 12 never-run workflows (3D / video upscale / audio / describe / utility);
    re-run the library on an animated character scene; `blender_graph_describe` filtering.
 3. Graph sign-off vs the Moodboard screenshot (user). Builds from the orchestration page, Codex round trip.
