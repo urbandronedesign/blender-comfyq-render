@@ -198,8 +198,18 @@ def scene_fingerprint(scene: bpy.types.Scene, style: str) -> str:
             [(c.name, c.type, c.mute) for c in ob.constraints])
         if ob.data is not None:
             datas.add(ob.data)
-        if style == "MATERIAL":
+        if style in ("MATERIAL", "CYCLES"):
             add([(sl.material.name, tuple(sl.material.diffuse_color)) for sl in ob.material_slots if sl.material])
+        if style == "CYCLES" and ob.type == "LIGHT":
+            add(ob.data.type, ob.data.energy, tuple(ob.data.color), getattr(ob, "is_shadow_catcher", False))
+        elif style == "CYCLES":
+            add(getattr(ob, "is_shadow_catcher", False))
+    if style == "CYCLES" and scene.world is not None:      # the HDRI / world light the Cycles render
+        w = scene.world
+        nodes = w.node_tree.nodes if w.node_tree else []
+        add(w.name, [(n.name, n.bl_idname, getattr(getattr(n, "image", None), "filepath", None),
+                      [tuple(i.default_value) if hasattr(i.default_value, "__len__") else i.default_value
+                       for i in n.inputs if hasattr(i, "default_value")]) for n in nodes])
     for data in sorted(datas, key=lambda d: (type(d).__name__, d.name)):
         dad = getattr(data, "animation_data", None)
         if dad is not None and dad.action is not None:
@@ -233,8 +243,85 @@ def _at_frame(scene: bpy.types.Scene, frame: int | None):
         scene.frame_set(saved)
 
 
+CYCLES_STYLE = ("CYCLES", "Cycles (final render)",
+                ("A real Cycles render of the scene (materials, lights, HDRI, shadow catchers), made in a separate "
+                "Blender process so the GPU is free again before the ComfyQ job starts"))
+STILL_STYLES = (*STYLES, CYCLES_STYLE)       # stills only: clay animations and masks stay Workbench
+
+# Runs in the separate Blender (factory startup: no add-ons, so no MCP server / ComfyQ connection there).
+_CYCLES_SCRIPT = r'''
+import bpy, sys
+a = sys.argv[sys.argv.index("--") + 1:]
+name, out, w, h, frame, samples = a[0], a[1], int(a[2]), int(a[3]), int(a[4]), int(a[5])
+sc = bpy.data.scenes[name]
+prefs = bpy.context.preferences.addons["cycles"].preferences
+device = "CPU"
+for kind in ("OPTIX", "CUDA", "HIP", "METAL", "ONEAPI"):
+    try:
+        prefs.compute_device_type = kind
+    except TypeError:
+        continue
+    prefs.get_devices()
+    if any(d.type == kind for d in prefs.devices):
+        for d in prefs.devices:
+            d.use = d.type == kind
+        device = "GPU"
+        break
+r = sc.render
+r.engine = "CYCLES"
+sc.cycles.device = device
+sc.cycles.samples = samples
+sc.cycles.use_denoising = True
+r.resolution_x, r.resolution_y, r.resolution_percentage = w, h, 100
+r.use_sequencer = r.use_compositing = False
+r.image_settings.media_type = "IMAGE"
+r.image_settings.file_format = "PNG"
+r.image_settings.color_mode = "RGB"
+sc.frame_set(frame)
+r.filepath = out
+bpy.ops.render.render(write_still=True, scene=sc.name)
+print("COMFYQ_CYCLES", device, flush=True)
+'''
+
+
+def cycles_pass(scene: bpy.types.Scene, max_edge: int | None = None, frame: int | None = None,
+                samples: int = 64, timeout_s: float = 1800) -> Path:
+    """A Cycles render through the scene camera, in a separate background Blender: the scene is saved as a
+    temporary copy (the open file is untouched) and rendered there. When that process exits its GPU
+    memory is released, so a ComfyQ job on the same GPU starts with the card free. Blocks until done."""
+    import subprocess
+    import sys
+    if scene.camera is None:
+        raise RuntimeError("The scene has no active camera")
+    w, h = fit_size(scene_aspect(scene), max_edge)
+    work = cache_dir() / "passes" / "cycles"
+    work.mkdir(parents=True, exist_ok=True)
+    stamp = time.strftime("%Y%m%d_%H%M%S")
+    blend, script = work / f"scene_{stamp}.blend", work / "render_cycles.py"
+    script.write_text(_CYCLES_SCRIPT, encoding="utf-8")
+    out = _out_path("cycles" if frame is None else f"cycles_f{frame}")
+    bpy.ops.wm.save_as_mainfile(filepath=str(blend), copy=True, check_existing=False)
+    cmd = [bpy.app.binary_path, "-b", "--factory-startup", str(blend), "--python", str(script), "--",
+           scene.name, str(out), str(w), str(h), str(scene.frame_current if frame is None else frame), str(samples)]
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform == "win32" else 0
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                              timeout=timeout_s, creationflags=flags, check=False)
+    except subprocess.TimeoutExpired as e:
+        raise RuntimeError(f"Cycles render took more than {int(timeout_s)} s") from e
+    finally:
+        for p in (blend, blend.with_suffix(".blend1")):
+            p.unlink(missing_ok=True)
+    if not out.is_file():
+        tail = "\n".join((proc.stdout + proc.stderr).strip().splitlines()[-6:])
+        raise RuntimeError(f"Cycles render failed: {tail}")
+    return out
+
+
 def structure_pass(scene: bpy.types.Scene, style: str = "CLAY", max_edge: int | None = None,
-                   frame: int | None = None) -> Path:
+                   frame: int | None = None, samples: int = 64) -> Path:
+    if style == "CYCLES":
+        return cycles_pass(scene, max_edge, frame, samples)
     size = fit_size(scene_aspect(scene), max_edge)
     with own_changes(), _at_frame(scene, frame), _workbench(scene, size, style):
         return _render_to(scene, _out_path("structure" if frame is None else f"structure_f{frame}"))

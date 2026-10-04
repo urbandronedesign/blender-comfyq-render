@@ -145,7 +145,7 @@ def build_builtin(preset: presets.Preset, tree, scene, choice: dict[str, str | N
 
 # -- saved presets (exact graphs) ----------------------------------------------------------------------
 _NODE_PROPS = {
-    "ComfyQSceneRenderNode": ("style", "frame"), "ComfyQMaskNode": ("style", "frame"),
+    "ComfyQSceneRenderNode": ("style", "frame", "cycles_samples"), "ComfyQMaskNode": ("style", "frame"),
     "ComfyQSceneAnimationNode": ("style",), "ComfyQVideoFileNode": ("filepath",),
     "ComfyQAudioFileNode": ("filepath",), "ComfyQPromptNode": ("text",),
     "ComfyQViewerNode": ("auto",), "ComfyQImportNode": ("auto", "replace"),

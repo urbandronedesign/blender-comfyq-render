@@ -10,11 +10,19 @@ from __future__ import annotations
 import json
 
 import bpy
-from bpy.props import BoolProperty, CollectionProperty, EnumProperty, FloatProperty, PointerProperty, StringProperty
+from bpy.props import (
+    BoolProperty,
+    CollectionProperty,
+    EnumProperty,
+    FloatProperty,
+    IntProperty,
+    PointerProperty,
+    StringProperty,
+)
 
 from .. import match as scene_match
 from ..client.params import is_disabled
-from ..passes.render import STYLES
+from ..passes.render import STILL_STYLES, STYLES
 from ..props import REL_PATH, ComfyQParamValue, tab_of
 from ..runtime.session import SESSION
 from . import kinds
@@ -229,14 +237,17 @@ def frame_number(scene, which: str) -> int:
 
 
 class ComfyQSceneRenderNode(_Node, bpy.types.Node):
-    """A still of the scene camera (clay, matcap or material colors)"""
+    """A still of the scene camera (clay, matcap, material colors, or a real Cycles render)"""
     bl_idname = "ComfyQSceneRenderNode"
     bl_label = "Scene Render"
     bl_icon = "SCENE"
     bl_width_default = 300
 
-    style: EnumProperty(name="Style", items=STYLES, default="CLAY")
+    style: EnumProperty(name="Style", items=STILL_STYLES, default="CLAY")
     frame: EnumProperty(name="Frame", items=FRAMES, default="START")
+    cycles_samples: IntProperty(name="Samples", default=64, min=1, soft_max=1024,
+                                description="Cycles samples (denoised). Rendered in a separate Blender so the GPU is "
+                                            "free before the ComfyQ job")
 
     def init(self, context):
         self.outputs.new(SOCKET_IDNAME["image"], "Image")
@@ -245,6 +256,8 @@ class ComfyQSceneRenderNode(_Node, bpy.types.Node):
         row = layout.row(align=True)
         row.prop(self, "style", text="")
         row.prop(self, "frame", text="")
+        if self.style == "CYCLES":
+            layout.prop(self, "cycles_samples")
         op = layout.operator("comfyq.preview_pass", text=f"Render frame {frame_number(context.scene, self.frame)}",
                              icon="RESTRICT_VIEW_OFF")
         op.mask, op.style, op.frame = False, self.style, frame_number(context.scene, self.frame)

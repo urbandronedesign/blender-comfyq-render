@@ -52,7 +52,8 @@ def _own_hash(node, scene) -> str:
         # an edit of what the camera sees (objects, meshes, camera, animation…) makes what it feeds out of date
         frame = frame_number(scene, node.frame) if hasattr(node, "frame") else (scene.frame_start, scene.frame_end)
         sel = sorted(o.name for o in scene.objects if o.select_get()) if idn == "ComfyQMaskNode" else []
-        return engine.settings_hash(idn, node.style, frame, render.scene_fingerprint(scene, node.style), sel)
+        samples = node.cycles_samples if getattr(node, "style", "") == "CYCLES" else None
+        return engine.settings_hash(idn, node.style, frame, render.scene_fingerprint(scene, node.style), sel, samples)
     if idn == "ComfyQImageNode":
         img = node.image
         return engine.settings_hash(idn, img.name if img else "", img.filepath if img else "",
@@ -283,7 +284,7 @@ class Run:
             return self.renders[key]
         idn = src.bl_idname
         if idn == "ComfyQSceneRenderNode":
-            p = render.structure_pass(scene, src.style, edge, frame_number(scene, src.frame))
+            p = render.structure_pass(scene, src.style, edge, frame_number(scene, src.frame), src.cycles_samples)
         elif idn == "ComfyQMaskNode":
             sel = [o for o in scene.objects if o.name in self.selected]
             p = render.mask_pass(scene, sel, src.style, edge, frame_number(scene, src.frame))

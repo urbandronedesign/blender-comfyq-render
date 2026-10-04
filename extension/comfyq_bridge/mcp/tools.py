@@ -349,8 +349,9 @@ def blender_select(args: dict) -> dict:
 def blender_render(args: dict) -> dict:
     from ..passes import animation, render
     kind, style = args.get("kind", "still"), args.get("style", "CLAY")
-    if style not in {s[0] for s in render.STYLES}:
-        raise ToolError(f"style must be one of {[s[0] for s in render.STYLES]}")
+    styles = render.STILL_STYLES if kind == "still" else render.STYLES
+    if style not in {s[0] for s in styles}:
+        raise ToolError(f"style for a {kind} must be one of {[s[0] for s in styles]}")
     edge = int(args.get("max_edge", 1280))
 
     def go():
@@ -371,8 +372,8 @@ def blender_render(args: dict) -> dict:
             if not sel:
                 raise ToolError("Select the object(s) to repaint first (blender_select)")
             return {"path": str(render.mask_pass(sc, sel, style, edge, frame))}
-        return {"path": str(render.structure_pass(sc, style, edge, frame))}
-    return on_main(go, timeout=600)
+        return {"path": str(render.structure_pass(sc, style, edge, frame, int(args.get("samples", 64))))}
+    return on_main(go, timeout=1900)
 
 
 def blender_import(args: dict) -> dict:
@@ -802,7 +803,10 @@ TOOLS = [
          "`mask` (still with the selected objects transparent = area to repaint) or `animation` (the frame "
          "range as an MP4, what video-to-video workflows restyle). Returns the file path.",
          obj({"kind": {"type": "string", "enum": ["still", "mask", "animation"]},
-              "style": {"type": "string", "enum": ["CLAY", "MATCAP", "MATERIAL"]},
+              "style": {"type": "string", "enum": ["CLAY", "MATCAP", "MATERIAL", "CYCLES"],
+                        "description": "CYCLES (stills only) = a real Cycles render (materials, lights, HDRI, "
+                                       "shadow catchers) in a separate Blender: the GPU is free again after it"},
+              "samples": {"type": "integer", "minimum": 1, "description": "Cycles samples (64)"},
               "frame": {"type": "integer"}, "max_edge": {"type": "integer", "default": 1280},
               "max_seconds": {"type": "number", "description": "animation: render only the first seconds "
                                                                   "(short tests; the scene is not changed)"}}),

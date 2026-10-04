@@ -63,7 +63,8 @@ Health check from a terminal: `.\tools\comfyq.ps1 doctor`.
 - A video player in the ComfyQ window.
 
 ### 3.2 Node graph (ComfyQ window › *Graph*, or Node Editor › ComfyQ Graph)
-- **Sources:** Scene Render (frame START / END / CURRENT, clay or matcap), Mask, Scene Animation,
+- **Sources:** Scene Render (frame START / END / CURRENT, clay, matcap, material or **Cycles**: a real
+  render in a separate Blender process, so the GPU is free before the AI job), Mask, Scene Animation,
   Image file, Video file, Audio file, Prompt.
 - **Workflow nodes:** the inputs and settings come from ComfyQ's parameters. Nodes chain: one node's
   result feeds the next, and results that are still up to date are reused.

@@ -256,7 +256,13 @@ change that session: the user must reinstall from the UI or restart Mixar.
   new MCP `blender_transform`, then `blender_world` (HDRI file or Blender's builtin:<name>, strength,
   rotation, background, clear; named nodes updated in place) and `blender_shadow_catcher` (Cycles flag +
   EEVEE material with separate Cycles/EEVEE outputs — Shader to RGB is black in Cycles; EEVEE needs `eevee_lit`
-  ≈ lit-ground brightness, ~1.5 under HDRI+sun) → 20 tools. The user's test1_AI.blend has the car at the origin (old build).
+  ≈ lit-ground brightness, ~1.5 under HDRI+sun) → 20 tools.
+- **Cycles source (2026-10-04):** Scene Render style `CYCLES` (+ samples) / MCP `blender_render style=CYCLES`:
+  `render.cycles_pass` saves a temp copy (`save_as_mainfile(copy=True)`) and renders it in a separate
+  `blender -b --factory-startup` (OptiX→CUDA→…→CPU), so the GPU is free when it exits (checked with
+  nvidia-smi: VRAM back to the pre-render level). Fingerprint for CYCLES adds materials, lights, shadow
+  catchers and the world/HDRI nodes. Blocks Blender while rendering. First AI render from Cycles: the
+  user's supercar scene → Flux2 Klein image edit → photoreal, same composition (live_check/ai_render/). The user's test1_AI.blend has the car at the origin (old build).
 - **Multi-model orchestration page** (for the user and b2renger): https://claude.ai/artifact/C8EPx3vgnJVsRXvZNjB7ug
   (private until the user shares it), local copy `docs/private/multi-model-orchestration.html` (gitignored).
   Proposes: stage runner in the graph (group nodes by model, switch between stages), ComfyQ bundles for

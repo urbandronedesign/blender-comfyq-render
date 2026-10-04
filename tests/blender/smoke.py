@@ -754,6 +754,29 @@ check(not err and desc["parameters"] and all("key" in p and "kind" in p for p in
       f"MCP comfyq_describe_workflow ({len(desc.get('parameters', []))} parameters)")
 err, still = mcp_tool("blender_render", kind="still", max_edge=512)
 check(not err and Path(still["path"]).is_file(), f"MCP blender_render still → {Path(still['path']).name}")
+# Cycles still: rendered in a separate Blender (the GPU is free again when it exits); the open file is untouched
+_t0, _file_before = time.monotonic(), bpy.data.filepath
+err, cyc = mcp_tool("blender_render", kind="still", style="CYCLES", max_edge=128, samples=4)
+_cimg = bpy.data.images.load(cyc["path"]) if not err else None
+check(not err and _cimg is not None and max(_cimg.size) == 128 and bpy.data.filepath == _file_before,
+      f"MCP blender_render CYCLES in a separate Blender: {_cimg and tuple(_cimg.size)} in "
+      f"{time.monotonic() - _t0:.1f} s ({cyc if err else Path(cyc['path']).name})")
+if _cimg is not None:
+    bpy.data.images.remove(_cimg)
+err, bad = mcp_tool("blender_render", kind="animation", style="CYCLES")
+check(err and "must be one of" in bad["error"], "Cycles is for stills only (animation refused)")
+from bl_ext.user_default.comfyq_bridge.passes import render as _render
+
+_fp1 = _render.scene_fingerprint(scene, "CYCLES")
+_w = scene.world or bpy.data.worlds.new("smoke world")
+scene.world = _w
+_w.color = (0.3, 0.2, 0.1)
+try:
+    _w.node_tree.nodes["Background"].inputs["Strength"].default_value += 0.5
+except (AttributeError, KeyError, TypeError):
+    pass
+check(_render.scene_fingerprint(scene, "CYCLES") != _fp1 or _w.node_tree is None,
+      "a world / HDRI change makes a Cycles source out of date (not a Clay one)")
 err, short = mcp_tool("blender_render", kind="animation", max_edge=256, max_seconds=0.5)
 fps_ = scene.render.fps / scene.render.fps_base
 check(not err and short["frames"] == max(1, round(0.5 * fps_)) and scene.frame_end == info["frames"][1],
