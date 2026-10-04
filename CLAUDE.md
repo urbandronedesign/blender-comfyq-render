@@ -17,7 +17,7 @@ Git: local repo, branch `main`, no remote. Commit author = repo-local `urbandron
 ## Environment (this machine)
 | Thing | Where |
 |---|---|
-| **Blender 5.2.2 LTS** (Python 3.13.13) — the host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (build of commit `0537d86`: library, solo mode, image-upload fix, MCP image nodes), Allow Online Access on, **AI agents (MCP server) ON** (port 8790), **Teacher tools ON** (agents may load models; set 2026-10-04 by a startup script + `save_userpref`). Theme = Mixar's **"Mixar Forest"** with Input node colour changed from #ff284d to #3d4640 (calmer graph headers) (exported from `%APPDATA%\Mixar\Mixar\5.2\config\mixar_userpref.blend`, preset `scripts\presets\interface_theme\mixar_forest.xml`; previous prefs backed up as `config\userpref.before_mixar_theme.blend`) Default of `smoke_test.ps1` and `comfyq.ps1` |
+| **Blender 5.2.2 LTS** (Python 3.13.13) — the host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (build of commit `8579ea0`: graph N0–N5 + Cycles source, MCP 20+3 tools, library + class presets, solo mode, 3D placement, prompt fix), Allow Online Access on, **AI agents (MCP server) ON** (port 8790), **Teacher tools ON** (agents may load models; set 2026-10-04 by a startup script + `save_userpref`). Theme = Mixar's **"Mixar Forest"** with Input node colour changed from #ff284d to #3d4640 (calmer graph headers) (exported from `%APPDATA%\Mixar\Mixar\5.2\config\mixar_userpref.blend`, preset `scripts\presets\interface_theme\mixar_forest.xml`; previous prefs backed up as `config\userpref.before_mixar_theme.blend`) Default of `smoke_test.ps1` and `comfyq.ps1` |
 | Mixar 4.2.0 | **uninstalled 2026-10-03** (was `C:\Program Files\Mixar\mixar.exe`, profile `%APPDATA%\Mixar\Mixar\5.2`) |
 | ComfyQ server (Node, Socket.IO, SQLite) | `F:\ComfyQ`, http://127.0.0.1:3000 — user works with b2renger, full control of its code |
 | ComfyUI 0.37, torch 2.8 cu128, RTX 5090 32 GB | `F:\ComfyUI_windows_portable_nvidia\…`, :8188 (listens on 0.0.0.0 — P1.0 issue) |
@@ -199,104 +199,75 @@ change that session: the user must reinstall from the UI or restart Mixar.
     textarea with field `text` — for Primitive-prompt workflows (Flux2 Klein t2i) the NEGATIVE prompt. `client.submit`
     now sends every prompt-kind param explicitly (default when unset). Check job params (`GET /jobs/:id`) when a
     result ignores its prompt.
+32. **Smoke tests run against the live ComfyQ, whose served set changes** (solo mode, presets). Never assume the
+    served workflow (pick one with the needed params) and never call a teacher tool on a side lane: a smoke
+    run once really stopped a lane (`comfyq_unserve` on a non-main workflow). They only touch the main lane now.
+33. **`image.copy()` of a file image can have no pixels** (loaded by a script / MCP / from a saved .blend):
+    saving it fails "does not have any image data". `image_pass` builds a new image from `pixels`.
+34. Blender resolves relative script arguments its own way (`screenshot_area` wrote nowhere): pass absolute
+    paths. In PowerShell, a non-ASCII argument (→) got the whole command refused: keep CLI args ASCII.
+35. **Shader to RGB is EEVEE-only (black in Cycles)**: a material using it needs a separate Cycles output
+    (`ShaderNodeOutputMaterial.target`). Cycles lights objects through their material even as shadow catchers.
 
-## Status (2026-10-04 afternoon) — **for b2renger and the teacher: docs/RUNBOOK.md**
-- **Host:** Blender 5.2.2 LTS (user's profile has the latest build). Mixar uninstalled. ComfyQ serves
-  **LTX 2.5 IC-LoRA canny** (`video_edit_ltx2_5_iclora_canny_control`) — the state to restore after any test.
-- **Done — bar & tools:** P1.1 client + Socket.IO transport + CLI; P1.2 extension MVP; P1.3 imports
-  (image/video/GLB/PLY/audio), reattach after reload, per-workflow settings; animation → V2V (clay MP4 with
-  a sound track, always re-rendered at Generate, scene/workflow matching, start/last frame); AI-keyframe
-  chain in the bar (**never run end-to-end**); Moodboard-style bar (sidebar + Ctrl+Shift+Q dialog +
-  detached ComfyQ window); multi-line prompts; player; job cards; Clean up. Every control in **docs/UI.md**.
-- **Done — node graph N0–N5** (docs/plans/node-graph.md §11–16): Node Editor graph (sources, workflow
-  nodes from ComfyQ's parameters, running with chains/reuse/cancel), N3 look (graph mode of the ComfyQ
-  window, Open as Graph, video thumbnails, adaptive header), N4 outputs (Viewer / Import / Save, Reroute,
-  Frame, result history, sidebar ComfyQ tab), N5 class presets (5 built in by role + teacher presets in
-  JSON, shared via `COMFYQ_BRIDGE_PRESETS`; teacher guide **docs/CLASS.md**). **Workflow library**: 48
-  generated presets (one per t2i / image-edit / i2v / video-edit workflow) in `presets/library/`, copied to
-  the user's `%APPDATA%\comfyq-bridge\presets` (2026-10-04); subfolders = submenus of Presets › Saved;
-  saved workflow nodes with `match_scene` keep defaults + take the scene's duration/size/fps. All 48 load
-  in a sandbox with every link; **none run on the GPU from the library yet**.
-- **Solo mode** (Preferences "Solo: load models on demand", off; never in class): Run Graph / MCP
-  `blender_graph_run` loads the models nodes need (`runtime/serving.py`, shared with the MCP teacher tools):
-  one switch at a time, only when nothing is booked and **no job of anyone** is unfinished on ComfyQ
-  (`client.active_jobs()`); the last model stays loaded (user's choice 2026-10-04: no restore, the next
-  preset decides). Nodes show *Loads on Run* +
-  a Load Model button. Smoke-tested with ComfyQ's switch faked. **Verified live 2026-10-04** (build `3435437`,
-  user pressed Run Graph on the library preset Flux2 Klein 9B t2i): ComfyQ switched to Klein, job `80f306d2`
-  made a 1024×576 image (checked), then LTX canny was served again (the restore step, removed since); Blender's socket reconnected by itself
-  (~10 s after ComfyQ was back). Turning Solo on is the user's own choice (a script ticking it was refused). `smoke_test.ps1 -Ui` 92/92,
-  `-Ui -Book` green. **Not yet compared with the Moodboard screenshot by the user.**
-- **Done — P1.4 MCP** (docs/AGENTS.md): server inside the extension (off by default; ON in the user's
-  prefs), 127.0.0.1 + token in `%APPDATA%\comfyq-bridge\mcp.json`, 17 tools (+3 **teacher tools** behind the
-  preference "Teacher tools: agents may load models", off/hidden by default: `comfyq_serve` alongside/main,
-  `comfyq_unserve`, `comfyq_calibrate`; `comfyq_server_status` for everyone), stdio launcher
-  `mcp/launcher.py` (shipped), repo `.mcp.json`, skill `.claude/skills/blender-comfyq-roundtrip`. Round trip
-  by **Claude Code** verified (`tools\agent_roundtrip.ps1`). Codex not tested (no Codex CLI on this PC).
-- **P1.5 in progress — 24 / 66 tested** (`docs/workflow-matrix.md`, generated by `tools/sweep_matrix.py`
-  from `live_check/sweep/*.json`; sweep = `tests/blender/sweep.py` via `smoke_test.ps1 -Sweep`):
-  - **LTX 2.5** 7/7 ok (VRAM 29.6–30.1 GB; deblur-upscale needed the clay MP4 sound track, fixed).
-  - **Flux 2** 8/8 ok (Klein 17.3–20.4 GB, Dev 29.5–30.2 GB; inpaint mask convention verified visually).
-  - **Qwen Image 2.1** 5/5 ok (14.6–23.4 GB; image edit not black despite Sage).
-  - **Krea 2** 4/4 run (17.3–21.9 GB); the character sheet echoed its input (cubes scene, no character):
-    retest with a character image.
-  - ComfyQ has **no admin password** and `/admin/activate-workflow` is not admin-gated even with one: any
-    LAN PC can switch models. Fix = admin password (P1.0) + ask b2renger to gate it (docs/AGENTS.md).
-  - ComfyQ bugs for b2renger: calibration of LTX union and Qwen control depth fails — benchmark inputs
-    `comfyq__bench-vi__sports_car.png` / `comfyq__bench-im__sports_car.png` missing in ComfyUI/input.
-  - Method (user-approved per family): `--switch=<ids> --restore=video_edit_ltx2_5_iclora_canny_control`
-    (calibrate + run each as the main workflow, canny restored at the end). Lanes side by side don't fit.
-- **Preset library run (2026-10-04, docs/preset-run.md): 46 / 48 run** on the user's `E:\zaki\test1_AI.blend`
-  (default cube, nothing animated) through the MCP with Solo on (`tools/preset_run.py`, resumable;
-  assets in `live_check/presets/assets`, contact sheets `tools/contact_sheet.py` with ComfyUI's python).
-  ~92 min GPU, ~30 s per model switch. 2 ❌ = Wan 2.1 ID-V2V ×2: ComfyUI `WanImageToVideo … 'ref_pad_image'`
-  (b2renger). Fixed during the run: `image_pass` builds the upload from pixels (image.copy() of a file
-  image had no pixels), `blender_graph_set` loads a file into an Image node. Overall 47/66 workflows run
-  from Blender; 17 never (3D, upscalers, SeedVR2 video, Marigold, SAM3, interpolation, Gemma, audio).
-- **Image → 3D verified (2026-10-04, MCP):** Flux2 Klein "supercar on white" → preset image_3d → TRELLIS2
-  (`3d_trellis2_image_to_textured_mesh`, ~6 min, 461k faces, 2×2048 textures) → Import node → scene. Models
-  came in at the origin at ~1 m (inside the cube) → **placement** added: importers/media.py `Placement`
-  (BESIDE default / CURSOR / ORIGIN / ASIS, on_ground, size) on the Import node + MCP `blender_import`,
-  new MCP `blender_transform`, then `blender_world` (HDRI file or Blender's builtin:<name>, strength,
-  rotation, background, clear; named nodes updated in place) and `blender_shadow_catcher` (Cycles flag +
-  EEVEE material with separate Cycles/EEVEE outputs — Shader to RGB is black in Cycles; EEVEE needs `eevee_lit`
-  ≈ lit-ground brightness, ~1.5 under HDRI+sun) → 20 tools.
-- **Cycles source (2026-10-04):** Scene Render style `CYCLES` (+ samples) / MCP `blender_render style=CYCLES`:
-  `render.cycles_pass` saves a temp copy (`save_as_mainfile(copy=True)`) and renders it in a separate
-  `blender -b --factory-startup` (OptiX→CUDA→…→CPU), so the GPU is free when it exits (checked with
-  nvidia-smi: VRAM back to the pre-render level). Fingerprint for CYCLES adds materials, lights, shadow
-  catchers and the world/HDRI nodes. Blocks Blender while rendering. First AI render from Cycles: the
-  user's supercar scene → Flux2 Klein image edit → photoreal, same composition (live_check/ai_render/). The user's test1_AI.blend has the car at the origin (old build).
-- **Multi-model orchestration page** (for the user and b2renger): https://claude.ai/artifact/C8EPx3vgnJVsRXvZNjB7ug
-  (private until the user shares it), local copy `docs/private/multi-model-orchestration.html` (gitignored).
-  Proposes: stage runner in the graph (group nodes by model, switch between stages), ComfyQ bundles for
-  fixed recipes, server-side chains via ComfyQ's `chainedInputs`, routing across several servers.
-- **Other:** Blender theme = Mixar Forest (calmer Input-node colour). P1.0 hardening postponed by the user.
-  Phase 2 not started (ComfyQ REST/SSE/MCP, direct-control bundles, quotas, `outputs` in meta.json).
-- **Known gaps:** the dialog doesn't live-redraw job progress; job cards can't be removed from the list;
-  "image workflow → V2V start image" never run live in the graph.
+## Status (2026-10-04 evening, last commit `8579ea0`) — **hand-over for b2renger / the teacher: docs/RUNBOOK.md**
+- **Host:** Blender 5.2.2 LTS; the user's profile has build `8579ea0` (MCP ON, Teacher tools ON, **Solo ON**).
+  Mixar uninstalled. **ComfyQ serves whatever solo mode / the last preset loaded** (at stop:
+  `3d_trellis2_image_to_textured_mesh` + `image_edit_flux2_klein_9b_image_edit` as lanes) — there is no fixed
+  "state to restore" any more (user's choice: the next preset decides; before class, serve the lesson's model).
+- **Bar & tools (P1.1–P1.3):** client + Socket.IO transport + CLI; extension (bar: sidebar / Ctrl+Shift+Q dialog /
+  detached ComfyQ window); passes (clay/matcap/material stills, masks, clay MP4 with sound); imports (image →
+  Image Editor, video/audio → "ComfyQ Results" scene, GLB/PLY → collection **placed beside the scene, on the
+  ground, sized**); reattach; per-workflow settings; AI-keyframe chain (**never run end-to-end**). docs/UI.md.
+- **Node graph N0–N5** (docs/plans/node-graph.md): sources (Scene Render — Clay / Matcap / Material /
+  **Cycles** —, Mask, Scene Animation, files, Prompt), workflow nodes from ComfyQ params, chains/reuse/cancel,
+  outputs (Viewer / Import with Place·On ground·Size / Save), presets (5 built-in roles; saved JSON; subfolders =
+  submenus). **Library** `presets/library/` (48 generated, one per t2i / image-edit / i2v / video-edit workflow,
+  `tools/make_preset_library.py`); **class presets** `presets/class/` (Cycles render → photoreal (Klein); Text →
+  3D model (Klein + TRELLIS2)), copied to the user's `%APPDATA%\comfyq-bridge\presets\{Image,…,Class}`.
+- **Solo mode** (pref, off by default, never in class): Run Graph / `blender_graph_run` loads each node's model
+  (`runtime/serving.py`: alongside if it fits else main = ComfyQ restart; only when nothing is booked and no one
+  has an unfinished job; last model stays loaded). Verified live many times (~30 s per switch).
+- **Cycles source:** `render.cycles_pass` renders a temp copy in a separate `blender -b --factory-startup`
+  (OptiX→CUDA→…→CPU) so the GPU is free again before the ComfyQ job (nvidia-smi checked). Blocks Blender while
+  rendering; stills only. Fingerprint adds materials, lights, shadow catchers, world/HDRI.
+- **MCP (P1.4, docs/AGENTS.md): 20 tools + 3 teacher tools.** blender_scene_info/select/render (style CYCLES +
+  samples)/import (place/on_ground/size)/transform/world (HDRI file or builtin:<name>)/shadow_catcher (Cycles flag
+  + EEVEE material, `eevee_lit`)/graph_describe/add_preset/set (incl. Image node `image`)/run/status;
+  comfyq_list/describe/submit/job_status/wait/cancel/outputs/server_status; teacher: comfyq_serve/unserve/
+  calibrate. Claude Code round trip verified; Codex not tested.
+- **Tests run:** unit+contract 68 pass (2 skipped); headless smoke passes (incl. solo with faked switch, placement,
+  world, shadow catcher, Cycles still); GUI `-Ui` 92/92 last run before the library (not re-run since).
+- **Workflow coverage:** 48/66 run from Blender — preset library run 46/48 (docs/preset-run.md; ❌ Wan 2.1 ID-V2V
+  ×2 = ComfyUI `WanImageToVideo … 'ref_pad_image'`), LTX deblur-upscale (sweep), TRELLIS2 (3D chain). **Never
+  run (16):** Pixal3D ×3, TripoSplat, SeedVR2 image ×2 + video ×2, PiD upscale, Marigold ×2, SAM3, frame
+  interpolation, Gemma ×2, Stable Audio. Earlier per-family sweep: docs/workflow-matrix.md (24/66).
+- **Visual baseline:** `baselines/2026-10-04/index.html` (local, gitignored, ~120 MB): per workflow description,
+  Blender graph screenshot, inputs uploaded, prompt + settings sent, output (images, videos, GLB views),
+  verdict (`live_check/presets/notes.json`); sections Image / Image edit / Image → video / Video → video /
+  **Chains**. New run → compare: `preset_run.py` → `preset_shots.py` → `preset_report.py baselines/<date>
+  --baseline baselines/2026-10-04`.
+- **For b2renger (RUNBOOK §7.1):** no admin password + `activate-workflow` ungated; **job prompt copied into the
+  negative prompt** (book_job fills the first unset textarea with field "text"; bridge work-around in
+  `client.submit`); Wan ID-V2V broken in ComfyUI 0.37; calibration bench images missing; names ≠ ids (LTX
+  "depth" = union, MiniMax "pose" = union); meta.json should declare size/duration params, output kind,
+  example prompts; phase-2 API (served flag, SSE, REST, /mcp), direct-control bundles, quotas, job_deps.
+- **User's scene** `E:\zaki\test1_AI.blend`: supercar (TRELLIS2 GLB, `world.001` + `geometry_0.001`) on the
+  driveway HDRI (`Desktop\tree_lined_driveway_8k.hdr` via blender_world), user's Plane = shadow catcher, an Area
+  light; old car hidden at the origin (`world`/`geometry_0`); graph holds ~60 preset groups from the tests.
+  AI renders in `live_check/ai_render/` (Cycles + Klein photoreal).
+- **Other:** theme Mixar Forest; multi-model orchestration page https://claude.ai/artifact/C8EPx3vgnJVsRXvZNjB7ug
+  (local copy docs/private/); P1.0 hardening postponed; phase 2 not started.
+- **Known gaps:** dialog doesn't live-redraw job progress; job cards can't be removed; Cycles render blocks the
+  UI; EEVEE shadow catcher needs `eevee_lit` tuning; `blender_graph_describe` output is huge on big graphs
+  (the user's graph: 136k chars) — consider a filter (node names / last preset).
 
 ## Next steps
-00. State at the end of 2026-10-04 (all committed, `0537d86`): ComfyQ serves `video_edit_wan_idv2v_restyle_hires`
-   (main) + `image_qwen_image_2_1_t2i` (lane); Solo is ON in the user's prefs. Hand-over: docs/RUNBOOK.md.
-0. **User tests the MCP teacher tools tomorrow (2026-10-05)** from an agent connected to their Blender (choice made:
-   "agent drives Blender", not a chat panel inside Blender). Status at stop: Blender 5.2 running with the
-   `a3786b2` build, connected, 20 tools answering over HTTP (checked with a direct JSON-RPC call:
-   `comfyq_server_status` = LTX canny main, 29.96/32 GB, nothing fits alongside). Claude Code must reconnect
-   `blender-comfyq` (`/mcp`) to list the new tools. Every load = how='main' → ComfyQ restarts ~1–2 min for
-   everyone: say so first; offer to restore `video_edit_ltx2_5_iclora_canny_control` after. Never verified
-   live yet: a real `comfyq_serve` (main or alongside), `comfyq_unserve`, `comfyq_calibrate`, and the bar
-   following the switch after ComfyQ's restart (socket auto-reconnect).
-1. **Continue P1.5** with the family the user names next. Untested: Wan (animate2, idv2v restyle ×2,
-   wan21 scail2, wan22 4 key frames), MiniMax H3 (fun controlnet ×3, v2v reference, i2v 4-step, t2v turbo),
-   FastVideo FastH3 (i2v, t2v), LTX 2.3 (3dreal vid2vid, ia2v iclora, ic lora ingredients), LivePortrait,
-   Bernini (image edit ×2, video edit ×3), Ideogram 4 t2i, 3D (Pixal3D ×3, Trellis2, TripoSplat), SeedVR2
-   (image ×2, video ×2), PID upscale, Marigold depth/normals, SAM3 video segment, frame interpolation,
-   Gemma describe image/video, Stable Audio 3. Per family: list ids + inputs, `--switch=… --restore=<canny>`,
-   look at results, update CLAUDE.md status, ask to commit. Some need special inputs (audio for ia2v,
-   a character image for LivePortrait / Wan animate / character sheets, 4 key frames for wan22).
-2. Graph sign-off: the user tries graph mode / outputs / presets and compares with the Moodboard screenshot.
-3. Possible builds (from the orchestration page, user's choice): stage runner, bundles with b2renger,
-   server-side chains, multi-server routing; a Codex round trip when a Codex CLI exists.
-4. After any UI change: `smoke_test.ps1 -Ui` and update docs/UI.md. Install into the user's Blender 5.2
-   profile only when asked (command above, not `--factory-startup`). Ask before committing.
+1. Whatever the user asks next. Open candidates: run the 16 never-run workflows (3D / upscale / audio /
+   describe / utility presets, extend the library to those categories); a re-run of the library on an
+   **animated character scene** (pose / character workflows judged properly); `blender_graph_describe`
+   filtering; a GUI `-Ui` re-run (UI changed: Import placement, Scene Render Cycles, Load Model button).
+2. Graph sign-off vs the Moodboard screenshot (user).
+3. Builds from the orchestration page (stage runner, bundles, server-side chains, multi-server), Codex round trip.
+4. Rules: after UI changes `smoke_test.ps1 -Ui` + docs/UI.md; install into the user's profile only when asked
+   (not `--factory-startup`); ask before committing; never tick the user's prefs by script (refused); tell the
+   user before GPU runs / visible windows; smoke tests must not change what ComfyQ serves (see gotcha 32).
