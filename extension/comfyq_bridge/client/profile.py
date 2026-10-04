@@ -31,6 +31,8 @@ class Profile:
     gpu_policy: str = "none"  # none | shared (ComfyQ on the same GPU as Mixar)
     mixar_reserve_gb: float = 6.0
     timeout_s: float = 30.0
+    presets_dir: str = ""     # shared class presets folder (e.g. a share on the teacher's PC)
+    class_mode: bool = False  # student PCs: teacher controls off, even with an admin password
 
 
 def config_path() -> Path:
@@ -83,4 +85,6 @@ def load_profile(name: str | None = None, path: Path | None = None) -> Profile:
         gpu_policy=gpu.get("policy") or "none",
         mixar_reserve_gb=float(gpu.get("mixar_reserve_gb") or 6.0),
         timeout_s=float(comfyq.get("timeout_s") or 30.0),
+        presets_dir=str(section.get("presets_dir") or ""),
+        class_mode=bool(section.get("class_mode")),
     )

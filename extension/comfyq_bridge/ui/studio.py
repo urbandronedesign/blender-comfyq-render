@@ -93,6 +93,7 @@ def draw_studio(layout: bpy.types.UILayout, context, columns: int = 2, dialog: b
         right.popover("COMFYQ_PT_queue", text=str(active) if active else "", icon="SORTTIME")
     else:
         right.popover("COMFYQ_PT_queue", text=f"Queue {active}" if active else "Queue", icon="SORTTIME")
+    right.operator("comfyq.help", text="", icon="HELP")
 
     from ..ops.results import scene_has_result_strips
     if scene_has_result_strips(scene):
@@ -421,8 +422,14 @@ def draw_jobs(layout, context, limit: int | None = None) -> None:
         else:
             box.alert = True
             box.label(text=phase, icon="ERROR")
-            for line in wrap(job.error or "", 60):
+            error = "" if (job.error or "").strip().lower() == phase.lower() else job.error or ""
+            for line in wrap(error, 60):
                 box.label(text=line)
+            from ..ops.generate import why_not_retry
+            row = box.row()
+            row.alert = False
+            row.enabled = not why_not_retry(context.scene, rec.job_id)
+            row.operator("comfyq.retry", text="Retry", icon="FILE_REFRESH").job_id = rec.job_id
         if job.done:
             head.operator("comfyq.remove_job", text="", icon="TRASH").job_id = rec.job_id
 

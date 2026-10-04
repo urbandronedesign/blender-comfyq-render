@@ -259,9 +259,18 @@ class ComfyQSceneRenderNode(_Node, bpy.types.Node):
         row.prop(self, "frame", text="")
         if self.style == "CYCLES":
             layout.prop(self, "cycles_samples")
-        op = layout.operator("comfyq.preview_pass", text=f"Render Frame {frame_number(context.scene, self.frame)}",
-                             icon="RENDER_STILL")
-        op.mask, op.style, op.frame = False, self.style, frame_number(context.scene, self.frame)
+        from ..passes.render import ACTIVE
+        tag = f"{self.id_data.name}/{self.name}"
+        job = next((j for j in ACTIVE if j.tag == tag), None)
+        if job is not None:                        # rendering in its own Blender: progress + ✕
+            row = layout.row(align=True)
+            row.progress(factor=job.progress(), type="BAR", text=job.text())
+            row.operator("comfyq.cancel_cycles", text="", icon="CANCEL")
+        else:
+            op = layout.operator("comfyq.preview_pass", text=f"Render Frame {frame_number(context.scene, self.frame)}",
+                                 icon="RENDER_STILL")
+            op.mask, op.style, op.frame = False, self.style, frame_number(context.scene, self.frame)
+            op.tag = tag
         _thumbnail(layout, bpy.data.images.get("ComfyQ render preview"))
 
 
@@ -616,6 +625,9 @@ class ComfyQWorkflowNode(_Node, bpy.types.Node):
             row.operator("comfyq.cancel", text="", icon="CANCEL").job_id = self.job_id
         elif state in ("waiting", "sending"):
             row.label(text="Waiting for its inputs" if state == "waiting" else "Sending…", icon="SORTTIME")
+        elif state == "rendering":
+            row.label(text="Waiting for the Cycles render", icon="SORTTIME")
+            row.operator("comfyq.graph_stop", text="", icon="CANCEL").tree = self.id_data.name
         else:
             gen = row.row(align=True)
             gen.enabled = self.workflow_id in SESSION.specs
@@ -743,7 +755,8 @@ class ComfyQSurfacesNode(_Node, bpy.types.Node):
         row.scale_y = 1.4
         state = running(self.id_data.name, self.name)
         if state:
-            row.label(text={"booked": "Segmenting…", "sending": "Segmenting…"}.get(state, "Waiting for its inputs"),
+            row.label(text={"booked": "Segmenting…", "sending": "Segmenting…",
+                                "rendering": "Waiting for the Cycles render"}.get(state, "Waiting for its inputs"),
                       icon="SORTTIME")
             row.operator("comfyq.graph_stop", text="", icon="CANCEL").tree = self.id_data.name
         else:

@@ -15,6 +15,8 @@ are restored afterwards.
 from __future__ import annotations
 
 import hashlib
+import re
+import threading
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -279,43 +281,127 @@ r.image_settings.file_format = "PNG"
 r.image_settings.color_mode = "RGB"
 sc.frame_set(frame)
 r.filepath = out
+# a render started from Python logs no progress: print the samples for the add-on to read ("Sample 40/96")
+bpy.app.handlers.render_stats.append(lambda s, *_a: "Sample" in s and print("COMFYQ_STATS", s, flush=True))
 bpy.ops.render.render(write_still=True, scene=sc.name)
 print("COMFYQ_CYCLES", device, flush=True)
 '''
 
 
+_SAMPLE = re.compile(r"Sample (\d+)/(\d+)")
+ACTIVE: list[CyclesRender] = []      # Cycles renders running now (nodes / bar show them; ✕ cancels them)
+
+
+class CyclesRender:
+    """A Cycles render through the scene camera, in a separate background Blender: the scene is saved as a
+    temporary copy (the open file is untouched) and rendered there, so Blender stays responsive. When that
+    process exits its GPU memory is released, so a ComfyQ job on the same GPU starts with the card free.
+    Started on the main thread; `poll()` it from a timer (None while it runs, the file when done)."""
+
+    def __init__(self, scene: bpy.types.Scene, max_edge: int | None = None, frame: int | None = None,
+                 samples: int = 64, timeout_s: float = 1800, tag: str = ""):
+        import subprocess
+        import sys
+        if scene.camera is None:
+            raise RuntimeError("The scene has no active camera")
+        w, h = fit_size(scene_aspect(scene), max_edge)
+        work = cache_dir() / "passes" / "cycles"
+        work.mkdir(parents=True, exist_ok=True)
+        stamp = f"{time.strftime('%Y%m%d_%H%M%S')}_{id(self) % 10000:04d}"
+        self.blend, script = work / f"scene_{stamp}.blend", work / "render_cycles.py"
+        script.write_text(_CYCLES_SCRIPT, encoding="utf-8")
+        self.out = _out_path("cycles" if frame is None else f"cycles_f{frame}")
+        self.samples, self.done_samples = samples, 0
+        self.timeout_s, self.t0 = timeout_s, time.monotonic()
+        self.tail: list[str] = []
+        self.error = ""
+        self.cancelled = False
+        self.tag = tag                     # who started it ("<tree>/<node>"): that node shows the progress
+        bpy.ops.wm.save_as_mainfile(filepath=str(self.blend), copy=True, check_existing=False)
+        cmd = [bpy.app.binary_path, "-b", "--factory-startup", str(self.blend), "--python", str(script), "--",
+               scene.name, str(self.out), str(w), str(h), str(scene.frame_current if frame is None else frame),
+               str(samples)]
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform == "win32" else 0
+        self.proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                     encoding="utf-8", errors="replace", creationflags=flags)
+        self._reader = threading.Thread(target=self._read, daemon=True)
+        self._reader.start()
+        ACTIVE.append(self)
+
+    def _read(self) -> None:
+        for line in self.proc.stdout:
+            m = _SAMPLE.search(line)
+            if m:
+                self.done_samples = int(m.group(1))
+            if line.strip():
+                self.tail = [*self.tail[-7:], line.rstrip()]
+
+    def text(self) -> str:
+        """'Cycles 40/96 · 0:12' (or 'Cycles: loading the scene · 0:03' before the first sample)."""
+        secs = int(time.monotonic() - self.t0)
+        when = f"{secs // 60}:{secs % 60:02d}"
+        if self.done_samples:
+            return f"Cycles {self.done_samples}/{self.samples} · {when}"
+        return f"Cycles: loading the scene · {when}"
+
+    def progress(self) -> float:
+        return min(1.0, self.done_samples / max(1, self.samples))
+
+    def poll(self) -> Path | None:
+        """None while rendering; the PNG once done. Raises RuntimeError if it failed, was cancelled or
+        took longer than `timeout_s`."""
+        if self.error:
+            raise RuntimeError(self.error)
+        if self.proc.poll() is None:
+            if time.monotonic() - self.t0 > self.timeout_s:
+                self._end(f"Cycles render took more than {int(self.timeout_s)} s")
+                raise RuntimeError(self.error)
+            return None
+        self._reader.join(timeout=2)           # the last lines (samples, errors) are read
+        if self.out.is_file():
+            self._end("")
+            return self.out
+        self._end("Cycles render failed: " + "\n".join(self.tail[-6:]))
+        raise RuntimeError(self.error)
+
+    def cancel(self) -> None:
+        self.cancelled = True
+        self._end("Cycles render cancelled")
+
+    def _end(self, error: str) -> None:
+        if self.proc.poll() is None:
+            self.proc.kill()
+            try:
+                self.proc.wait(timeout=10)
+            except Exception:  # noqa: BLE001, S110 - the file cleanup below is best effort
+                pass
+        self.error = error
+        for p in (self.blend, self.blend.with_suffix(".blend1")):
+            try:
+                p.unlink(missing_ok=True)
+            except OSError:
+                pass
+        if self in ACTIVE:
+            ACTIVE.remove(self)
+
+
+def cancel_cycles() -> int:
+    """Stop every running Cycles render (✕). Returns how many were stopped."""
+    running = list(ACTIVE)
+    for r in running:
+        r.cancel()
+    return len(running)
+
+
 def cycles_pass(scene: bpy.types.Scene, max_edge: int | None = None, frame: int | None = None,
                 samples: int = 64, timeout_s: float = 1800) -> Path:
-    """A Cycles render through the scene camera, in a separate background Blender: the scene is saved as a
-    temporary copy (the open file is untouched) and rendered there. When that process exits its GPU
-    memory is released, so a ComfyQ job on the same GPU starts with the card free. Blocks until done."""
-    import subprocess
-    import sys
-    if scene.camera is None:
-        raise RuntimeError("The scene has no active camera")
-    w, h = fit_size(scene_aspect(scene), max_edge)
-    work = cache_dir() / "passes" / "cycles"
-    work.mkdir(parents=True, exist_ok=True)
-    stamp = time.strftime("%Y%m%d_%H%M%S")
-    blend, script = work / f"scene_{stamp}.blend", work / "render_cycles.py"
-    script.write_text(_CYCLES_SCRIPT, encoding="utf-8")
-    out = _out_path("cycles" if frame is None else f"cycles_f{frame}")
-    bpy.ops.wm.save_as_mainfile(filepath=str(blend), copy=True, check_existing=False)
-    cmd = [bpy.app.binary_path, "-b", "--factory-startup", str(blend), "--python", str(script), "--",
-           scene.name, str(out), str(w), str(h), str(scene.frame_current if frame is None else frame), str(samples)]
-    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform == "win32" else 0
-    try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace",
-                              timeout=timeout_s, creationflags=flags, check=False)
-    except subprocess.TimeoutExpired as e:
-        raise RuntimeError(f"Cycles render took more than {int(timeout_s)} s") from e
-    finally:
-        for p in (blend, blend.with_suffix(".blend1")):
-            p.unlink(missing_ok=True)
-    if not out.is_file():
-        tail = "\n".join((proc.stdout + proc.stderr).strip().splitlines()[-6:])
-        raise RuntimeError(f"Cycles render failed: {tail}")
-    return out
+    """`CyclesRender` waited for (agents, scripts, background mode). Blocks until done."""
+    job = CyclesRender(scene, max_edge, frame, samples, timeout_s)
+    while True:
+        out = job.poll()
+        if out is not None:
+            return out
+        time.sleep(0.2)
 
 
 def structure_pass(scene: bpy.types.Scene, style: str = "CLAY", max_edge: int | None = None,

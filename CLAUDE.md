@@ -18,7 +18,7 @@ Git: local repo, branch `main`, no remote. Commit author = repo-local `urbandron
 ## Environment (this machine)
 | Thing | Where |
 |---|---|
-| **Blender 5.2.2 LTS** (Python 3.13.13) — the host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (build of commit `8579ea0`: graph N0–N5 + Cycles source, MCP 20+3 tools, library + class presets, solo mode, 3D placement, prompt fix), Allow Online Access on, **AI agents (MCP server) ON** (port 8790), **Teacher tools ON** (agents may load models; set 2026-10-04 by a startup script + `save_userpref`). Theme = Mixar's **"Mixar Forest"** with Input node colour changed from #ff284d to #3d4640 (calmer graph headers) (exported from `%APPDATA%\Mixar\Mixar\5.2\config\mixar_userpref.blend`, preset `scripts\presets\interface_theme\mixar_forest.xml`; previous prefs backed up as `config\userpref.before_mixar_theme.blend`) Default of `smoke_test.ps1` and `comfyq.ps1` |
+| **Blender 5.2.2 LTS** (Python 3.13.13) — the host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (build of commit `aa8c133`: everything up to UX phase D), Allow Online Access on, **AI agents (MCP server) ON** (port 8790), **Teacher tools ON** (agents may load models; set 2026-10-04 by a startup script + `save_userpref`). Theme = Mixar's **"Mixar Forest"** with Input node colour changed from #ff284d to #3d4640 (calmer graph headers) (exported from `%APPDATA%\Mixar\Mixar\5.2\config\mixar_userpref.blend`, preset `scripts\presets\interface_theme\mixar_forest.xml`; previous prefs backed up as `config\userpref.before_mixar_theme.blend`) Default of `smoke_test.ps1` and `comfyq.ps1` |
 | Mixar 4.2.0 | **uninstalled 2026-10-03** (was `C:\Program Files\Mixar\mixar.exe`, profile `%APPDATA%\Mixar\Mixar\5.2`) |
 | ComfyQ server (Node, Socket.IO, SQLite) | `F:\ComfyQ`, http://127.0.0.1:3000 — user works with b2renger, full control of its code |
 | ComfyUI 0.37, torch 2.8 cu128, RTX 5090 32 GB | `F:\ComfyUI_windows_portable_nvidia\…`, :8188 (listens on 0.0.0.0 — P1.0 issue) |
@@ -213,8 +213,24 @@ change that session: the user must reinstall from the UI or restart Mixar.
 36. **ComfyQ's SAM3 is video-only and returns ONE surface per phrase** ("wall" = the back wall only; threshold
     0.3 did not help). Stills go through a 3-frame MP4; labels are phrase groups `"wall|left wall|right wall"`
     (union mask). Qwen 2.1 outputs 1920×1088, over the upload box: `segment.fit_upload` shrinks to 1904×1080.
-## Status (2026-10-04 evening, last commit `8579ea0`) — **hand-over for b2renger / the teacher: docs/RUNBOOK.md**
-- **Host:** Blender 5.2.2 LTS; the user's profile has build `8579ea0` (MCP ON, Teacher tools ON, **Solo ON**).
+37. **The sandbox Blender reads the REAL profiles file** (`%APPDATA%\comfyq-bridge\profiles.toml`, not under
+    BLENDER_USER_RESOURCES): on the teacher PC the smoke test is "unlocked". Student-PC checks set
+    `COMFYQ_BRIDGE_CONFIG` to a missing file (and restore it); `prefs.teacher_unlocked` caches on path + mtime + env.
+38. **Preferences can only be drawn by Blender** (a proxy object as `prop()` data raises "expected AnyType"): the GUI
+    check opens the real Preferences window (`screen.userpref_show`, `preferences.addon_expand`) and screenshots it.
+    `layout.panel(idname)` gives collapsible sections in panels and preferences, not in operator popups (the
+    Ctrl+Shift+Q dialog draws plain blocks: `studio._section(dialog=True)`).
+39. **Greyed-out buttons must say why**: `cls.poll_message_set(...)` in every poll that can fail (Blender HIG);
+    `invoke_confirm(title=, message=, confirm_text=, icon=)` for anything that deletes files or switches models.
+40. **Bash heredocs mangle backslashes**: a doubled backslash reaches Python as a single one, so `\a` becomes BEL,
+    `\t` a tab, and `\` + newline joins lines. Write code with the Write/Edit tools, or build paths with `chr(92)`.
+    In PowerShell run `Set-Location E:\zaki\MixarAI` first: after a `cd` into a subfolder, `.\tools\…` fails.
+
+## Status (2026-10-04 night, last commit `aa8c133`, installed `aa8c133`) — **hand-over for b2renger / the teacher: docs/RUNBOOK.md**
+- **Host:** Blender 5.2.2 LTS; the user's profile has build `aa8c133` (MCP ON, Teacher tools ON, **Solo ON**).
+  **This PC is the teacher PC**: `%APPDATA%\comfyq-bridge\profiles.toml` = profile `teacher` (default,
+  127.0.0.1:3000, random `admin_password`; ComfyQ itself has no admin password yet, so any value works). Without it
+  Solo / Load Model / the agents' teacher tools are locked (UX phase A). Never copy that file to student PCs.
   Mixar uninstalled. **ComfyQ serves whatever solo mode / the last preset loaded** (at stop:
   `3d_trellis2_image_to_textured_mesh` + `image_edit_flux2_klein_9b_image_edit` as lanes) — there is no fixed
   "state to restore" any more (user's choice: the next preset decides; before class, serve the lesson's model).
@@ -232,15 +248,17 @@ change that session: the user must reinstall from the UI or restart Mixar.
   (`runtime/serving.py`: alongside if it fits else main = ComfyQ restart; only when nothing is booked and no one
   has an unfinished job; last model stays loaded). Verified live many times (~30 s per switch).
 - **Cycles source:** `render.cycles_pass` renders a temp copy in a separate `blender -b --factory-startup`
-  (OptiX→CUDA→…→CPU) so the GPU is free again before the ComfyQ job (nvidia-smi checked). Blocks Blender while
-  rendering; stills only. Fingerprint adds materials, lights, shadow catchers, world/HDRI.
+  (OptiX→CUDA→…→CPU) so the GPU is free again before the ComfyQ job (nvidia-smi checked). **Non-blocking since UX F1**
+  (`render.CyclesRender`: Popen + reader thread; the child prints "Sample n/m" from a `render_stats` handler because a
+  render started from Python logs no progress; graph runs poll it via `run.Rendering`, MCP waits off the main thread,
+  ✕ = `comfyq.cancel_cycles`; `cycles_pass` = the blocking wrapper). Stills only. Fingerprint adds materials, lights, shadow catchers, world/HDRI.
 - **MCP (P1.4, docs/AGENTS.md): 23 tools + 3 teacher tools** (new: blender_segment / task_status / mask_image). blender_scene_info/select/render (style CYCLES +
   samples)/import (place/on_ground/size)/transform/world (HDRI file or builtin:<name>)/shadow_catcher (Cycles flag
   + EEVEE material, `eevee_lit`)/graph_describe/add_preset/set (incl. Image node `image`)/run/status;
   comfyq_list/describe/submit/job_status/wait/cancel/outputs/server_status; teacher: comfyq_serve/unserve/
   calibrate. Claude Code round trip verified; Codex not tested.
-- **Tests run:** unit+contract 68 pass (2 skipped); headless smoke passes (incl. solo with faked switch, placement,
-  world, shadow catcher, Cycles still); GUI `-Ui` 92/92 last run before the library (not re-run since).
+- **Tests run (2026-10-04, after UX phase F):** unit+contract 79 pass (2 skipped); headless smoke passes (incl. solo
+  with faked switch, placement, world, shadow catcher, Cycles still, F1–F5); GUI `-Ui` 103/103.
 - **Workflow coverage:** 48/66 run from Blender — preset library run 46/48 (docs/preset-run.md; ❌ Wan 2.1 ID-V2V
   ×2 = ComfyUI `WanImageToVideo … 'ref_pad_image'`), LTX deblur-upscale (sweep), TRELLIS2 (3D chain), SAM3 + PiD + SeedVR2 7B image + SeedVR2 4K (arch chain) = 52/66. **Never
   run (12):** Pixal3D ×3, TripoSplat, SeedVR2 video ×2 (HD, 3B int8), Marigold ×2, frame
@@ -269,11 +287,11 @@ change that session: the user must reinstall from the UI or restart Mixar.
   Blender yet (sandbox only) until installed.
 - **Other:** theme Mixar Forest; multi-model orchestration page https://claude.ai/artifact/C8EPx3vgnJVsRXvZNjB7ug
   (local copy docs/private/); P1.0 hardening postponed; phase 2 not started.
-- **Known gaps:** dialog doesn't live-redraw job progress; job cards can't be removed; Cycles render blocks the
-  UI; EEVEE shadow catcher needs `eevee_lit` tuning; `blender_graph_describe` output is huge on big graphs
+- **Known gaps:** dialog doesn't live-redraw job progress; EEVEE shadow catcher needs `eevee_lit` tuning; `blender_graph_describe` output is huge on big graphs
   (the user's graph: 136k chars) — consider a filter (node names / last preset).
 
-- **UX/UI audit (2026-10-04):** plan `docs/ux-audit-plan.md` (phases A→B→C→E→D→F, decisions answered), skill
+- **UX/UI audit (2026-10-04):** phases A, B, C, E, D DONE and installed (`e968ba9`, `6ad752c`, `d057b3e`, `8040216`,
+  `aa8c133`); **phase F next** (designs in `docs/ux-audit-plan.md` § Phase F). Plan `docs/ux-audit-plan.md` (phases A→B→C→E→D→F, decisions answered), skill
   `.claude/skills/blender-ui-audit`. **Phase A done**: teacher controls (Solo, Teacher tools, Load Model) locked
   unless the profile holds ComfyQ's admin password (`prefs.teacher_unlocked`); model switches ask first; student
   name asked at the first Connect (`name_confirmed`), "name · server" row; Clean Up asks first; GUI -Ui 91/91.
@@ -286,16 +304,25 @@ change that session: the user must reinstall from the UI or restart Mixar.
   **Phase D done**: optional inputs collapsed (`shown_optional`, "Add Reference Image (N Free)"); graph mode =
   viewer's Selected Node panel (`graph_mode_tree`); presets wrapped in a Frame, Run Graph = selection (`graph_targets`)
   or asks "Run N Chains?"; preferences in sections + Profile menu + Test Connection; bar in collapsible sections;
-  Ctrl+Shift+Q in the Node Editor. GUI -Ui 97/97. Next: phase F (non-blocking Cycles, teacher Server panel,
-  student help, shared presets folder) when the user asks.
+  Ctrl+Shift+Q in the Node Editor. GUI -Ui 97/97.
+  **Phase F done (2026-10-04, not committed / installed yet when written):** F5 **Retry** on failed / cancelled cards
+  (`rec.values` stored by `generate.book`, `why_not_retry`, `comfyq.retry`); F4 **Shared Presets Folder** preference +
+  profile `presets_dir` (`prefs.shared_presets_dirs`, `preset_ops.preset_folders`; menu sections *Saved on This PC* /
+  *Shared*, Open Shared Presets Folder); F1 **non-blocking Cycles** (see Cycles source); F3 **student help**
+  (`help/student.html` shipped in the extension, **?** = `comfyq.help` in the bar and graph header, docs/STUDENT.md;
+  *How to use* Frames with a Text block on the 5 built-in presets (`Preset.steps`) and the 3 class presets — saved
+  presets keep frame text); F2 **Server (Teacher)** sidebar panel (`ui/server.py`: GPU memory, served models, queue,
+  connected people from `connected_users` in ComfyQ's state, **Load Model...** → `graph_load_model` confirm, whose poll
+  is now "teacher's PC" instead of "Solo on") + profile **`class_mode = true`** (teacher controls off even with an admin
+  password). `prefs.active_profile()` is the one cached profile read. GUI -Ui 103/103.
 
 ## Next steps
-1. Whatever the user asks next. Open candidates: run the 16 never-run workflows (3D / upscale / audio /
-   describe / utility presets, extend the library to those categories); a re-run of the library on an
-   **animated character scene** (pose / character workflows judged properly); `blender_graph_describe`
-   filtering; a GUI `-Ui` re-run (UI changed: Import placement, Scene Render Cycles, Load Model button).
-2. Graph sign-off vs the Moodboard screenshot (user).
-3. Builds from the orchestration page (stage runner, bundles, server-side chains, multi-server), Codex round trip.
-4. Rules: after UI changes `smoke_test.ps1 -Ui` + docs/UI.md; install into the user's profile only when asked
-   (not `--factory-startup`); ask before committing; never tick the user's prefs by script (refused); tell the
-   user before GPU runs / visible windows; smoke tests must not change what ComfyQ serves (see gotcha 32).
+1. **UX phase F is built and tested**: commit (ask), install into the user's profile (ask) and copy the updated
+   `presets/class/*.json` (they gained *How to use* notes) to `%APPDATA%\comfyq-bridge\presets\Class\`.
+2. Other open candidates: run the 12 never-run workflows (3D / video upscale / audio / describe / utility);
+   re-run the library on an animated character scene; `blender_graph_describe` filtering.
+3. Graph sign-off vs the Moodboard screenshot (user). Builds from the orchestration page, Codex round trip.
+4. Rules: follow `.claude/skills/comfyq-workflow-build` for new workflows and `.claude/skills/blender-ui-audit` for UI
+   changes; after UI changes `smoke_test.ps1 -Ui` + docs/UI.md; install into the user's profile only when asked (not
+   `--factory-startup`); ask before committing; never tick the user's prefs by script; tell the user before GPU runs /
+   visible windows; smoke tests must not change what ComfyQ serves (gotcha 32).

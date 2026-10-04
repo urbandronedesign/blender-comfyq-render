@@ -134,6 +134,7 @@ class ComfyQJobRecord(bpy.types.PropertyGroup):
     imported: BoolProperty(default=False)
     purpose: StringProperty()          # "" or "keyframe"
     inputs: StringProperty()           # JSON {param key: local file sent} — the clay animation, start image…
+    values: StringProperty()           # JSON {param key: value sent} (not the files) — what Retry books again
 
 
 class ComfyQSceneProps(bpy.types.PropertyGroup):

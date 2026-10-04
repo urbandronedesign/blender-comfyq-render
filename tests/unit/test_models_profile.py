@@ -67,3 +67,21 @@ def test_missing_file_gives_local_default(tmp_path, monkeypatch):
     monkeypatch.delenv("COMFYQ_BRIDGE_PROFILE", raising=False)
     p = load_profile(path=tmp_path / "nope.toml")
     assert p.name == "local" and p.url == "http://127.0.0.1:3000"
+
+
+def test_profile_presets_dir(tmp_path, monkeypatch):
+    for v in ("COMFYQ_URL", "COMFYQ_BRIDGE_PROFILE"):
+        monkeypatch.delenv(v, raising=False)
+    cfg = tmp_path / "profiles.toml"
+    cfg.write_text('default = "c"\n[profiles.c]\npresets_dir = "//teacher/presets"\n', encoding="utf-8")
+    assert load_profile(path=cfg).presets_dir == "//teacher/presets"
+    assert load_profile("other", path=cfg).presets_dir == ""
+
+
+def test_profile_class_mode(tmp_path, monkeypatch):
+    for v in ("COMFYQ_URL", "COMFYQ_BRIDGE_PROFILE", "COMFYQ_ADMIN_PASSWORD"):
+        monkeypatch.delenv(v, raising=False)
+    cfg = tmp_path / "profiles.toml"
+    cfg.write_text('default = "class"\n[profiles.class]\nclass_mode = true\n[profiles.teacher]\n', encoding="utf-8")
+    assert load_profile(path=cfg).class_mode is True
+    assert load_profile("teacher", path=cfg).class_mode is False

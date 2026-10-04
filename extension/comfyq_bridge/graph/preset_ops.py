@@ -136,6 +136,11 @@ def build_builtin(preset: presets.Preset, tree, scene, choice: dict[str, str | N
             it = dst.item(sock.identifier)          # start from the workflow's own example prompt
             if it is not None and it.s:
                 src.text = it.s
+    if preset.steps and made:
+        note = steps_note(tree, preset.steps, f"How to use · {preset.label}")
+        xs = [n.location.x for n in made.values()]
+        note.location = (min(xs) - note.width - 60, max(n.location.y for n in made.values()))
+        made["How to use"] = note
     for name, node in list(made.items()):          # sources the chosen workflows did not need
         if node.bl_idname in SOURCE_TYPES and not any(o.is_linked for o in node.outputs):
             tree.nodes.remove(node)
@@ -159,6 +164,19 @@ def _loc(node):
     return [round(loc[0], 1), round(loc[1], 1)]
 
 
+def steps_note(tree, lines, name: str):
+    """A Frame showing numbered steps (a Text block): the "How to use" note of a preset."""
+    txt = bpy.data.texts.new(name)
+    txt.write("\n".join(lines))
+    note = tree.nodes.new("NodeFrame")
+    note.label = "How to use"
+    note.text = txt
+    note.shrink = False
+    note.label_size = 20
+    note.width, note.height = 560, 70 + 30 * len(lines)
+    return note
+
+
 def serialize(tree, label: str, description: str) -> dict:
     nodes = []
     for n in tree.nodes:
@@ -179,6 +197,8 @@ def serialize(tree, label: str, description: str) -> dict:
                            for it in n.params if it.workflow_id == n.workflow_id]
         elif n.bl_idname == "NodeFrame":
             d["height"] = round(n.height, 1)
+            if n.text is not None:                      # a note (e.g. "How to use" steps)
+                d["text"] = n.text.as_string()
         nodes.append(d)
     links = [{"from": lk.from_node.name, "from_socket": lk.from_socket.identifier,
               "to": lk.to_node.name, "to_socket": lk.to_socket.identifier} for lk in tree.links]
@@ -231,6 +251,10 @@ def build_saved(data: dict, tree, scene=None) -> list:
             node.refresh_visibility(SESSION.specs[node.workflow_id])
         elif d["type"] == "NodeFrame" and d.get("height"):
             node.height = d["height"]
+            if d.get("text"):
+                node.text = bpy.data.texts.new(f"{d.get('label') or 'Note'} · {data.get('label', '')}".strip(" ·"))
+                node.text.write(d["text"])
+                node.shrink = False
         placed.append((node, d))
     for node, d in placed:                              # parents first, then absolute positions
         parent = made.get(d.get("parent", ""))
@@ -251,17 +275,25 @@ def build_saved(data: dict, tree, scene=None) -> list:
     return list(made.values())
 
 
+def preset_folders() -> list[Path]:
+    """This PC's presets folder, then the shared ones (preference, profile, COMFYQ_BRIDGE_PRESETS)."""
+    from ..prefs import shared_presets_dirs
+    return presets.folders(shared_presets_dirs())
+
+
 def saved_presets() -> list[tuple[Path, dict]]:
-    """(file, its header) of every saved preset, user folder first then the shared one. Files in a
-    subfolder (one level) are grouped: header["group"] = the subfolder's name (a submenu)."""
+    """(file, its header) of every saved preset, this PC's folder first then the shared ones. Files in a
+    subfolder (one level) are grouped: header["group"] = the subfolder's name (a submenu);
+    header["shared"] = the file comes from a shared folder."""
     out = []
-    for folder in presets.folders():
+    for n, folder in enumerate(preset_folders()):
         if folder.is_dir():
             files = sorted(folder.glob("*.json")) + sorted(folder.glob("*/*.json"))
             for f in files:
                 head = _header(f)
                 if head:
-                    out.append((f, {**head, "group": "" if f.parent == folder else f.parent.name}))
+                    out.append((f, {**head, "group": "" if f.parent == folder else f.parent.name,
+                                    "shared": n > 0}))
     return out
 
 
@@ -405,12 +437,12 @@ class COMFYQ_OT_graph_save_preset(bpy.types.Operator):
     bl_idname = "comfyq.graph_save_preset"
     bl_label = "Save Graph as Preset..."
     bl_description = ("Save this graph (nodes, models, settings, prompts, links) as a class preset. "
-                      "Copy the file to the students' presets folder, or set COMFYQ_BRIDGE_PRESETS to a shared folder")
+                      "Copy the file to the students' presets folder, or save it in the Shared Presets Folder")
     bl_options = {"REGISTER", "INTERNAL"}
     name: StringProperty(name="Name", default="My class preset")
     description: StringProperty(name="Description", default="")
     shared: BoolProperty(name="Save in the shared folder", default=False,
-                         description="Save in the folder named by COMFYQ_BRIDGE_PRESETS (e.g. on the teacher's PC)")
+                         description="Save in the shared presets folder (Preferences › Student, or the profile's presets_dir)")
 
     @classmethod
     def poll(cls, context):
@@ -428,13 +460,13 @@ class COMFYQ_OT_graph_save_preset(bpy.types.Operator):
         col = self.layout.column()
         col.prop(self, "name")
         col.prop(self, "description")
-        folders = presets.folders()
+        folders = preset_folders()
         if len(folders) > 1:
             col.prop(self, "shared")
         col.label(text=str(folders[1] if self.shared and len(folders) > 1 else folders[0]), icon="FILE_FOLDER")
 
     def execute(self, context):
-        folders = presets.folders()
+        folders = preset_folders()
         folder = folders[1] if self.shared and len(folders) > 1 else folders[0]
         folder.mkdir(parents=True, exist_ok=True)
         path = folder / f"{_slug(self.name)}.json"
@@ -449,11 +481,23 @@ class COMFYQ_OT_graph_presets_folder(bpy.types.Operator):
     bl_label = "Open Presets Folder"
     bl_description = "Open the folder of saved presets (copy preset files here on every student PC)"
     bl_options = {"INTERNAL"}
+    shared: BoolProperty(default=False, options={"HIDDEN", "SKIP_SAVE"})
+
+    @classmethod
+    def description(cls, context, props):
+        if props and props.shared:
+            return "Open the shared presets folder (every PC that uses it sees its presets)"
+        return cls.bl_description
 
     def execute(self, context):
         from ..ops.workflow import open_file
-        folder = presets.folders()[0]
-        folder.mkdir(parents=True, exist_ok=True)
+        folders = preset_folders()
+        folder = folders[1] if self.shared and len(folders) > 1 else folders[0]
+        try:
+            folder.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            self.report({"ERROR"}, f"Cannot open {folder}: {e.strerror or e}")
+            return {"CANCELLED"}
         open_file(folder)
         saved = len(list(folder.glob("*.json")))
         self.report({"INFO"}, f"Presets folder: {folder} ({saved} saved preset{'s' if saved != 1 else ''}"
@@ -475,20 +519,27 @@ class COMFYQ_MT_graph_presets(bpy.types.Menu):
         for p in presets.BUILTIN:
             layout.operator(COMFYQ_OT_graph_preset.bl_idname, text=p.label, icon=p.icon).preset = p.id
         saved = saved_presets()
-        if saved:
+        groups = list(dict.fromkeys(h["group"] for _p, h in saved if h["group"]))
+        _GROUPS[:] = groups[:len(GROUP_MENUS)]
+        for shared, title in ((False, "Saved on This PC"), (True, "Shared")):
+            mine = [(p, h) for p, h in saved if h["shared"] == shared]
+            if not mine:
+                continue
             layout.separator()
-            layout.label(text="Saved")
-            for path, head in saved:
+            layout.label(text=title)
+            for path, head in mine:
                 if not head["group"]:
                     layout.operator(COMFYQ_OT_graph_preset.bl_idname, text=head["label"],
                                     icon="FILE").preset = str(path)
-            groups = list(dict.fromkeys(h["group"] for _p, h in saved if h["group"]))
-            _GROUPS[:] = groups[:len(GROUP_MENUS)]
             for i, name in enumerate(_GROUPS):
-                layout.menu(GROUP_MENUS[i].bl_idname, text=name, icon="FILE_FOLDER")
+                if any(h["group"] == name for _p, h in mine):
+                    layout.menu(GROUP_MENUS[i].bl_idname, text=name, icon="FILE_FOLDER")
         layout.separator()
         layout.operator(COMFYQ_OT_graph_save_preset.bl_idname, icon="FILE_TICK")
         layout.operator(COMFYQ_OT_graph_presets_folder.bl_idname, icon="FILE_FOLDER")
+        if len(preset_folders()) > 1:
+            layout.operator(COMFYQ_OT_graph_presets_folder.bl_idname, text="Open Shared Presets Folder",
+                            icon="FILE_FOLDER").shared = True
 
 
 # Subfolders of the presets folders are submenus. Menus are classes, so a fixed pool is registered;

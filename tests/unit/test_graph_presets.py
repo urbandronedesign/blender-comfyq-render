@@ -75,3 +75,12 @@ def test_every_builtin_role_finds_a_workflow_in_the_comfyq_catalogue():
     # what this classroom serves right now wins
     assert presets.pick(presets.BUILTIN[1].nodes[3].role, wfs, inputs,
                         served={"video_edit_ltx2_5_iclora_canny_control"}) == "video_edit_ltx2_5_iclora_canny_control"
+
+
+def test_folders_this_pc_first_then_shared_once(tmp_path, monkeypatch):
+    monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "appdata"))
+    monkeypatch.setenv("COMFYQ_BRIDGE_PRESETS", str(tmp_path / "env"))
+    out = presets.folders([str(tmp_path / "pref"), "", str(tmp_path / "pref"), str(tmp_path / "profile")])
+    assert out[0] == tmp_path / "appdata" / "comfyq-bridge" / "presets"
+    assert out[1:] == [tmp_path / "pref", tmp_path / "profile", tmp_path / "env"]

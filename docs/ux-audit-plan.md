@@ -85,15 +85,61 @@ Severity uses Nielsen's 0–4 scale (4 = must fix before class).
 | E3 | The dialog redraws on every event (`check()` always returns True). Header draw functions have no guard against being appended twice. | Fix both. |
 | E4 | Some actions have no Undo support: Generate's seed change, and preview data-blocks. | Decide case by case, given the async callbacks (gotcha 7). |
 
-## Phase F — larger items (effort L)
-- **F1. Non-blocking Cycles render.** Today Blender freezes and shows "Not responding" for up to 30 minutes.
-  - Run the render process while Blender stays responsive, and show "Cycles 40/96" with ✕.
-  - Quick stopgap first: a wait cursor plus a status-bar warning.
-- **F2. Teacher "Server" panel:** served models, VRAM, queue, connected students, and a switch button. Plus a **Class mode** profile flag that forces Solo off and hides the teacher controls on student PCs.
-- **F3. Student help:**
-  - a one-page quickstart, opened by a **?** button in the bar and in the graph header;
-  - built-in presets carry a Frame with "Step 1 / 2 / 3" notes.
-- **F4. Shared presets folder** as a preference, which `profiles.toml` can also set, instead of an environment variable or copying files by hand.
+## Phase F — larger items (effort L) — DONE 2026-10-04 (built in the order F5 → F4 → F1 → F3 → F2)
+Smoke passes (F1–F5 checks), GUI `-Ui` 103/103. What differs from the designs below:
+- F1: Cycles started from Python logs no samples, so the child script prints them from a `render_stats` handler.
+  The MCP tools wait for the render on the agent's thread, so Blender is not frozen either.
+- F2: the busy state is a word ("busy"), not ▶ (▶ means "run"). **Load Model** now needs only the teacher's PC, not
+  Solo mode: Solo is about *automatic* loads during Run Graph.
+- F3: the quickstart is an HTML page shipped in the extension (`help/student.html`), not Markdown, so it opens in the
+  browser on every PC. `docs/STUDENT.md` points to it. The steps are one *How to use* Frame (a Text block) per preset.
+- F5: Retry is greyed out in the card itself (a poll cannot see the job id); the reason is in its tooltip.
+
+- **F1. Non-blocking Cycles render.** Today `passes/render.py cycles_pass` calls `subprocess.run`, so Blender
+  freezes ("Not responding") for up to 30 minutes.
+  - Use `subprocess.Popen` and poll it from a timer. A pass request returns a "pending" handle.
+  - Read the progress from stdout: Cycles prints "Sample N/M". Show "Cycles 40/96" on the node / bar / MCP, with
+    a ✕ that kills the process.
+  - Callers to adapt:
+    - `graph/run.py _file` (Scene Render style CYCLES): the run must wait for the pass, so add a "rendering"
+      state and book the job when it is done;
+    - `ops/workflow.py preview_pass` (Render Scene button);
+    - MCP `blender_render` (it may stay blocking but return progress), and `blender_segment`'s render.
+  - Stopgap (S), if F1 gets long: a wait cursor (`context.window.cursor_set("WAIT")`) plus a status message before
+    the render.
+  - Tests: smoke Cycles still (4 samples) through the new path; the GUI check (Render Scene with Cycles) stays
+    responsive.
+- **F2. Teacher "Server" panel + Class mode.**
+  - A panel shown only on the teacher PC (`prefs.teacher_unlocked`):
+    - served workflows (main + lanes, busy, VRAM) and card / used GB, from `client.server_lanes()`;
+    - the queue: every unfinished job with user + workflow + phase, from `client.active_jobs()`;
+    - the connected students, from ComfyQ's state if it lists users, otherwise from the jobs' users;
+    - a model switch button: served list + Load (`runtime/serving.choose/serve`, `invoke_confirm`).
+  - Where: the 3D View sidebar ComfyQ tab (sub-panel "Server") and the ComfyQ window.
+  - **Class mode:** a `class_mode = true` flag in a profile (`client/profile.py`). It forces Solo off and hides
+    every teacher control, even with an admin password. The teacher deploys that profile to the student PCs.
+  - Tests: smoke (panel data from the live server, read only); `-Ui` screenshot.
+- **F3. Student help.**
+  - `docs/STUDENT.md`: a one-page quickstart (connect + name, choose a model, prompt, Generate, wait / queue,
+    results; graph: add a preset, edit the prompt or materials, Run Graph, Stop).
+  - A **?** button in the bar's top row and in the graph header, opening that page with `ops.workflow.open_file`.
+    The extension ships the page: copy it into the extension folder at build time, or keep it in the extension
+    folder.
+  - The built-in presets (`graph/presets.py BUILTIN`) and the class presets get a Frame with "1. … 2. … 3. …" notes.
+- **F4. Shared presets folder.**
+  - A preference "Shared Presets Folder" (DIR_PATH).
+  - A `presets_dir = "…"` key in a profile, so the teacher's profiles file sets it for the whole class.
+  - `graph/presets.py folders()` reads both, plus the existing `COMFYQ_BRIDGE_PRESETS` environment variable.
+  - The Presets menu shows where presets come from. Open Presets Folder offers the shared one too.
+  - Tests: smoke (a temporary folder set in the preference is listed).
+- **F5. Retry on failed jobs.**
+  - The job record already stores the uploaded inputs (`rec.inputs` JSON: param key → local file).
+  - Also store the values sent: a new `rec.values` JSON written by `ops/generate.book`.
+  - **Retry** on a failed / cancelled card re-books the same workflow with the same values and the same files
+    (re-uploaded if needed), with no new render. It is greyed out with the reason if a file is gone or the model
+    is not served.
+  - Tests: smoke (a fake failed record: the operator books with the same values, faked transport, or check poll /
+    reason when the file is gone).
 
 ## Decisions (answered 2026-10-04)
 1. admin password in the profile · 2. yes, hide the bar in graph mode (test it) · 3. add beside · 4. yes · 5. yes (`.claude/skills/blender-ui-audit`)

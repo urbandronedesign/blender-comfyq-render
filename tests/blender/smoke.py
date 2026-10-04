@@ -11,6 +11,7 @@ import os
 import shutil
 import struct
 import sys
+import tempfile
 import time
 import wave
 from pathlib import Path
@@ -646,6 +647,10 @@ for p in gpresets.BUILTIN:
           and all(lk.is_valid for lk in pt.links) and videos_fed
           and all(any(o.is_linked for o in n.outputs) for n in wnodes),
           f"preset “{p.label}”: built from {list(choice.values())} ({len(pt.nodes)} nodes, {len(pt.links)} links)")
+    _note = next((n for n in made if n.bl_idname == "NodeFrame" and n.label == "How to use"), None)
+    check(_note is not None and _note.text is not None and _note.text.as_string().startswith("1. ")
+          and _note.location.x + _note.width < min(n.location.x for n in made if n != _note),
+          f"F3: preset “{p.label}” has a How to use note (numbered steps, left of the nodes)")
     if p.id == "keyframe_v2v":
         video = next(n for n in wnodes if any(socket_kind(x) == "video" for x in n.inputs))
         start = next(x for x in video.inputs if socket_kind(x) == "image")
@@ -678,6 +683,13 @@ wb = next(n for n in back.nodes if n.bl_idname == "ComfyQWorkflowNode" and n.wor
 check(same_types and len(back.links) == len(keep_tree.links) and all(lk.is_valid for lk in back.links)
       and (fkey is None or abs(wb.item(fkey.key).f - 0.73) < 1e-5),
       f"saved preset rebuilds the same graph ({len(back.nodes)} nodes, {len(back.links)} links, settings kept)")
+_bnote = next((n for n in back.nodes if n.bl_idname == "NodeFrame" and n.label == "How to use"), None)
+check(_bnote is not None and _bnote.text is not None and _bnote.text.as_string().startswith("1. "),
+      "F3: a saved preset keeps its How to use note (the Frame's text)")
+from bl_ext.user_default.comfyq_bridge.ops import workflow as _wfops
+
+check(_wfops.HELP_PAGE.is_file() and "quickstart" in _wfops.HELP_PAGE.read_text(encoding="utf-8").lower(),
+      f"F3: the student quickstart ships with the extension ({_wfops.HELP_PAGE.name})")
 # the generated library (tools/make_preset_library.py): subfolders = submenus; workflow nodes saved with
 # no settings + "match_scene" take the workflow's defaults and the scene's duration / size / fps
 lib = json.loads(json.dumps(data))
@@ -689,6 +701,34 @@ for d in lib["nodes"]:
 groups = {h["label"]: h["group"] for _f, h in gpo.saved_presets()}
 check(groups.get("Smoke lib") == "Video → video" and groups.get("Smoke class") == "",
       f"presets in a subfolder are grouped (a submenu): {groups}")
+# F4: the Shared Presets Folder preference and a profile's presets_dir are listed too (this sandbox's prefs)
+from bl_ext.user_default.comfyq_bridge import prefs as _prefs_mod
+
+_pp = _prefs_mod.prefs()
+_pdir, _cdir = tmp / "pref_presets", tmp / "profile_presets"
+for _d, _lab in ((_pdir, "Smoke pref preset"), (_cdir, "Smoke profile preset")):
+    _d.mkdir(parents=True, exist_ok=True)
+    (_d / "p.json").write_text(json.dumps({**data, "label": _lab}), encoding="utf-8")
+_cfg0 = os.environ.get("COMFYQ_BRIDGE_CONFIG")
+_cfg = tmp / "profiles_presets.toml"
+_cfg.write_text(f'default = "c"\n[profiles.c]\npresets_dir = "{_cdir.as_posix()}"\n'
+                '[profiles.c.comfyq]\nurl = "http://127.0.0.1:3000"\n', encoding="utf-8")
+try:
+    _pp.presets_dir = str(_pdir)
+    os.environ["COMFYQ_BRIDGE_CONFIG"] = str(_cfg)
+    _sv = {h["label"]: h["shared"] for _f, h in gpo.saved_presets()}
+    _fo = gpo.preset_folders()
+    check(_sv.get("Smoke pref preset") is True and _sv.get("Smoke profile preset") is True
+          and _fo[1] == _pdir and _cdir in _fo,
+          f"Shared Presets Folder (preference + profile presets_dir) listed as shared: {[str(f) for f in _fo]}")
+    _pp.presets_dir = str(_cdir)
+    check(gpo.preset_folders().count(_cdir) == 1, "a folder named twice is listed once")
+finally:
+    _pp.presets_dir = ""
+    if _cfg0 is None:
+        os.environ.pop("COMFYQ_BRIDGE_CONFIG", None)
+    else:
+        os.environ["COMFYQ_BRIDGE_CONFIG"] = _cfg0
 lib_back = bpy.data.node_groups.new("smoke lib back", gtree_mod.TREE)
 gpo.build_saved(lib, lib_back, scene)
 wl = next(n for n in lib_back.nodes if n.bl_idname == "ComfyQWorkflowNode" and n.workflow_id == wkey.workflow_id)
@@ -779,6 +819,62 @@ if _cimg is not None:
 err, bad = mcp_tool("blender_render", kind="animation", style="CYCLES")
 check(err and "must be one of" in bad["error"], "Cycles is for stills only (animation refused)")
 from bl_ext.user_default.comfyq_bridge.passes import render as _render
+
+# F1: the Cycles render does not block Blender: started, then polled (progress "Cycles n/m"), ✕ kills it
+_t0 = time.monotonic()
+_cj = _render.CyclesRender(scene, 256, None, 16, tag="smoke")
+_started = time.monotonic() - _t0
+_texts, _out = set(), _cj.poll()
+check(_out is None and _cj in _render.ACTIVE and _started < 10,
+      f"F1: a Cycles render starts and returns at once ({_started:.1f} s), polled while it runs")
+while _out is None:
+    _texts.add(_cj.text().split(" · ")[0])
+    time.sleep(0.2)
+    _out = _cj.poll()
+check(_out.is_file() and _cj not in _render.ACTIVE and not _cj.blend.exists() and _cj.done_samples == 16
+      and _cj.text().startswith("Cycles 16/16"),
+      f"F1: progress read from the render's samples ({_cj.text()}; seen while polling: {sorted(_texts)})")
+_cj = _render.CyclesRender(scene, 256, None, 4096, tag="smoke")
+time.sleep(1.0)
+_n = _render.cancel_cycles()
+try:
+    _cj.poll()
+    _why = ""
+except RuntimeError as e:
+    _why = str(e)
+check(_n == 1 and "cancelled" in _why and _cj.proc.poll() is not None and not _render.ACTIVE and not _cj.blend.exists(),
+      f"F1: ✕ (Stop Cycles Render) kills the separate Blender ({_why})")
+# the graph run waits for a Cycles source without blocking (Rendering), then uses its file
+from bl_ext.user_default.comfyq_bridge.graph import run as _grun_c
+
+_ct = bpy.data.node_groups.new("Cycles smoke", "ComfyQGraphTree")
+_cs = _ct.nodes.new("ComfyQSceneRenderNode")
+_cs.style, _cs.cycles_samples = "CYCLES", 4
+_crun = _grun_c.Run(_ct, scene, [], {}, [])
+
+
+class _Spec:
+    max_input_edge, label = 128, "Image"
+
+
+_waits, _cp = 0, None
+while _cp is None and _waits < 600:
+    try:
+        _cp = _crun._file(scene, _cs, _Spec)
+    except _grun_c.Rendering:
+        _waits += 1
+        time.sleep(0.2)
+check(_cp is not None and _cp.is_file() and _waits > 0 and not _crun.cycles,
+      f"F1: graph run polls the Cycles source ({_waits} ticks while rendering), then uses {_cp and _cp.name}")
+_crun2 = _grun_c.Run(_ct, scene, [], {}, [])
+_cs.cycles_samples = 4096
+try:
+    _crun2._file(scene, _cs, _Spec)
+except _grun_c.Rendering:
+    pass
+_crun2.end_renders()
+check(not _render.ACTIVE and not _crun2.cycles, "F1: graph Stop / run end kills its Cycles render")
+bpy.data.node_groups.remove(_ct)
 
 _fp1 = _render.scene_fingerprint(scene, "CYCLES")
 _w = scene.world or bpy.data.worlds.new("smoke world")
@@ -978,6 +1074,75 @@ _n0 = len(scene.comfyq.jobs)
 _res = bpy.ops.comfyq.remove_job(job_id="smoke-remove-job")
 check(_res == {"FINISHED"} and len(scene.comfyq.jobs) == _n0 - 1
       and all(r.job_id != "smoke-remove-job" for r in scene.comfyq.jobs), "Job card › Remove from List")
+# F2: teacher Server panel (read only: never loads a model) + Class mode
+from bl_ext.user_default.comfyq_bridge.graph import run as _grun_f2
+from bl_ext.user_default.comfyq_bridge.prefs import teacher_unlocked as _unl2
+from bl_ext.user_default.comfyq_bridge.ui import server as _srv
+
+_env2 = {k: os.environ.get(k) for k in ("COMFYQ_BRIDGE_CONFIG", "COMFYQ_ADMIN_PASSWORD")}
+_pp2 = bpy.context.preferences.addons["bl_ext.user_default.comfyq_bridge"].preferences
+try:
+    _ccfg = Path(tempfile.mkdtemp()) / "profiles.toml"
+    _ccfg.write_text('default = "class"\n[profiles.class]\nclass_mode = true\n'
+                     '[profiles.class.comfyq]\nurl = "http://127.0.0.1:3000"\nadmin_password = "x"\n', encoding="utf-8")
+    os.environ["COMFYQ_BRIDGE_CONFIG"] = str(_ccfg)
+    os.environ.pop("COMFYQ_ADMIN_PASSWORD", None)
+    _pp2.solo_mode = True
+    check(not _unl2(_pp2) and not _grun_f2.solo_on() and not _srv.visible()
+          and not bpy.ops.comfyq.server_load_model.poll(),
+          "F2: Class mode (profile) turns teacher controls off even with an admin password; no Server panel")
+    os.environ["COMFYQ_BRIDGE_CONFIG"] = str(_ccfg.with_name("none.toml"))   # teacher: admin password, no class mode
+    os.environ["COMFYQ_ADMIN_PASSWORD"] = "smoke"
+    _pp2.solo_mode = False
+    check(_srv.visible() and bpy.ops.comfyq.server_load_model.poll(), "F2: Server panel + Load Model on the teacher's PC")
+    _srv.SERVER.update(drawn=time.monotonic(), t=0.0, lanes=[], card={})
+    _srv.tick()
+    pump_until(lambda: not _srv.SERVER["busy"], 15, "server panel refresh")
+    _ln = [x.get("workflowId") for x in _srv.SERVER["lanes"]]
+    check(set(_ln) == SESSION.served_ids() and _srv.SERVER["card"].get("vramGb") and not _srv.SERVER["error"],
+          f"F2: Server panel reads the served models and GPU memory ({_ln}, {_srv.SERVER['card']})")
+    _users = SESSION.client.users()
+    check(SESSION.client.profile.user in _users, f"F2: connected users from ComfyQ's state ({_users})")
+finally:
+    _pp2.solo_mode = False
+    for _k, _v in _env2.items():
+        if _v is None:
+            os.environ.pop(_k, None)
+        else:
+            os.environ[_k] = _v
+# F5 Retry: booking stores the values sent; Retry books them again with the same files (nothing really booked:
+# SESSION.run / track are faked, so no GPU job)
+from bl_ext.user_default.comfyq_bridge.ops import generate as _gen
+
+_rf = Path(tempfile.mkdtemp()) / "retry_in.png"
+_rf.write_bytes(b"png")
+_booked = []
+_run0, _track0 = SESSION.run, SESSION.track
+SESSION.run = lambda work, done, **kw: (_booked.append(work), done(f"smoke-retry-{len(_booked)}"))
+SESSION.track = lambda *a, **kw: None
+try:
+    _gen.book(scene, wf, SESSION.specs[wf], {"smoke_value": 7}, {"smoke_file": _rf}, label="Smoke retry")
+    _r1 = next(r for r in scene.comfyq.jobs if r.job_id == "smoke-retry-1")
+    check(json.loads(_r1.values) == {"smoke_value": 7} and json.loads(_r1.inputs) == {"smoke_file": str(_rf)},
+          "Generate stores the values and files sent (for Retry)")
+    check(_gen.why_not_retry(scene, "smoke-retry-1") == "", f"Retry possible ({_gen.why_not_retry(scene, 'smoke-retry-1')})")
+    _res = bpy.ops.comfyq.retry(job_id="smoke-retry-1")
+    _r2 = next((r for r in scene.comfyq.jobs if r.job_id == "smoke-retry-2"), None)
+    check(_res == {"FINISHED"} and _r2 is not None and _r2.values == _r1.values and _r2.inputs == _r1.inputs
+          and _r2.label == "Retry · Smoke retry" and _r2.workflow_id == wf,
+          "Job card › Retry books the same workflow, values and files again")
+    _rf.unlink()
+    _why = _gen.why_not_retry(scene, "smoke-retry-1")
+    check("no longer on disk" in _why and bpy.ops.comfyq.retry(job_id="smoke-retry-1") == {"CANCELLED"},
+          f"Retry refused with the reason when a file is gone ({_why})")
+    _r1.values = ""
+    check("before Retry existed" in _gen.why_not_retry(scene, "smoke-retry-1"), "Retry refused for old job records")
+finally:
+    SESSION.run, SESSION.track = _run0, _track0
+    for _jid in ("smoke-retry-1", "smoke-retry-2"):
+        _ix = next((n for n, r in enumerate(scene.comfyq.jobs) if r.job_id == _jid), None)
+        if _ix is not None:
+            scene.comfyq.jobs.remove(_ix)
 # Surfaces node (SAM3 → prompt) in the graph: no SAM3 job here (found surfaces are faked)
 from bl_ext.user_default.comfyq_bridge.graph import outputs as _gout
 from bl_ext.user_default.comfyq_bridge.graph import preset_ops as _gpo
@@ -1025,6 +1190,9 @@ _l3 = {(lk.from_node.bl_idname, lk.to_node.bl_idname, lk.to_socket.identifier) f
 check(("ComfyQSurfacesNode", "ComfyQWorkflowNode", "textencodeqwenimage21_prompt_459_474") in _l3
       and ("ComfyQSceneRenderNode", "ComfyQSurfacesNode", "Image") in _l3
       and len(_l3) == 6, f"Architecture class preset: Cycles → Surfaces (SAM3) → Qwen edit prompt → SeedVR2 ({len(_l3)} links)")
+_n3 = next((n for n in _st3.nodes if n.bl_idname == "NodeFrame" and n.label == "How to use"), None)
+check(_n3 is not None and _n3.text is not None and "Surfaces" in _n3.text.as_string(),
+      "F3: the Architecture class preset shows its How to use steps")
 for _t in (_st, _st2, _st3):
     bpy.data.node_groups.remove(_t)
 # teacher tools (load models): hidden + refused while the preference is off; only safe calls here

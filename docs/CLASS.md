@@ -16,6 +16,8 @@ your own ready-made graphs. Every button is described in [UI.md](UI.md).
    ```toml
    default = "class"
    [profiles.class]
+   class_mode = true                       # student PCs: no teacher controls, whatever else is in the file
+   presets_dir = '\\TEACHER-PC\presets'    # optional: the class's shared presets folder (§3)
    comfyq = { url = "http://192.168.1.10:3000" }
    ```
    In the extension's preferences each student types their **name** (their jobs show under it in
@@ -23,6 +25,11 @@ your own ready-made graphs. Every button is described in [UI.md](UI.md).
 4. **Class presets** (optional, §3): put your preset files in each PC's presets folder, or in one
    shared folder.
 5. Check one PC: `tools\comfyq.ps1 doctor` (or just press **Connect** in the ComfyQ bar).
+6. **During the class, on your PC:** the sidebar's **Server (Teacher)** panel (ComfyQ tab, closed by default)
+   shows the GPU memory, the served models, the whole queue (who, which model, running or waiting) and who is
+   connected; **Load Model…** switches what ComfyQ serves (it asks first: a switch can restart ComfyQ for
+   everyone). It only appears on a PC whose profile holds the admin password and is not in Class mode.
+7. Students have a **?** button (bar and graph header) that opens a one-page quickstart.
 
 ## 2. Starting from a preset (students)
 
@@ -59,10 +66,12 @@ Good to know:
    - copy the `.json` file into `%APPDATA%\comfyq-bridge\presets\` on every student PC
      (**Presets › Open Presets Folder** opens yours in Explorer and shows its path in the status bar; it is
      empty until you use **Save Graph as Preset…**), or
-   - put it in **one shared folder** and set the environment variable `COMFYQ_BRIDGE_PRESETS` to that
-     folder on every PC (e.g. a network share of the teacher's PC). *Save in the shared folder* then
-     saves there directly.
-4. Students find it under **Presets › Saved**.
+   - put it in **one shared folder** (e.g. a network share of the teacher's PC) and point every PC at it:
+     Preferences › ComfyQ › Student › **Shared Presets Folder**, or once for the whole class in the profiles
+     file you deploy: `presets_dir = '\\TEACHER-PC\presets'` under `[profiles.class]` (single quotes: backslashes kept as typed) (the environment
+     variable `COMFYQ_BRIDGE_PRESETS` still works too). *Save in the shared folder* then saves there directly,
+     and **Presets › Open Shared Presets Folder** opens it.
+4. Students find it under **Presets › Saved on This PC** or **Presets › Shared**.
 
 A saved preset is an exact copy: the same workflows (if one is not served that day it shows
 *Not served*), settings, prompts and links. Image files are referenced by their path, so use images
@@ -104,7 +113,7 @@ video categories, sorted into four submenus: **Image** (t2i, 9), **Image edit** 
   preset is added to (not frozen at the time it was made).
 
 Install: copy the four folders of `presets\library\` into each PC's presets folder (or into the shared
-`COMFYQ_BRIDGE_PRESETS` folder). Only workflows ComfyQ serves that day can run; the others show
+presets folder). Only workflows ComfyQ serves that day can run; the others show
 *Not served*. Regenerate after ComfyQ's workflows change (headless, no GPU, extension installed in the
 profile it runs with):
 `blender -b --online-mode --python tools\make_preset_library.py -- presets\library [t2i,image-edit,i2v,video-edit]`

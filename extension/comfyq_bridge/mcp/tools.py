@@ -346,6 +346,20 @@ def blender_select(args: dict) -> dict:
     return on_main(sel)
 
 
+def _cycles(edge: int | None, frame: int | None, samples: int, progress=None) -> Path:
+    """A Cycles still of the open scene: started on Blender's main thread, waited for here (the agent's
+    thread), so Blender stays responsive while the separate Blender renders."""
+    from ..passes import render
+    job = on_main(lambda: render.CyclesRender(bpy.context.scene, edge, frame, samples, tag="agent"))
+    while True:
+        out = job.poll()
+        if out is not None:
+            return out
+        if progress is not None:
+            progress(job.text())
+        time.sleep(0.5)
+
+
 def blender_render(args: dict) -> dict:
     from ..passes import animation, render
     kind, style = args.get("kind", "still"), args.get("style", "CLAY")
@@ -353,6 +367,12 @@ def blender_render(args: dict) -> dict:
     if style not in {s[0] for s in styles}:
         raise ToolError(f"style for a {kind} must be one of {[s[0] for s in styles]}")
     edge = int(args.get("max_edge", 1280))
+    if kind == "still" and style == "CYCLES":
+        frame = args.get("frame")
+        try:
+            return {"path": str(_cycles(edge, None if frame is None else int(frame), int(args.get("samples", 64))))}
+        except RuntimeError as e:
+            raise ToolError(str(e)) from e
 
     def go():
         sc = bpy.context.scene
@@ -626,8 +646,13 @@ def blender_segment(args: dict) -> dict:
 
     def work():
         out = seg.work_dir()
-        pic = image or on_main(lambda: render.structure_pass(bpy.context.scene, style, int(args.get("max_edge", 1920)),
-                                                             None, samples), timeout=1900)
+        edge = int(args.get("max_edge", 1920))
+        if image is not None:
+            pic = image
+        elif style == "CYCLES":
+            pic = _cycles(edge, None, samples, progress=lambda m: TASK.update(message=m))
+        else:
+            pic = on_main(lambda: render.structure_pass(bpy.context.scene, style, edge, None, samples), timeout=300)
         res = segmentation.segment(client, Path(pic), labels, out, lambda fn: on_main(fn, timeout=300),
                                    None if threshold is None else float(threshold),
                                    progress=lambda m: TASK.update(message=m))

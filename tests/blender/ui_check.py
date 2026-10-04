@@ -494,6 +494,28 @@ def step_finished_job_card():
     check("Queue popover draws without error", not any("draw_jobs" in e for e in draw_errors))
 
 
+def step_failed_job_card():
+    """A failed job reattached from the server: its card shows the error and Retry (not clicked: no GPU job)."""
+    sc = bpy.context.scene
+    jobs = S().client.http.get("/jobs", status="failed", limit=50)["jobs"]
+    if not jobs:
+        check("failed job card", True, "no failed job on the server: skipped")
+        return
+    pick = jobs[0]
+    rec = sc.comfyq.jobs.add()
+    rec.job_id, rec.workflow_id, rec.label, rec.created = pick["id"], pick["workflow_id"], "ui check failed", time.time()
+    rec.values = "{}"
+    S().reattach([(pick["id"], pick["workflow_id"])])
+    yield (lambda: (v := S().jobs.get(pick["id"])) is not None and v.job.done), 30
+    for a in bpy.context.screen.areas:
+        a.tag_redraw()
+    yield 0.5
+    shot("07b_failed_job_card")
+    why = ext("ops.generate").why_not_retry(sc, pick["id"])
+    check("failed card › Retry drawn, greyed with a reason when it cannot run",
+          not any("draw_jobs" in e for e in draw_errors), why or "can retry")
+
+
 def _close_file_browser():
     for w in list(bpy.context.window_manager.windows):
         if any(a.type == "FILE_BROWSER" for a in w.screen.areas) and w != main_win():
@@ -695,7 +717,6 @@ def _graph_n3(tree, wf):
 
 def _graph_n5(tree):
     """N5: class presets from the header's Presets menu; Save Graph as Preset (into a test folder)."""
-    import os
     gpo = ext("graph.preset_ops")
     before = len(tree.nodes)
     res = click("graph_preset", graph_area, preset="keyframe_v2v")
@@ -707,14 +728,17 @@ def _graph_n5(tree):
           f"{res} {[n.workflow_id for n in wnodes]} · {S().status_note}")
     yield 1.5
     shot("09h_preset")
-    os.environ["COMFYQ_BRIDGE_PRESETS"] = str(OUT / "presets")
+    # F4: the Shared Presets Folder preference (this sandbox profile's prefs, never the user's)
+    p = ext("prefs").prefs()
+    p.presets_dir = str(OUT / "presets")
     shutil.rmtree(OUT / "presets", ignore_errors=True)
     with ctx(graph_area):
         res = bpy.ops.comfyq.graph_save_preset("EXEC_DEFAULT", name="UI check class", shared=True)
-    listed = [h["label"] for _f, h in gpo.saved_presets()]
-    check("N5: Save Graph as Preset writes a preset the Presets menu lists", res == {"FINISHED"}
-          and "UI check class" in listed, listed)
-    del os.environ["COMFYQ_BRIDGE_PRESETS"]
+    listed = {h["label"]: h["shared"] for _f, h in gpo.saved_presets()}
+    check("N5/F4: Save Graph as Preset writes into the Shared Presets Folder; the menu lists it as shared",
+          res == {"FINISHED"} and listed.get("UI check class") is True and (OUT / "presets").is_dir(), listed)
+    p.presets_dir = ""
+    # the menu itself is opened by the last step (an open menu would cover every later screenshot)
 
 
 def _graph_n4(tree):
@@ -783,6 +807,43 @@ def _small(node, specs):
             it.i = int(sp.min)
         elif sp.kind == "float" and ("clip length" in low or "duration" in low):
             it.f = float(sp.min) if sp.min else 1.0
+
+
+def step_cycles_render():
+    """F1: Scene Render (Cycles) › Render Frame runs in a separate Blender: the click returns at once, this
+    window keeps drawing (the runner's timer ticks), the node shows the samples, then the preview appears."""
+    rnd = ext("passes.render")
+    _w, area = graph_area()
+    tree = area.spaces.active.node_tree
+    node = tree.nodes.new("ComfyQSceneRenderNode")
+    node.style, node.cycles_samples = "CYCLES", 64
+    node.location = (-600, 600)
+    for n in tree.nodes:
+        n.select = n == node
+    w, a = graph_area()
+    region = next(r for r in a.regions if r.type == "WINDOW")
+    with bpy.context.temp_override(window=w, area=a, region=region):
+        bpy.ops.node.view_selected()
+    t0 = time.monotonic()
+    res = click("preview_pass", graph_area, mask=False, style="CYCLES", frame=bpy.context.scene.frame_current,
+                tag=f"{tree.name}/{node.name}")
+    took = time.monotonic() - t0
+    check("F1: Render Frame (Cycles) returns at once; the render runs in a separate Blender",
+          res == {"FINISHED"} and took < 5 and len(rnd.ACTIVE) == 1, f"{res} in {took:.1f} s")
+    ticks, seen = 0, set()
+    while rnd.ACTIVE and ticks < 600:
+        seen.add(rnd.ACTIVE[0].text().split(" · ")[0])
+        ticks += 1
+        if ticks == 3:
+            redraw()
+            shot("09j_cycles_rendering")
+        yield 0.2
+    yield 1.0
+    img = bpy.data.images.get("ComfyQ render preview")
+    check("F1: Blender stays responsive while Cycles renders; the node shows the samples; the preview appears",
+          ticks > 2 and not rnd.ACTIVE and img is not None and "cycles" in Path(img.filepath).name,
+          f"{ticks} UI ticks while rendering, seen {sorted(seen)[-3:]}")
+    tree.nodes.remove(node)
 
 
 def step_graph_run():
@@ -940,6 +1001,10 @@ def step_reload_file():
 
 
 def step_extras():
+    n = len(opened)
+    res = click("help", v3d)
+    check("F3: ? opens the student quickstart (shipped with the extension)",
+          res == {"FINISHED"} and opened[n:] and opened[-1].endswith("student.html"), opened[n:])
     km = bpy.context.window_manager.keyconfigs
     for name, space in (("3D View", "VIEW_3D"), ("Image", "IMAGE_EDITOR"), ("Node Editor", "NODE_EDITOR")):
         ours = [k for k in km.addon.keymaps[name].keymap_items if k.idname == "comfyq.studio"]
@@ -994,9 +1059,41 @@ def step_preferences():
     yield 0.5
 
 
+def step_server_panel():
+    """F2: the teacher's Server panel (served models, GPU memory, queue, connected people). This sandbox reads
+    the real profiles file (gotcha 37): on the teacher's PC it is unlocked, on a student PC it is hidden."""
+    srv = ext("ui.server")
+    if not srv.visible():
+        check("F2: Server panel hidden (not the teacher's PC)", True, "skipped")
+        return
+    srv.SERVER.update(drawn=time.monotonic(), t=0.0)
+    yield (lambda: srv.SERVER["t"] and not srv.SERVER["busy"]), 15
+    with ctx(v3d):
+        bpy.ops.wm.call_panel(name="COMFYQ_PT_server", keep_open=True)
+    yield 1.0
+    shot("15_server_panel")
+    check("F2: Server panel draws (served models, GPU memory, queue, people) without error",
+          bool(srv.SERVER["lanes"]) and not any("server.py" in e for e in draw_errors),
+          [x.get("workflowId") for x in srv.SERVER["lanes"]])
+
+
+def step_presets_menu():
+    """F4 (last: an open menu covers later screenshots): the Presets menu with This PC / Shared sections."""
+    p = ext("prefs").prefs()
+    p.presets_dir = str(OUT / "presets")
+    with ctx(graph_area):
+        bpy.ops.wm.call_menu(name="COMFYQ_MT_graph_presets")
+    yield 0.5
+    shot("09i_presets_menu_shared")
+    check("F4: Presets menu draws This PC / Shared sections without error",
+          not any("graph_presets" in e or "preset_ops" in e for e in draw_errors))
+    p.presets_dir = ""
+
+
 STEPS = [step_start, step_connect, step_refresh, step_tabs_and_menu, step_chips, step_prompt, step_match,
          step_render_scene, step_animation, step_player, step_library, step_cleanup, step_finished_job_card,
-         step_keyframe, step_graph, step_graph_run, step_generate, step_disconnect_reconnect, step_reload_file, step_extras, step_preferences]
+         step_failed_job_card,
+         step_keyframe, step_graph, step_cycles_render, step_graph_run, step_generate, step_disconnect_reconnect, step_reload_file, step_extras, step_preferences, step_server_panel, step_presets_menu]
 
 
 class Runner:

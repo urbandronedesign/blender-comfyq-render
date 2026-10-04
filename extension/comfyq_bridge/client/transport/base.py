@@ -24,6 +24,7 @@ class ComfyQTransport(ABC):
         self._lock = threading.RLock()
         self._jobs: dict[str, Job] = {}
         self._lanes: list[Lane] = []
+        self._users: list[str] = []               # names of the users connected to ComfyQ now
         self._job_listeners: list[JobListener] = []
         self._lane_listeners: list[LaneListener] = []
 
@@ -55,6 +56,11 @@ class ComfyQTransport(ABC):
     def lanes(self) -> list[Lane]:
         with self._lock:
             return list(self._lanes)
+
+    def users(self) -> list[str]:
+        """Names of everyone connected to ComfyQ now (each name once, in connection order)."""
+        with self._lock:
+            return list(self._users)
 
     def active_jobs(self) -> list[Job]:
         """Every job ComfyQ has not finished, anyone's (scheduled, queued, running)."""

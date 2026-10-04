@@ -129,6 +129,10 @@ class SocketIOTransport(ComfyQTransport):
     def _apply(self, msg: dict[str, Any], replace: bool) -> None:
         if "lanes" in msg:
             self._set_lanes([Lane.from_wire(l) for l in msg.get("lanes") or []])
+        if "connected_users" in msg:
+            names = [str(u.get("userId") or "") for u in msg.get("connected_users") or [] if isinstance(u, dict)]
+            with self._lock:
+                self._users = list(dict.fromkeys(n for n in names if n))
         jobs = [Job.from_wire(j) for j in msg.get("jobs") or []]
         if jobs or replace or msg.get("removed_jobs"):
             self._set_jobs(jobs, msg.get("removed_jobs"), replace=replace)

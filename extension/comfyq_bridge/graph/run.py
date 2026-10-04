@@ -95,6 +95,10 @@ def describe(tree, scene) -> dict[str, engine.GNode]:
 
 
 # -- a run -----------------------------------------------------------------------------------------------
+class Rendering(Exception):
+    """A Cycles source is still rendering (in its own process): try again at the next tick."""
+
+
 class Run:
     def __init__(self, tree, scene, todo: list[str], nodes: dict[str, engine.GNode], selected: list[str],
                  after: list[str] | tuple = (), solo: bool = False):
@@ -116,6 +120,7 @@ class Run:
         self.switch: dict | None = None                # {"wf", "state": asking|loading|failed, "t0", "error"}
         self.switched = False
         self.surface_jobs: dict[str, list[str]] = {}   # Surfaces node -> its SAM3 job ids (a Stop cancels them)
+        self.cycles: dict[tuple, render.CyclesRender] = {}   # Cycles sources rendering now (a Stop kills them)
 
     def tree(self):
         t = bpy.data.node_groups.get(self.tree_name)
@@ -207,6 +212,7 @@ class Run:
                     n += 1
                 except Exception:  # noqa: BLE001, S110 - finished meanwhile, or not ours
                     pass
+        self.end_renders()
         for name in list(self.pending):
             node = tree.nodes.get(name)
             if node is not None:
@@ -217,6 +223,13 @@ class Run:
         self.switch = None
         self.error = "Stopped"
         return n
+
+    def end_renders(self) -> None:
+        """Kill the Cycles renders this run started and has not used (Stop, or the run ended early)."""
+        for job in self.cycles.values():
+            if job in render.ACTIVE:
+                job.cancel()
+        self.cycles.clear()
 
     def _switch_tick(self, tree) -> bool:
         """True once the switch is over (the model is served, or it failed)."""
@@ -272,6 +285,9 @@ class Run:
             return
         try:
             values, uploads = self._collect(scene, node, specs)
+        except Rendering as r:
+            _set_note(node, f"Waiting for the render: {r}")
+            return
         except RuntimeError as e:
             self._fail(tree, name, str(e))
             return
@@ -310,6 +326,9 @@ class Run:
             return
         try:
             pic = self._file(scene, src, _PICTURE)
+        except Rendering as r:
+            _set_note(node, f"Waiting for the render: {r}")
+            return
         except RuntimeError as e:
             self._fail(tree, name, str(e))
             return
@@ -403,7 +422,21 @@ class Run:
         if key in self.renders:
             return self.renders[key]
         idn = src.bl_idname
-        if idn == "ComfyQSceneRenderNode":
+        if idn == "ComfyQSceneRenderNode" and src.style == "CYCLES":
+            # its own Blender process: the run goes on ticking (Blender stays responsive) until the file exists
+            job = self.cycles.get(key)
+            if job is None:
+                job = self.cycles[key] = render.CyclesRender(scene, edge, frame_number(scene, src.frame),
+                                                             src.cycles_samples, tag=f"{self.tree_name}/{src.name}")
+            try:
+                p = job.poll()
+            except RuntimeError:
+                self.cycles.pop(key, None)
+                raise
+            if p is None:
+                raise Rendering(job.text())
+            self.cycles.pop(key, None)
+        elif idn == "ComfyQSceneRenderNode":
             p = render.structure_pass(scene, src.style, edge, frame_number(scene, src.frame), src.cycles_samples)
         elif idn == "ComfyQMaskNode":
             sel = [o for o in scene.objects if o.name in self.selected]
@@ -479,6 +512,11 @@ def _on_main(fn, timeout: float = 300.0):
     if "e" in box:
         raise box["e"]
     return box["v"]
+
+
+def _set_note(node, text: str) -> None:
+    if hasattr(node, "note") and node.note != text:     # writing the same value would still redraw
+        node.note = text
 
 
 def _text(src) -> str:
@@ -625,6 +663,7 @@ def tick_all() -> None:
             traceback.print_exc()
             run.error, alive = str(e), False
         if not alive:
+            run.end_renders()
             RUNS.pop(name, None)
             SESSION.status_note = f"Graph: {run.error}" if run.error else "Graph run finished"
 
@@ -638,4 +677,6 @@ def running(tree_name: str, node_name: str) -> str:
         return "booked"
     if node_name in run.booking:
         return "sending"
+    if run.cycles and any(engine._depends_on(run.nodes, node_name, k[0]) for k in run.cycles):
+        return "rendering"
     return "waiting"

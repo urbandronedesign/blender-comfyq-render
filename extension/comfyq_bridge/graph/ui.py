@@ -842,6 +842,7 @@ def _header(self, context):
         row.operator(COMFYQ_OT_graph_run.bl_idname, text="Run Graph" if room >= _RUN_LABEL_NEED else "",
                      icon="PLAY")
     layout.operator(COMFYQ_OT_graph_clear.bl_idname, text="", icon="TRASH")
+    layout.operator("comfyq.help", text="", icon="HELP")
     from .run import solo_on
     if solo_on():
         sub = layout.row()
@@ -1017,12 +1018,12 @@ class COMFYQ_OT_graph_load_model(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        from .run import solo_on
+        from ..prefs import teacher_unlocked
         if not SESSION.connected:
             cls.poll_message_set("Connect to ComfyQ first")
             return False
-        if not solo_on():
-            cls.poll_message_set("Only on the teacher's PC, with Solo mode on")
+        if not teacher_unlocked():
+            cls.poll_message_set("Only on the teacher's PC (its profile holds ComfyQ's admin password)")
             return False
         return True
 
@@ -1051,10 +1052,10 @@ class COMFYQ_OT_graph_load_model(bpy.types.Operator):
             return how
 
         def done(how):
-            SESSION.status_note = (f"Solo: “{name}” loading alongside" if how == "alongside" else
-                                   f"Solo: ComfyQ restarts with “{name}” (1 to 2 minutes)")
-        SESSION.status_note = f"Solo: asking ComfyQ to load “{name}”…"
-        SESSION.run(work, done, on_error=lambda msg: setattr(SESSION, "status_note", f"Solo: {msg}"))
+            SESSION.status_note = (f"“{name}” loading alongside" if how == "alongside" else
+                                   f"ComfyQ restarts with “{name}” (1 to 2 minutes)")
+        SESSION.status_note = f"Asking ComfyQ to load “{name}”…"
+        SESSION.run(work, done, on_error=lambda msg: setattr(SESSION, "status_note", f"Load Model: {msg}"))
         self.report({"INFO"}, SESSION.status_note)
         return {"FINISHED"}
 

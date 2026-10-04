@@ -53,6 +53,7 @@ class Preset:
     icon: str
     nodes: tuple[PNode, ...]
     links: tuple[PLink, ...]
+    steps: tuple[str, ...] = ()             # "How to use" note beside the preset (short lines, numbered)
 
 
 _V2V = Role(("video-edit",), needs=("video",),
@@ -89,7 +90,13 @@ BUILTIN: tuple[Preset, ...] = (
             PNode("Viewer", "ComfyQViewerNode", 120, 160),
             PNode("Save", "ComfyQSaveNode", 120, -200)),
            (PLink("Render", "Image", "image"), PLink("Prompt", "Image", "text"),
-            PLink("Image", "Viewer"), PLink("Image", "Save"))),
+            PLink("Image", "Viewer"), PLink("Image", "Save")),
+           ("1. Frame the shot with the scene camera",
+            "   (Render Frame shows what is sent)",
+            "2. Describe the look in Prompt",
+            "3. Run Graph, or Generate on the model",
+            "4. Viewer shows the result;",
+            "   Save keeps a copy")),
     Preset("clay_v2v", "Clay animation → video",
            "The scene's animation rendered in clay, restyled by a video-to-video workflow (first frame as "
            "start image when the workflow uses one). Viewer + Save", "RENDER_ANIMATION",
@@ -100,7 +107,14 @@ BUILTIN: tuple[Preset, ...] = (
             PNode("Viewer", "ComfyQViewerNode", 120, 160),
             PNode("Save", "ComfyQSaveNode", 120, -200)),
            (PLink("Clay animation", "Video", "video"), PLink("First frame", "Video", "image"),
-            PLink("Prompt", "Video", "text"), PLink("Video", "Viewer"), PLink("Video", "Save"))),
+            PLink("Prompt", "Video", "text"), PLink("Video", "Viewer"), PLink("Video", "Save")),
+           ("1. Animate the scene and its camera",
+            "   (Render & Play checks the clay video)",
+            "2. Describe the look in Prompt",
+            "3. Run Graph: a video takes minutes,",
+            "   Stop cancels it",
+            "4. Viewer plays the result;",
+            "   Save keeps a copy")),
     Preset("keyframe_v2v", "AI keyframe → video",
            "The first frame is restyled by an image workflow, then starts a video-to-video run on the clay "
            "animation. One prompt feeds both, so the look stays the same. Viewers on both + Save",
@@ -116,21 +130,37 @@ BUILTIN: tuple[Preset, ...] = (
            (PLink("First frame", "Keyframe", "image"), PLink("Prompt", "Keyframe", "text"),
             PLink("Keyframe", "Video", "image", enable=True), PLink("Clay animation", "Video", "video"),
             PLink("Prompt", "Video", "text"), PLink("Keyframe", "Keyframe viewer"),
-            PLink("Video", "Viewer"), PLink("Video", "Save"))),
+            PLink("Video", "Viewer"), PLink("Video", "Save")),
+           ("1. Describe the look in Prompt",
+            "   (it feeds both models)",
+            "2. Generate on Keyframe first and check",
+            "   the look in Keyframe viewer",
+            "3. Run Graph: the video starts from it",
+            "4. Viewer plays the result;",
+            "   Save keeps a copy")),
     Preset("image_3d", "Image → 3D model",
            "An image (a drawing, a photo, an AI image) becomes a textured 3D model, imported into the scene "
            "as soon as it is ready", "MESH_MONKEY",
            (PNode("Image", "ComfyQImageNode", -760, 60),
             PNode("3D model", WF, -340, 60, role=_TO_3D),
             PNode("Import", "ComfyQImportNode", 140, 60, props={"auto": True})),
-           (PLink("Image", "3D model", "image"), PLink("3D model", "Import"))),
+           (PLink("Image", "3D model", "image"), PLink("3D model", "Import")),
+           ("1. Choose a picture in Image",
+            "   (one object, plain background)",
+            "2. Run Graph",
+            "3. The model is imported beside",
+            "   the scene, on the ground")),
     Preset("image_upscale", "Image → upscale",
            "An image upscaled (and sharpened) for print or a final frame. Viewer + Save", "FULLSCREEN_ENTER",
            (PNode("Image", "ComfyQImageNode", -760, 60),
             PNode("Upscale", WF, -340, 60, role=_UPSCALE),
             PNode("Viewer", "ComfyQViewerNode", 140, 200),
             PNode("Save", "ComfyQSaveNode", 140, -160)),
-           (PLink("Image", "Upscale", "image"), PLink("Upscale", "Viewer"), PLink("Upscale", "Save"))),
+           (PLink("Image", "Upscale", "image"), PLink("Upscale", "Viewer"), PLink("Upscale", "Save")),
+           ("1. Choose a picture in Image",
+            "2. Run Graph",
+            "3. Viewer shows the result;",
+            "   Save keeps a copy")),
 )
 
 
@@ -153,15 +183,22 @@ def pick(role: Role, workflows, inputs_of: dict[str, list[str]], served: set[str
     return min(ok)[2] if ok else None
 
 
-def folders() -> list[Path]:
-    """Where saved presets are read from: the user's presets folder, and a shared one (e.g. on the
-    teacher's PC) named by COMFYQ_BRIDGE_PRESETS."""
+def folders(shared: list[str] | tuple[str, ...] = ()) -> list[Path]:
+    """Where saved presets are read from: this PC's presets folder first, then the shared ones (e.g. on the
+    teacher's PC): `shared` (the preference, the profile's presets_dir) and COMFYQ_BRIDGE_PRESETS.
+    The same folder is listed once."""
     if sys.platform == "win32":
         base = Path(os.environ.get("APPDATA") or Path.home() / "AppData" / "Roaming")
     else:
         base = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
     out = [base / "comfyq-bridge" / "presets"]
-    shared = os.environ.get("COMFYQ_BRIDGE_PRESETS")
-    if shared:
-        out.append(Path(shared).expanduser())
+    seen = {os.path.normcase(os.path.abspath(out[0]))}
+    for d in [*shared, os.environ.get("COMFYQ_BRIDGE_PRESETS", "")]:
+        if not d or not d.strip():
+            continue
+        p = Path(d.strip()).expanduser()
+        key = os.path.normcase(os.path.abspath(p))
+        if key not in seen:
+            seen.add(key)
+            out.append(p)
     return out

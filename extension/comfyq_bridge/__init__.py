@@ -21,10 +21,10 @@ from . import graph, mcp, prefs, props
 from .ops import connection, generate, results, workflow
 from .passes import animation
 from .runtime.session import PUMP_INTERVAL_S, SESSION
-from .ui import panel, player
+from .ui import panel, player, server
 
 _CLASSES = (*connection.classes, *workflow.classes, *generate.classes, *results.classes, *panel.classes,
-            *graph.classes)
+            *graph.classes, *server.classes)
 
 
 def _tick() -> float:
@@ -33,9 +33,11 @@ def _tick() -> float:
             workflow.ensure_loaded(window.scene)   # settings of the chosen workflows, after (re)connects/loads
         graph.sync_all()                           # graph nodes follow the workflows' parameters
         _teacher_state()
+        server_changed = server.tick()             # the teacher's Server panel (lanes, VRAM) while it is open
     except Exception:  # noqa: BLE001 - never let this stop the pump timer
         traceback.print_exc()
-    if SESSION.pump():
+        server_changed = False
+    if SESSION.pump() or server_changed:
         for window in bpy.context.window_manager.windows:
             for area in window.screen.areas:
                 if area.type in ("VIEW_3D", "IMAGE_EDITOR"):

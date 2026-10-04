@@ -106,6 +106,19 @@
    "intro": "Turn <image1>, a 3D render, into a real photograph. Photorealistic interior photograph, architectural photography, natural daylight through the window, soft realistic shadows.",
    "outro": "Keep the exact layout, camera, perspective and proportions of the room.",
    "threshold": 0.5
+  },
+  {
+   "name": "How to use",
+   "type": "NodeFrame",
+   "location": [
+    -1880.0,
+    160.0
+   ],
+   "width": 560.0,
+   "label": "How to use",
+   "parent": "",
+   "height": 310.0,
+   "text": "1. Model the room roughly; set materials,\n   lights and the camera (Cycles renders it)\n2. In Surfaces, write one line per surface:\n   floor: oak planks / wall: white plaster\n3. Run Graph: Cycles, then SAM3 finds the\n   surfaces and the prompt names their materials\n4. A material edit reruns only the prompt\n5. Viewer shows the 4K result; Save keeps it"
   }
  ],
  "links": [

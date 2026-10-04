@@ -71,6 +71,19 @@
    "place": "BESIDE",
    "on_ground": true,
    "size": 4.5
+  },
+  {
+   "name": "How to use",
+   "type": "NodeFrame",
+   "location": [
+    -1920.0,
+    420.0
+   ],
+   "width": 560.0,
+   "label": "How to use",
+   "parent": "",
+   "height": 250.0,
+   "text": "1. Describe one object in Prompt\n   (plain background, whole object in view)\n2. Run Graph: an image first, then the 3D model\n3. Check the image in Viewer\n4. The model is imported beside the scene,\n   on the ground"
   }
  ],
  "links": [

@@ -12,9 +12,9 @@ from dataclasses import replace
 import bpy
 from bpy.props import BoolProperty, IntProperty, StringProperty
 
-from .client.profile import config_path, list_profiles, load_profile
+from .client.profile import Profile, config_path, list_profiles, load_profile
 
-_UNLOCK: dict = {"key": None, "on": False}
+_ACTIVE: dict = {"key": None, "profile": None}
 
 
 _PROFILES: dict = {"key": None, "names": []}
@@ -36,14 +36,13 @@ def _profiles() -> list[str]:
     return _PROFILES["names"]
 
 
-def teacher_unlocked(p=None) -> bool:
-    """True on the teacher's PC: the active profile carries ComfyQ's admin password (profiles file or
-    COMFYQ_ADMIN_PASSWORD). Solo mode, Load Model and the agents' teacher tools need it, so a student
-    cannot switch what ComfyQ serves for the whole class. Cached; re-read when the profiles file changes."""
+def active_profile(p=None) -> Profile | None:
+    """The profile chosen in the preferences, read from the profiles file. Cached; re-read when the file,
+    the chosen profile or the environment changes (draw code calls this often). None when the file is broken."""
     try:
         p = p or prefs()
     except KeyError:
-        return False
+        return None
     path = config_path()
     try:
         mtime = path.stat().st_mtime if path.is_file() else 0.0
@@ -51,13 +50,35 @@ def teacher_unlocked(p=None) -> bool:
         mtime = 0.0
     key = (str(path), p.profile, os.environ.get("COMFYQ_ADMIN_PASSWORD", ""),
            os.environ.get("COMFYQ_BRIDGE_PROFILE", ""), mtime)
-    if _UNLOCK["key"] != key:
+    if _ACTIVE["key"] != key:
         try:
-            _UNLOCK["on"] = bool(load_profile(p.profile or None).admin_password)
-        except Exception:  # noqa: BLE001 - a broken profiles file = locked
-            _UNLOCK["on"] = False
-        _UNLOCK["key"] = key
-    return _UNLOCK["on"]
+            _ACTIVE["profile"] = load_profile(p.profile or None)
+        except Exception:  # noqa: BLE001 - a broken profiles file = no profile (teacher controls locked)
+            _ACTIVE["profile"] = None
+        _ACTIVE["key"] = key
+    return _ACTIVE["profile"]
+
+
+def teacher_unlocked(p=None) -> bool:
+    """True on the teacher's PC: the active profile carries ComfyQ's admin password (profiles file or
+    COMFYQ_ADMIN_PASSWORD). Solo mode, Load Model and the agents' teacher tools need it, so a student
+    cannot switch what ComfyQ serves for the whole class. A profile with `class_mode = true` (deployed to
+    the student PCs) keeps them off even if an admin password is there too."""
+    prof = active_profile(p)
+    return bool(prof and prof.admin_password and not prof.class_mode)
+
+
+def shared_presets_dirs(p=None) -> list[str]:
+    """Shared class presets folders: the preference, then the profile's `presets_dir`."""
+    try:
+        p = p or prefs()
+    except KeyError:
+        return []
+    prof = active_profile(p)
+    out = [bpy.path.abspath(p.presets_dir)] if p.presets_dir.strip() else []
+    if prof and prof.presets_dir:
+        out.append(prof.presets_dir)
+    return out
 
 
 def _mcp_toggle(self, context) -> None:
@@ -89,6 +110,10 @@ class ComfyQPreferences(bpy.types.AddonPreferences):
     header_buttons: BoolProperty(name="3D View Header Buttons", default=True,
                                  description="Show the ComfyQ and ComfyQ Window buttons in the 3D View header "
                                              "(Ctrl+Shift+Q opens the bar either way)")
+    presets_dir: StringProperty(
+        name="Shared Presets Folder", default="", subtype="DIR_PATH",
+        description="A folder of class presets shared by the class (for example a network share on the "
+                    "teacher's PC). The profiles file can set it for every PC with presets_dir")
     auto_connect: BoolProperty(name="Connect on Startup", default=False,
                                 description="Connect when Blender starts (once a student name is set)")
     mcp_enabled: BoolProperty(
@@ -127,6 +152,10 @@ class ComfyQPreferences(bpy.types.AddonPreferences):
         if body is not None:
             body.prop(self, "student_name", text="Name")
             body.prop(self, "header_buttons")
+            body.prop(self, "presets_dir")
+            prof = active_profile(self)
+            if prof and prof.presets_dir:
+                body.label(text=f"The profile also shares {prof.presets_dir}", icon="FILE_FOLDER")
 
         body = section("comfyq_prefs_server", "Server")
         if body is not None:
@@ -170,6 +199,8 @@ class ComfyQPreferences(bpy.types.AddonPreferences):
                 sub = body.row()
                 sub.enabled = self.mcp_enabled
                 sub.prop(self, "mcp_teacher", text="Agents May Load Models")
+            elif (prof := active_profile(self)) is not None and prof.class_mode:
+                body.label(text="Class mode (set by the profile): teacher controls are off", icon="LOCKED")
             else:
                 body.label(text="Locked: needs ComfyQ's admin password in this PC's profile", icon="LOCKED")
 

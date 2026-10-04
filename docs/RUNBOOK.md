@@ -39,10 +39,10 @@ are used only by the opt-in teacher tools and solo mode (section 5).
 | 1. Build the zip | `.\tools\smoke_test.ps1` (also runs the headless tests) → `dist\comfyq_bridge-0.1.0.zip` |
 | 2. Install | Blender › Edit › Preferences › Get Extensions › ⌄ › *Install from Disk…*, or `blender -b --online-mode --command extension install-file -r user_default -e dist\comfyq_bridge-0.1.0.zip` (**not** `--factory-startup`: it resets the user's preferences) |
 | 3. Allow online access | Preferences › System › *Allow Online Access* (the bridge cannot connect without it) |
-| 4. Server address | Preferences › Add-ons › ComfyQ Bridge › *Server URL override* (e.g. `http://192.168.1.10:3000`), or a shared `%APPDATA%\comfyq-bridge\profiles.toml` (the teacher copies one file to every PC; access password / token there or in env vars, never in the .blend) |
+| 4. Server address | Preferences › Add-ons › ComfyQ Bridge › Server › *Profile* (or *Advanced › Server Address*, for example `http://192.168.1.10:3000`; *Test Connection* checks it), or a shared `%APPDATA%\comfyq-bridge\profiles.toml` (the teacher copies one file to every PC, **without** `admin_password`, which only goes in the teacher's own file; access password / token there or in env vars, never in the .blend) |
 | 5. Student name | Same preferences page: shown on the jobs; you can only cancel your own |
 | 6. Connect | 3D View › sidebar › ComfyQ › *Connect* (or tick *Connect on startup*) |
-| 7. Presets (optional) | Copy `presets\library\*` (48 graphs) and the teacher's own presets into `%APPDATA%\comfyq-bridge\presets\`, or set `COMFYQ_BRIDGE_PRESETS` to a shared folder |
+| 7. Presets (optional) | Copy `presets\library\*` (48 graphs) and the teacher's own presets into `%APPDATA%\comfyq-bridge\presets\`, or put them in one shared folder named by `presets_dir` in the deployed profile (or the *Shared Presets Folder* preference) |
 
 Health check from a terminal: `.\tools\comfyq.ps1 doctor`.
 
@@ -98,8 +98,18 @@ start; agents connect through `mcp/launcher.py` (stdio). It offers **20 tools**:
 Claude Code is set up in the repo (`.mcp.json`, skill `.claude/skills/blender-comfyq-roundtrip`) and
 was verified end to end. Codex has not been tried yet.
 
-### 3.4 Solo mode (preparing alone, never in class)
-Preferences › *Solo: load models on demand*. **Run Graph** (or an agent's `blender_graph_run`) loads
+### 3.4 Teacher controls and solo mode (preparing alone, never in class)
+**Teacher controls need ComfyQ's admin password in the teacher's profile** (`admin_password` in
+`%APPDATA%\comfyq-bridge\profiles.toml`, or `COMFYQ_ADMIN_PASSWORD`). Without it, Solo mode, Load Model and the agents'
+teacher tools are hidden: a student PC cannot switch what ComfyQ serves. The preferences' **Teacher** section shows
+"Locked" there. This only works fully once ComfyQ itself has an admin password (7.1): today ComfyQ accepts any value.
+Model switches from the UI ask first ("Load N Models in ComfyQ?"). Students are asked for their name at the first
+Connect (lab PCs share Windows logins). **Class mode:** `class_mode = true` in a profile turns every teacher control
+off even if an admin password is there too: deploy it in the students' profiles file. On the teacher's PC the
+sidebar's **Server (Teacher)** panel shows GPU memory, served models, the whole queue and who is connected, with
+**Load Model…** (UX phase F2).
+
+Preferences › Teacher › *Solo Mode*. **Run Graph** (or an agent's `blender_graph_run`) loads
 the model each node needs:
 - one model at a time, as a lane alongside if it fits, else as ComfyQ's main workflow (ComfyQ restarts);
 - only when nothing is booked and **nobody has an unfinished job** on the server;
@@ -200,8 +210,15 @@ switches took about 30 s each.
   rehearsal with several PCs.
 - **Untested end to end:** the bar's AI-keyframe chain, and "image workflow → video start image" in the
   graph with a live job.
-- **UI:** the dialog does not redraw job progress live; job cards cannot be removed from the list; the
-  graph has not yet been compared with the Moodboard reference.
+- **UI (audit 2026-10-04, `docs/ux-audit-plan.md`):** phases A–E are done:
+  - safety (admin-password gate, confirmations, student names);
+  - feedback (disabled buttons say why, queue position, Stop, Remove);
+  - Blender HIG wording and icons, code health;
+  - layout (collapsed inputs, graph mode without the bar, presets in Frames, preference sections).
+
+  Still open, phase F: a non-blocking Cycles render, a teacher Server panel and Class mode, in-app student help, a
+  shared presets folder preference, Retry on failed jobs. The dialog still does not redraw job progress live. The
+  graph has not been compared with the Moodboard reference.
 - **Graph runs:** the multi-model "stage runner" with bundles across servers is only proposed. Solo mode
   covers one PC, one model at a time.
 - **Example prompts:** they describe other scenes. On a bare scene they pull results away (see the ⚠️ in

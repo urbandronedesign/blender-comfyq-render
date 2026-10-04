@@ -6,6 +6,7 @@ import os
 import random
 import subprocess
 import sys
+from pathlib import Path
 
 import bpy
 from bpy.props import BoolProperty, IntProperty, StringProperty
@@ -283,34 +284,109 @@ class COMFYQ_OT_preview_pass(bpy.types.Operator):
     mask: BoolProperty(default=False)
     style: StringProperty(default="", options={"SKIP_SAVE"})     # "" = the bar's style
     frame: IntProperty(default=-1, options={"SKIP_SAVE"})        # -1 = the current frame
+    tag: StringProperty(default="", options={"HIDDEN", "SKIP_SAVE"})   # "<tree>/<node>" that shows a Cycles render
 
     def execute(self, context):
-        from ..ui import player
         scene = context.scene
         style = self.style or scene.comfyq.style
         frame = self.frame if self.frame >= 0 else None
         try:
             if self.mask:
                 path = render.mask_pass(scene, list(context.selected_objects), style, None, frame)
+            elif style == "CYCLES":
+                # its own Blender process: Blender stays responsive; the node shows the samples and a ✕
+                job = render.CyclesRender(scene, None, frame, _samples(self.tag), tag=self.tag)
+                _watch_cycles(job, scene.name)
+                self.report({"INFO"}, "Rendering in Cycles (a separate Blender)…")
+                return {"FINISHED"}
             else:
                 path = render.structure_pass(scene, style, None, frame)
         except RuntimeError as e:
             self.report({"ERROR"}, str(e))
             return {"CANCELLED"}
-        name = "ComfyQ mask preview" if self.mask else "ComfyQ render preview"
-        img = bpy.data.images.get(name)
-        if img is None:                                  # one preview image, refreshed on every render
-            img = bpy.data.images.load(str(path), check_existing=False)
-            img.name = name
-        else:
-            img.filepath = str(path)
-            img.reload()
-        area = player.viewer_area()
-        if area is None:
-            open_file(path)
-        else:
-            player.show_media(area, img)
+        img = show_preview(path, self.mask)
         self.report({"INFO"}, f"{img.size[0]}×{img.size[1]} {style.lower()} render of “{scene.camera.name}”")
+        return {"FINISHED"}
+
+
+def show_preview(path: Path, mask: bool = False):
+    """Load a pass into the one preview image (refreshed on every render) and show it in the ComfyQ viewer."""
+    from ..ui import player
+    name = "ComfyQ mask preview" if mask else "ComfyQ render preview"
+    img = bpy.data.images.get(name)
+    if img is None:
+        img = bpy.data.images.load(str(path), check_existing=False)
+        img.name = name
+    else:
+        img.filepath = str(path)
+        img.reload()
+    area = player.viewer_area()
+    if area is None:
+        open_file(path)
+    else:
+        player.show_media(area, img)
+    return img
+
+
+def _samples(tag: str) -> int:
+    tree, _, node = tag.partition("/")
+    t = bpy.data.node_groups.get(tree)
+    n = t.nodes.get(node) if t is not None else None
+    return int(getattr(n, "cycles_samples", 64))
+
+
+def _watch_cycles(job, scene_name: str) -> None:
+    """Poll a Cycles preview from a timer: redraw its progress, show the picture when it is done."""
+    def tick():
+        try:
+            path = job.poll()
+        except RuntimeError as e:
+            if not job.cancelled:
+                SESSION.error = str(e)
+            _redraw()
+            return None
+        _redraw()
+        if path is None:
+            return 0.5
+        show_preview(path)
+        SESSION.status_note = f"Cycles render done: {path.name}"
+        return None
+    bpy.app.timers.register(tick, first_interval=0.5)
+
+
+def _redraw() -> None:
+    for w in bpy.context.window_manager.windows:
+        for a in w.screen.areas:
+            if a.type in ("NODE_EDITOR", "VIEW_3D", "IMAGE_EDITOR"):
+                a.tag_redraw()
+
+
+HELP_PAGE = Path(__file__).resolve().parent.parent / "help" / "student.html"
+
+
+class COMFYQ_OT_help(bpy.types.Operator):
+    bl_idname = "comfyq.help"
+    bl_label = "Quickstart"
+    bl_description = "Open the student quickstart (connect, Generate, the graph, results) in the web browser"
+    bl_options = {"INTERNAL"}
+
+    def execute(self, context):
+        if not HELP_PAGE.is_file():
+            self.report({"ERROR"}, f"Quickstart missing: {HELP_PAGE}")
+            return {"CANCELLED"}
+        open_file(HELP_PAGE)
+        return {"FINISHED"}
+
+
+class COMFYQ_OT_cancel_cycles(bpy.types.Operator):
+    bl_idname = "comfyq.cancel_cycles"
+    bl_label = "Stop Cycles Render"
+    bl_description = "Stop the Cycles render running in the separate Blender"
+    bl_options = {"INTERNAL"}
+
+    def execute(self, context):
+        n = render.cancel_cycles()
+        self.report({"INFO"}, "Cycles render stopped" if n else "No Cycles render is running")
         return {"FINISHED"}
 
 
@@ -672,5 +748,5 @@ class COMFYQ_OT_open_window(bpy.types.Operator):
 
 
 classes = (COMFYQ_OT_set_workflow, COMFYQ_MT_workflows, COMFYQ_MT_keyframe_workflows, COMFYQ_OT_random_seed,
-           COMFYQ_OT_match_scene, COMFYQ_OT_preview_pass, COMFYQ_OT_preview_animation, COMFYQ_OT_edit_prompt,
+           COMFYQ_OT_match_scene, COMFYQ_OT_preview_pass, COMFYQ_OT_cancel_cycles, COMFYQ_OT_help, COMFYQ_OT_preview_animation, COMFYQ_OT_edit_prompt,
            COMFYQ_OT_unlink_prompt, COMFYQ_OT_open_window)

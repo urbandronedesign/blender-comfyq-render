@@ -69,6 +69,19 @@
    "auto": false,
    "folder": "//comfyq/",
    "pattern": "{source}_{date}_{time}"
+  },
+  {
+   "name": "How to use",
+   "type": "NodeFrame",
+   "location": [
+    -1440.0,
+    160.0
+   ],
+   "width": 560.0,
+   "label": "How to use",
+   "parent": "",
+   "height": 250.0,
+   "text": "1. Light the scene and set the camera\n   (Cycles renders materials, HDRI, shadows)\n2. Describe the photo you want in Prompt\n3. Run Graph: the render runs first\n   (progress on the Cycles node, ✕ stops it)\n4. Viewer shows the result; Save keeps a copy"
   }
  ],
  "links": [

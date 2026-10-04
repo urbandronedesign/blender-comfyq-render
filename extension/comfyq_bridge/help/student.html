@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ComfyQ Quickstart</title>
+<style>
+  :root {
+    --bg: #f6f7f5; --fg: #1f2421; --muted: #5b625e; --card: #ffffff; --line: #d9ddd9; --accent: #3d6b52;
+    --key-bg: #eceeec;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #1d201e; --fg: #e3e6e3; --muted: #a3aaa5; --card: #262a27; --line: #3a403c; --accent: #8cc2a2;
+            --key-bg: #333834; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+         font: 16px/1.55 "Segoe UI", system-ui, -apple-system, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.7rem; margin: 0 0 4px; }
+  .lead { color: var(--muted); margin: 0 0 28px; }
+  h2 { font-size: 1.15rem; margin: 32px 0 10px; color: var(--accent); }
+  ol, ul { padding-left: 1.4em; margin: 8px 0; }
+  li { margin: 6px 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; }
+  b { font-weight: 600; }
+  kbd { background: var(--key-bg); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px;
+        font: 0.85em ui-monospace, Consolas, monospace; }
+  .muted { color: var(--muted); }
+  nav { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 0 0 8px; }
+  nav a { color: var(--accent); text-decoration: none; }
+  table { border-collapse: collapse; width: 100%; }
+  td { border-top: 1px solid var(--line); padding: 8px 6px; vertical-align: top; }
+  td:first-child { width: 42%; font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+<h1>ComfyQ in Blender: quickstart</h1>
+<p class="lead">Turn your Blender scene into AI images, videos and 3D models on the class's ComfyQ server.</p>
+<nav><a href="#start">Start</a><a href="#bar">The bar</a><a href="#graph">The graph</a>
+<a href="#results">Results</a><a href="#problems">When something is greyed out</a></nav>
+
+<h2 id="start">1. Start</h2>
+<div class="card"><ol>
+  <li>Open the bar: the <b>ComfyQ</b> tab in the 3D View sidebar (<kbd>N</kbd>), or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Q</kbd>.</li>
+  <li>Press <b>Connect</b> and type your name. Your jobs carry this name in the class queue; only you can
+      cancel them. Change it later with the pencil next to your name.</li>
+</ol></div>
+
+<h2 id="bar">2. Make a picture or a video with the bar</h2>
+<div class="card"><ol>
+  <li>Choose a tab (Image, Video…) and a <b>model</b>. A ✓ marks the models the server runs right now; the
+      others wait until the teacher loads them.</li>
+  <li>Write a <b>prompt</b>: what you want to see (materials, light, style, mood). The expand button opens a
+      bigger text box.</li>
+  <li>Set up your scene and camera. <b>Render Scene</b> shows exactly what will be sent.</li>
+  <li>Press <b>Generate</b>. Your job joins the queue: the card says where it is (“2nd in line”), then shows
+      the progress.</li>
+</ol></div>
+
+<h2 id="graph">3. Chain several steps with the graph</h2>
+<div class="card"><ol>
+  <li>Open the graph with the node button at the top of the bar (or the ComfyQ window's <b>Graph</b> switch).</li>
+  <li><b>Presets</b> adds a ready-made chain, for example <i>Scene render → image</i>. Its
+      <b>How to use</b> note lists the steps.</li>
+  <li>Edit the <b>Prompt</b> node (or the materials list of a <b>Surfaces</b> node).</li>
+  <li><b>Run Graph</b> runs what you selected (select a preset's frame to run only that one), or everything.
+      Steps whose inputs did not change are reused, not run again.</li>
+  <li>While it runs, <b>Stop</b> cancels the whole chain. A Cycles render shows its samples
+      (<i>Cycles 40/64</i>) and keeps Blender usable; its ✕ stops it.</li>
+</ol></div>
+
+<h2 id="results">4. Results</h2>
+<div class="card"><ul>
+  <li>Finished results come back into your file by themselves (pictures in the Image Editor, videos and
+      sounds in the “ComfyQ Results” scene, 3D models beside your scene).</li>
+  <li>On a job card: <b>Show</b> (in the viewer), <b>Open</b> (in your computer's player),
+      <b>Save As…</b>, <b>Import</b>.</li>
+  <li>A job that failed or was cancelled has <b>Retry</b>: the same settings and files, sent again.</li>
+  <li><b>Results Folder</b> opens the folder of everything downloaded.</li>
+</ul></div>
+
+<h2 id="problems">5. When something is greyed out</h2>
+<div class="card">
+<p class="muted">Hover over a greyed-out button: its tooltip says why. The usual reasons:</p>
+<table>
+  <tr><td>“Connect to ComfyQ first”</td><td>Press Connect. If it fails, check the network with the teacher.</td></tr>
+  <tr><td>“… is not served right now”</td><td>The server runs other models now. Ask the teacher, or pick a model with a ✓.</td></tr>
+  <tr><td>“The model's settings are still loading”</td><td>Wait a second.</td></tr>
+  <tr><td>Retry: “… is no longer on disk”</td><td>Clean Up deleted the rendered input: press Generate instead.</td></tr>
+  <tr><td>A warning about the Sequencer</td><td>Press <b>Clean Up…</b>: AI results in your scene's Sequencer would replace the camera in renders.</td></tr>
+</table>
+</div>
+</main>
+</body>
+</html>
