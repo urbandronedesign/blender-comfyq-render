@@ -249,6 +249,9 @@ change that session: the user must reinstall from the UI or restart Mixar.
 42. **GUI checks: an open popup covers every later screenshot** (`wm.call_menu` / `call_panel` stay open in the
     scripted run). Open menus and popovers in the LAST steps (`step_server_panel`, `step_presets_menu`).
     `node.view_selected` needs `temp_override(window, area, region=<WINDOW region>)`, not just the area.
+43. **Look at the screenshots, not only the check results**: the GUI run passed while the presets' How to use note
+    cut its last step (frame too small) and a menu covered a shot. Frames show a Text block (`NodeFrame.text`) but
+    wrap long lines: keep note lines under ~45 characters, size `560 × (70 + 30 × lines)`.
 44. **Points made by Geometry Nodes do not inherit the object's material**: Cycles draws them with its default grey
     (seen with splats as a point cloud). Add a *Set Material* node after *Mesh to Points*. `Object.evaluated_geometry()`
     shows the point cloud (the evaluated object still reports its empty mesh).
@@ -258,18 +261,18 @@ change that session: the user must reinstall from the UI or restart Mixar.
 46. **Pass file names were the time to the second + kind**: a graph that prepares several inputs in one tick (four
     Image nodes, two references) wrote them to ONE file, so a job got another view's picture (the Four views preset
     rendered the left view as the front, 2026-10-06). `render._out_path` adds a counter; smoke checks two passes.
-43. **Look at the screenshots, not only the check results**: the GUI run passed while the presets' How to use note
-    cut its last step (frame too small) and a menu covered a shot. Frames show a Text block (`NodeFrame.text`) but
-    wrap long lines: keep note lines under ~45 characters, size `560 × (70 + 30 × lines)`.
 
-## Status (2026-10-05, last commit `5c70c06`, installed `5c70c06`; ComfyQ pulled to `be109b3`) — **hand-over for b2renger / the teacher: docs/RUNBOOK.md**
+
+## Status (2026-10-06, last commit `f5b79ae`, installed build `5c70c06`; ComfyQ pulled to `be109b3`) — **hand-over for b2renger / the teacher: docs/RUNBOOK.md**
 - **Host:** Blender 5.2.2 LTS; the user's profile has build `5c70c06` (MCP ON, Teacher tools ON, **Solo ON**).
   **This PC is the teacher PC**: `%APPDATA%\comfyq-bridge\profiles.toml` = profile `teacher` (default,
   127.0.0.1:3000, random `admin_password`; ComfyQ itself has no admin password yet, so any value works). Without it
   Solo / Load Model / the agents' teacher tools are locked (UX phase A). Never copy that file to student PCs.
-  Mixar uninstalled. **ComfyQ serves whatever solo mode / the last preset loaded** (at stop:
-  `3d_trellis2_image_to_textured_mesh` + `image_edit_flux2_klein_9b_image_edit` as lanes) — there is no fixed
-  "state to restore" any more (user's choice: the next preset decides; before class, serve the lesson's model).
+  Mixar uninstalled. **ComfyQ serves whatever solo mode / the last preset loaded** (at stop 2026-10-06: main
+  `utility_video_frame_interpolation`, lanes `image_edit_flux2_klein_9b_image_edit` + `utility_video_segment_sam3`)
+  — no fixed "state to restore" (user's choice: the next preset decides; before class, serve the lesson's model).
+  **Never touch the ComfyQ repo** (F:\ComfyQ; its `git stash` from before the pull stays). We may download model
+  files into ComfyUI's `models\` when the user agrees (done once for 5 LoRAs, 2026-10-05).
 - **Bar & tools (P1.1–P1.3):** client + Socket.IO transport + CLI; extension (bar: sidebar / Ctrl+Shift+Q dialog /
   detached ComfyQ window); passes (clay/matcap/material stills, masks, clay MP4 with sound); imports (image →
   Image Editor, video/audio → "ComfyQ Results" scene, GLB/PLY → collection **placed beside the scene, on the
@@ -278,8 +281,16 @@ change that session: the user must reinstall from the UI or restart Mixar.
   **Cycles** —, Mask, Scene Animation, files, Prompt), workflow nodes from ComfyQ params, chains/reuse/cancel,
   outputs (Viewer / Import with Place·On ground·Size / Save), presets (5 built-in roles; saved JSON; subfolders =
   submenus). **Library** `presets/library/` (46 generated, one per t2i / image-edit / i2v / video-edit workflow,
-  `tools/make_preset_library.py`); **class presets** `presets/class/` (Cycles render → photoreal (Klein); Text →
-  3D model (Klein + **Pixal3D**, was TRELLIS2 until ComfyQ removed it); Architecture), copied to the user's `%APPDATA%\comfyq-bridge\presets\{Image,…,Class}`.
+  `tools/make_preset_library.py`); **class presets** `presets/class/` (5: Cycles render → photoreal (Klein); Text →
+  3D model (Klein + **Pixal3D**, TRELLIS2 was removed from ComfyQ); Architecture (Cycles → SAM3 → Qwen edit →
+  SeedVR2 4K); **Four views** (4 Image → 4 Klein edits, one seed); **Batch: folder → rendering** (Media Folder →
+  Klein edit → Save)), all copied to the user's `%APPDATA%\comfyq-bridge\presets\{Image,…,Class}`.
+- **Batch renders** (2026-10-06): **Media Folder** node (`graph/tree.py ComfyQFolderNode`; folder, Include
+  Subfolders, Image / Video outputs, counts, progress + ✕) → `run.BatchRun` (one `Run` per file, one ComfyQ job at a
+  time, a failed file is noted and the batch goes on) → Save **Batch Suffix** (`outputs.save_batch`) into
+  `<folder>_renders` with the same subfolders; files with a result are skipped (resume); `graph/batch.py` (bpy-free:
+  scan, paths, resume, ETA; `X_renders` next to `X` is never read). Agents: `blender_graph_set` folder / recursive /
+  batch_suffix, `blender_graph_status.batch`.
 - **Solo mode** (pref, off by default, never in class): Run Graph / `blender_graph_run` loads each node's model
   (`runtime/serving.py`: alongside if it fits else main = ComfyQ restart; only when nothing is booked and no one
   has an unfinished job; last model stays loaded). Verified live many times (~30 s per switch).
@@ -293,8 +304,9 @@ change that session: the user must reinstall from the UI or restart Mixar.
   + EEVEE material, `eevee_lit`)/graph_describe/add_preset/set (incl. Image node `image`)/run/status;
   comfyq_list/describe/submit/job_status/wait/cancel/outputs/server_status; teacher: comfyq_serve/unserve/
   calibrate. Claude Code round trip verified; Codex not tested.
-- **Tests run (2026-10-04, after UX phase F):** unit+contract 79 pass (2 skipped); headless smoke passes (incl. solo
-  with faked switch, placement, world, shadow catcher, Cycles still, F1–F5); GUI `-Ui` 103/103.
+- **Tests run (2026-10-06):** unit+contract 85 pass (2 skipped); headless smoke passes (incl. solo with faked switch,
+  placement, world, shadow catcher, Cycles still, F1–F5, shipped presets use existing workflows, Four views + Batch
+  presets, batch with faked jobs, two passes in one second); GUI `-Ui` 104/104 (screenshots looked at).
 - **Workflow coverage (ComfyQ `be109b3`, 61 workflows, pulled 2026-10-05):** **56/61 run** — library
   presets 43 run + 2 failing (❌ Wan 2.1 ID-V2V ×2 = ComfyUI `WanImageToVideo … 'ref_pad_image'`, docs/preset-run.md),
   LTX deblur-upscale (sweep), SAM3 + PiD + SeedVR2 7B image + SeedVR2 4K (arch chain), **Pixal3D/TRELLIS.2** (Text → 3D
@@ -347,8 +359,11 @@ change that session: the user must reinstall from the UI or restart Mixar.
   Blender yet (sandbox only) until installed.
 - **Other:** theme Mixar Forest; multi-model orchestration page https://claude.ai/artifact/C8EPx3vgnJVsRXvZNjB7ug
   (local copy docs/private/); P1.0 hardening postponed; phase 2 not started.
-- **Known gaps:** dialog doesn't live-redraw job progress; EEVEE shadow catcher needs `eevee_lit` tuning; `blender_graph_describe` output is huge on big graphs
-  (the user's graph: 136k chars) — consider a filter (node names / last preset).
+- **Known gaps:** dialog doesn't live-redraw job progress; EEVEE shadow catcher needs `eevee_lit` tuning;
+  `blender_graph_describe` output is huge on big graphs (the user's graph: 136k chars); batch is sequential only (no
+  "jobs at once": one result per node); the plugin imports a splat `.ply` as bare vertices (no colour: see
+  `tools/splat_render.py`); 4 views → Pixal3D Multi-View loses the building's proportions (the user stopped that
+  route: "it's not working", 2026-10-06).
 
 - **UX/UI audit (2026-10-04):** phases A, B, C, E, D DONE and installed (`e968ba9`, `6ad752c`, `d057b3e`, `8040216`,
   `aa8c133`) and **F** (`76a8543`). Plan `docs/ux-audit-plan.md` (phases A→B→C→E→D→F, decisions answered), skill
@@ -376,26 +391,26 @@ change that session: the user must reinstall from the UI or restart Mixar.
   is now "teacher's PC" instead of "Solo on") + profile **`class_mode = true`** (teacher controls off even with an admin
   password). `prefs.active_profile()` is the one cached profile read. GUI -Ui 103/103.
 
+## Work of 2026-10-05 / 06 (done, for context)
+- ComfyQ pulled to `be109b3` (61 workflows; 7 removed, 2 added); plugin followed (`d0e8da4`): library regenerated (46),
+  Text → 3D on Pixal3D, upscale role prefers SeedVR2 4K, smoke checks shipped presets against ComfyQ's workflows.
+- Never-run workflows tested (`tools/workflow_check.ps1`, no Blender): Pixal3D/TRELLIS.2, Stable Audio, Qwen 2.1 Fix
+  (frontal compositions: good for façades, worse for mood; `live_check/never_run/compare_qwen_fix_*.jpg`), Qwen 2511
+  unblur (not an upscaler for renders), SeedVR2 HD video, FILM, Pixal3D Multi-View, TripoSplat → **56/61 run**.
+- 3D from a building: front elevation (failed), Blender blockout → 4 clay views → Klein → Multi-View (closed but
+  square). Gaussian splats render in Cycles (`tools/splat_render.py`). Four views preset; pass-name bug fixed
+  (gotcha 46); batch renders from a folder.
+
 ## Next steps
-0. **Batch renders** (2026-10-06): Media Folder node (`graph/tree.py ComfyQFolderNode`, Scene menu; folder,
-   Include Subfolders, Image / Video outputs) + `run.BatchRun` (sequential: one job at a time, the user's choice;
-   "Jobs at once" left out: the graph keeps one result per node) + Save **Batch Suffix** (`outputs.save_batch`,
-   auto Save skips folder-fed Save nodes) + class preset *Batch: folder → rendering (Flux2 Klein edit)*. Verified:
-   smoke (faked jobs), GPU pictures (Klein) and videos (FILM) through the real graph. Installed (`5c70c06`),
-   preset copied to the user's `presets\Class` (2026-10-06).
-0. **Four views class preset** (2026-10-06, `presets/class/Four views - clay or photo to rendering (Flux2 Klein
-   edit).json`, `tools/make_views_preset.py`): run as a real graph in the sandbox (99 s, 4 views saved, consistent).
-   It found the pass-name bug (gotcha 46), fixed in `render._out_path`. Installed (`f43678b`) and copied to the
-   user's `presets\Class` folder (2026-10-06).
-1. Text → 3D on Pixal3D **verified 2026-10-05** through the plugin's client (`tools/text3d_check.ps1`, no Blender:
-   serve → submit → download; the Blender import is covered by the smoke test). Not yet run from the graph UI. Stale
-   presets were moved to `%APPDATA%\comfyq-bridge\presets_removed_2026-10-05` (not deleted). F:\ComfyQ has a
-   `git stash` from before the pull: **leave it, and never touch the ComfyQ repo** (user, 2026-10-05).
-2. UX audit finished (A–F). Next UI work: follow `.claude/skills/blender-ui-audit`; user feedback on phase F in class.
-3. Other open candidates: run the 12 never-run workflows (3D / video upscale / audio / describe / utility);
+1. Wait for the user's feedback on the **Batch** and **Four views** presets in their Blender (installed `5c70c06`).
+2. Candidates the user has not chosen yet: a plugin splat importer (coloured point cloud, as `tools/splat_render.py`);
+   "jobs at once" for batches (needs per-file results, not node results); scale a 3D result back to the blockout's
+   size; run the Text → 3D preset from the graph UI; the 3 never-run workflows (SeedVR2 3B int8 video, Gemma ×2);
    re-run the library on an animated character scene; `blender_graph_describe` filtering.
-4. Graph sign-off vs the Moodboard screenshot (user). Builds from the orchestration page, Codex round trip.
-5. Rules: follow `.claude/skills/comfyq-workflow-build` for new workflows and `.claude/skills/blender-ui-audit` for UI
-   changes; after UI changes `smoke_test.ps1 -Ui` + docs/UI.md; install into the user's profile only when asked (not
-   `--factory-startup`); ask before committing; never tick the user's prefs by script; tell the user before GPU runs /
-   visible windows; smoke tests must not change what ComfyQ serves (gotcha 32).
+3. For b2renger (RUNBOOK §7.1): admin password; job prompt → negative prompt; Wan ID-V2V broken; missing-LoRA check;
+   SeedVR2 HD size label; meta.json size/duration params.
+4. Rules: follow `.claude/skills/comfyq-workflow-build` for new workflows and `.claude/skills/blender-ui-audit` for UI
+   changes; after UI changes `smoke_test.ps1 -Ui` + docs/UI.md, and **look at the screenshots** (gotcha 43); install
+   into the user's profile only when asked (not `--factory-startup`); ask before committing; never tick the user's
+   prefs by script; tell the user before GPU runs / visible windows; smoke tests must not change what ComfyQ serves
+   (gotcha 32); never touch the ComfyQ repo; write edit scripts to files, not heredocs (gotcha 40).

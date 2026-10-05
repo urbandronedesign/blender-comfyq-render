@@ -1,4 +1,4 @@
-# Runbook — Blender ↔ ComfyQ bridge (state of 2026-10-04 night, build `76a8543`)
+# Runbook — Blender ↔ ComfyQ bridge (state of 2026-10-06, build `5c70c06`, ComfyQ `be109b3`)
 
 For b2renger and the teacher. It covers what the bridge does today, how to install it, run it and demo
 it, how it uses ComfyQ, what was tested, and what is missing on each side. For more detail:
@@ -69,7 +69,8 @@ Health check from a terminal: `.\tools\comfyq.ps1 doctor`.
 ### 3.2 Node graph (ComfyQ window › *Graph*, or Node Editor › ComfyQ Graph)
 - **Sources:** Scene Render (frame START / END / CURRENT, clay, matcap, material or **Cycles**: a real
   render in a separate Blender process, so the GPU is free before the AI job; Blender stays usable meanwhile, the
-  node shows "Cycles 40/64" and a ✕), Mask, Scene Animation, Image file, Video file, Audio file, Prompt,
+  node shows "Cycles 40/64" and a ✕), Mask, Scene Animation, Image file, Video file, **Media Folder** (batch:
+  section 3.6), Audio file, Prompt,
   **Surfaces (SAM3)** (finds floor, walls, ceiling… in a picture and writes a prompt naming each one's material).
 - **Workflow nodes:** the inputs and settings come from ComfyQ's parameters. Nodes chain: one node's
   result feeds the next, and results that are still up to date are reused.
@@ -82,8 +83,10 @@ Health check from a terminal: `.\tools\comfyq.ps1 doctor`.
   - 5 built-in presets made from *roles*, which pick the best served workflow: scene render → image,
     clay animation → video, AI keyframe → video, image → 3D, image → upscale. Each is added beside the graph in a
     Frame, with a **How to use** note (numbered steps).
-  - Class presets in `presets/class/` (Cycles → photoreal; Text → 3D; **Architecture: Cycles → SAM3 surfaces →
-    Qwen edit → SeedVR2 4K**), each with its How to use note.
+  - Class presets in `presets/class/`, each with its How to use note: Cycles → photoreal (Klein); Text → 3D model
+    (Klein + Pixal3D); **Architecture: Cycles → SAM3 surfaces → Qwen edit → SeedVR2 4K**; **Four views: clay or
+    photo → rendering** (4 Image nodes → 4 Klein edits with one prompt and one seed, so the materials match);
+    **Batch: folder → rendering** (a Media Folder → Klein edit → Save).
   - Teacher presets: *Save Graph as Preset…* writes a JSON file; subfolders become submenus. The menu lists
     **Saved on This PC** and **Shared** (a shared folder set by the *Shared Presets Folder* preference or the
     profile's `presets_dir`).
@@ -140,6 +143,22 @@ switches took about 30 s each.
 | **Shared presets folder** (preference or `presets_dir` in the profile) | teacher | Preferences › Student; Presets › Shared |
 | **Server (Teacher)** panel: GPU memory, served models, queue, connected people, Load Model… | teacher PC only | 3D View sidebar › ComfyQ (closed by default) |
 | **Class mode** (`class_mode = true` in the students' profile): no teacher controls at all | student PCs | profiles.toml |
+
+### 3.6 Batch renders from a folder (2026-10-06)
+A **Media Folder** node (graph header › Scene) takes a folder of pictures or videos, subfolders included. Put it where
+a chain's Image or Video File node was, and a **Save** node at the end. **Run Graph** then renders each file in turn,
+**one ComfyQ job at a time** (one student's batch never floods the class queue), with progress, time left and a ✕ on
+the folder node. The results go to a new folder next to the input one, with the same subfolders and each file's name
+plus the Save node's **Batch Suffix**:
+
+```
+photos/facades/front.png   →   photos_renders/facades/front_render.png
+clips/set2/short.mp4       →   clips_renders/set2/short_smooth.mp4
+```
+
+A failed file is noted and the batch goes on. After a Stop or a crash, Run Graph again renders only what has no
+result yet. Ready-made: the class preset *Batch: folder → rendering (Flux2 Klein edit)* (fixed seed: a matching series).
+Measured: 4 pictures ≈ 100 s with Klein edit; 2 clips ≈ 60 s with FILM interpolation.
 
 ## 4. Demo (about 10 min, one PC, ComfyQ serving LTX 2.5 IC-LoRA canny)
 
