@@ -183,8 +183,8 @@ switches took about 30 s each.
 | Architecture chain (2026-10-04): Cycles → SAM3 surfaces → Qwen edit → SeedVR2 4K | ✅ full class preset run headless in 388 s ([arch-render.md](arch-render.md)) |
 | Text → 3D (2026-10-05, `tools\text3d_check.ps1`, the plugin's client without Blender): the preset's prompt → Flux2 Klein → **Pixal3D / TRELLIS.2** | ✅ Klein 35 s, Pixal3D 220 s; a complete, clean car (694k faces, PBR textures 4096²) with a believable invented back; each model switch took 24 s |
 | Stable Audio 3 Medium (2026-10-05, `tools\workflow_check.ps1`) | ✅ 20 s stereo MP3 in 48 s (level and fade-out checked by measurement, not listened to) |
-| Qwen 2.1 t2i *Fix*, Qwen 2511 unblur upscale (the 2 workflows new in `be109b3`) | ❌ on this PC: ComfyUI refuses the job, their LoRA files are not installed (7.1) |
-| Overall, by workflow (ComfyQ `be109b3`, **61 workflows**) | **50 of 61 run** (43 library presets + LTX deblur-upscale + SAM3 + PiD + SeedVR2 7B image + SeedVR2 4K + Pixal3D/TRELLIS.2 + Stable Audio; 2 Wan ID-V2V fail in ComfyUI); **9 never run**: Pixal3D multi-views, TripoSplat, SeedVR2 video ×2, frame interpolation, Gemma ×2, and the 2 new ones (Qwen 2.1 t2i *Fix*, Qwen 2511 unblur upscale: models missing). Removed by ComfyQ on 2026-10-05: TRELLIS2, Pixal3D image→mesh, Flux2 Dev ×2, Qwen Viggle Turbo, Marigold ×2 |
+| Qwen 2.1 t2i *Fix*, Qwen 2511 unblur upscale (the 2 workflows new in `be109b3`) | first ❌ (LoRA files missing, 7.1 §2c); after downloading the 5 LoRAs into ComfyUI's `models\loras` from their public Hugging Face repos: ✅ both run. *Fix* (69 s, same seed): a different, straight-on composition with crisper lettering, not a clear improvement. *Unblur*: 1392×752 out of a 1904×1080 render, softer; for blurred faces, not an upscaler for renders (SeedVR2 4K stays). Fast mode 11 s ≈ full 152 s |
+| Overall, by workflow (ComfyQ `be109b3`, **61 workflows**) | **52 of 61 run** (43 library presets + LTX deblur-upscale + SAM3 + PiD + SeedVR2 7B image + SeedVR2 4K + Pixal3D/TRELLIS.2 + Stable Audio + Qwen 2.1 Fix + Qwen 2511 unblur; 2 Wan ID-V2V fail in ComfyUI); **7 never run**: Pixal3D multi-views, TripoSplat, SeedVR2 video ×2, frame interpolation, Gemma ×2. Removed by ComfyQ on 2026-10-05: TRELLIS2, Pixal3D image→mesh, Flux2 Dev ×2, Qwen Viggle Turbo, Marigold ×2 |
 
 ## 7. What is missing
 
@@ -208,7 +208,9 @@ switches took about 30 s each.
    `qwen-image-2.1-fix-1.0-comfy.safetensors` and `utility_qwen_2511_unblur_upscale` needs
    `Qwen-Image-Edit-Unblur-Upscale_20.safetensors`; neither is installed, yet `GET /workflows` reports both as
    available (0 unavailable): the missing-model check does not look at LoRA option values. ComfyUI then refuses
-   the job ("lora_name … this ComfyUI does not offer"). The admin panel's new Model downloads may fetch them.
+   the job ("lora_name … this ComfyUI does not offer"). On the teacher PC we downloaded them (2026-10-05) from
+   `e-n-v-y/Qwen-Image-2.1-Fix` and `prithivMLmods/Qwen-Image-Edit-2511-Unblur-Upscale` (all 4 checkpoints); other
+   rigs still need them.
 3. **Calibration inputs missing:** `comfyq__bench-vi__sports_car.png` and `comfyq__bench-im__sports_car.png`
    are not in ComfyUI/input, so calibrating LTX 2.5 union and Qwen 2.1 control depth fails.
 4. **Names that don't match ids:**

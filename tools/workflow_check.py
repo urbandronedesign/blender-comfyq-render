@@ -3,9 +3,9 @@
 else the main workflow: ComfyQ restarts 1–2 min), book jobs, download the results. For workflows never run from
 Blender. Needs the teacher profile (admin password) to switch models; refuses to switch while anyone has a job.
 
-    .\\tools\\workflow_check.ps1 <workflow id> <out folder> [key=value | key=@file ...] [-- key=value ...]
+    .\\tools\\workflow_check.ps1 <workflow id> <out folder> [key=value | key=@file ...] [next key=value ...]
 
-Each `--` starts another job on the same model (e.g. the same seed with a setting at 0, to compare).
+Each `next` starts another job on the same model (e.g. the same seed with a setting at 0, to compare).
 A value `@path` is uploaded and the job gets its ComfyQ file name. Numbers / true / false are typed.
 """
 from __future__ import annotations
@@ -99,7 +99,7 @@ def main(argv: list[str]) -> None:
     wf, out, rest = argv[0], Path(argv[1]), argv[2:]
     jobs, cur = [], []
     for a in rest:
-        if a == "--":
+        if a == "next":
             jobs.append(cur)
             cur = []
         else:
