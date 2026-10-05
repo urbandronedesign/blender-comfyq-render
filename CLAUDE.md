@@ -277,7 +277,7 @@ change that session: the user must reinstall from the UI or restart Mixar.
   calibrate. Claude Code round trip verified; Codex not tested.
 - **Tests run (2026-10-04, after UX phase F):** unit+contract 79 pass (2 skipped); headless smoke passes (incl. solo
   with faked switch, placement, world, shadow catcher, Cycles still, F1–F5); GUI `-Ui` 103/103.
-- **Workflow coverage (ComfyQ `be109b3`, 61 workflows, pulled 2026-10-05):** **52/61 run** — library
+- **Workflow coverage (ComfyQ `be109b3`, 61 workflows, pulled 2026-10-05):** **54/61 run** — library
   presets 43 run + 2 failing (❌ Wan 2.1 ID-V2V ×2 = ComfyUI `WanImageToVideo … 'ref_pad_image'`, docs/preset-run.md),
   LTX deblur-upscale (sweep), SAM3 + PiD + SeedVR2 7B image + SeedVR2 4K (arch chain), **Pixal3D/TRELLIS.2** (Text → 3D
   chain, 2026-10-05, `tools/text3d_check.ps1`: Klein 35 s → Pixal3D 220 s, 694k faces, PBR 4096², complete car
@@ -287,8 +287,12 @@ change that session: the user must reinstall from the UI or restart Mixar.
   **Qwen 2511 unblur** (works, but returns ~1 MP (1392×752 from 1904×1080) and softer: NOT an upscaler for our
   renders, trained for blurred faces; SeedVR2 4K stays). Comparisons in `live_check/never_run/compare_*.jpg`.
   Their 5 LoRAs were downloaded by us (user's OK, 2026-10-05) from their public Hugging Face repos into ComfyUI's
-  `models\loras` (size + safetensors header checked). **Never run (7):** Pixal3D multi-views, TripoSplat, SeedVR2 video ×2 (HD, 3B int8), frame
-  interpolation, Gemma ×2. Removed upstream on 2026-10-05: TRELLIS2, Pixal3D image→mesh, Flux2 Dev t2i + edit, Qwen Viggle
+  `models\loras` (size + safetensors header checked). **SeedVR2 HD video** (848×480 5 s AI clip → 1908×1080 in 183 s,
+  sound kept, sharp detail, frame-to-frame change +11 % = no flicker; its "longest edge" setting is really the
+  SHORTEST edge, like the 4K one before b2renger's fix) and **FILM frame interpolation** (2× real time: 48 fps in
+  29 s, sound kept, clean in-betweens; 4× slow motion: 20 s of video but the sound stays 5 s, as the workflow
+  warns), `live_check/never_run/video/`. **Never run (5):** Pixal3D multi-views, TripoSplat, SeedVR2 3B int8 video,
+  Gemma ×2. Removed upstream on 2026-10-05: TRELLIS2, Pixal3D image→mesh, Flux2 Dev t2i + edit, Qwen Viggle
   Turbo, Marigold depth + normals. Earlier per-family sweep: docs/workflow-matrix.md (24/66, historical).
 - **Visual baseline:** `baselines/2026-10-04/index.html` (local, gitignored, ~120 MB): per workflow description,
   Blender graph screenshot, inputs uploaded, prompt + settings sent, output (images, videos, GLB views),

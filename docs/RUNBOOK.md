@@ -184,7 +184,9 @@ switches took about 30 s each.
 | Text → 3D (2026-10-05, `tools\text3d_check.ps1`, the plugin's client without Blender): the preset's prompt → Flux2 Klein → **Pixal3D / TRELLIS.2** | ✅ Klein 35 s, Pixal3D 220 s; a complete, clean car (694k faces, PBR textures 4096²) with a believable invented back; each model switch took 24 s |
 | Stable Audio 3 Medium (2026-10-05, `tools\workflow_check.ps1`) | ✅ 20 s stereo MP3 in 48 s (level and fade-out checked by measurement, not listened to) |
 | Qwen 2.1 t2i *Fix*, Qwen 2511 unblur upscale (the 2 workflows new in `be109b3`) | first ❌ (LoRA files missing, 7.1 §2c); after downloading the 5 LoRAs into ComfyUI's `models\loras` from their public Hugging Face repos: ✅ both run. *Fix* (69 s, same seed): a different, straight-on composition with crisper lettering, not a clear improvement. *Unblur*: 1392×752 out of a 1904×1080 render, softer; for blurred faces, not an upscaler for renders (SeedVR2 4K stays). Fast mode 11 s ≈ full 152 s |
-| Overall, by workflow (ComfyQ `be109b3`, **61 workflows**) | **52 of 61 run** (43 library presets + LTX deblur-upscale + SAM3 + PiD + SeedVR2 7B image + SeedVR2 4K + Pixal3D/TRELLIS.2 + Stable Audio + Qwen 2.1 Fix + Qwen 2511 unblur; 2 Wan ID-V2V fail in ComfyUI); **7 never run**: Pixal3D multi-views, TripoSplat, SeedVR2 video ×2, frame interpolation, Gemma ×2. Removed by ComfyQ on 2026-10-05: TRELLIS2, Pixal3D image→mesh, Flux2 Dev ×2, Qwen Viggle Turbo, Marigold ×2 |
+| SeedVR2 HD video upscale (2026-10-05, a 848×480 5 s AI clip) | ✅ 1908×1080 in 183 s, sound kept; clearly sharper (eyes, edges), no added flicker (frame-to-frame change +11 %). Its *longest edge* setting is really the shortest edge (7.1 §5) |
+| FILM frame interpolation (same clip) | ✅ 2× at real-time speed: 48 fps in 29 s, sound kept, clean invented frames. 4× slow motion: 20 s of video in 21 s, but the sound stays 5 s long (as the workflow warns). The clip had little motion: fast action not tested |
+| Overall, by workflow (ComfyQ `be109b3`, **61 workflows**) | **54 of 61 run** (43 library presets + LTX deblur-upscale + SAM3 + PiD + SeedVR2 7B image + SeedVR2 4K + Pixal3D/TRELLIS.2 + Stable Audio + Qwen 2.1 Fix + Qwen 2511 unblur + SeedVR2 HD video + FILM; 2 Wan ID-V2V fail in ComfyUI); **5 never run**: Pixal3D multi-views, TripoSplat, SeedVR2 3B int8 video, Gemma ×2. Removed by ComfyQ on 2026-10-05: TRELLIS2, Pixal3D image→mesh, Flux2 Dev ×2, Qwen Viggle Turbo, Marigold ×2 |
 
 ## 7. What is missing
 
@@ -217,6 +219,8 @@ switches took about 30 s each.
    - "LTX 2.5 IC-LoRA — video to video (**depth control**)" is `…iclora_union_control`;
    - "MiniMax H3 ControlNet (**pose**)" is `…fun_controlnet_union`.
 5. **`meta.json` metadata the clients need:**
+   - `utility_seedvr2_hd_upscale` still labels its size "longest edge" while SeedVR2 uses it as the SHORTEST edge
+     (1080 → 1908×1080 on a 16:9 clip): the fix made to the 4K bundle in `9f8bacb` should go to the HD video one too;
    - which parameters are **width / height / duration / frames / fps**: today the bridge guesses from the
      labels and misses Qwen, Krea and Ideogram sizes, which come out square or portrait on a 16:9 scene;
    - the **output kind** (image, video, model…), which the bridge infers from category, tags and id;
