@@ -337,8 +337,8 @@ change that session: the user must reinstall from the UI or restart Mixar.
 ## Next steps
 1. **Run the Text → 3D class preset (Klein → `3d_pixal3d_trellis2_image_to_model`) end to end on the GPU** and look
    at the imported model: the model has never run from Blender (user chose to install first, 2026-10-05). Stale
-   presets were moved to `%APPDATA%\comfyq-bridge\presets_removed_2026-10-05` (not deleted). ComfyQ's local edits
-   from before the pull are in `git stash` in F:\ComfyQ.
+   presets were moved to `%APPDATA%\comfyq-bridge\presets_removed_2026-10-05` (not deleted). F:\ComfyQ has a
+   `git stash` from before the pull: **leave it, and never touch the ComfyQ repo** (user, 2026-10-05).
 2. UX audit finished (A–F). Next UI work: follow `.claude/skills/blender-ui-audit`; user feedback on phase F in class.
 3. Other open candidates: run the 12 never-run workflows (3D / video upscale / audio / describe / utility);
    re-run the library on an animated character scene; `blender_graph_describe` filtering.
