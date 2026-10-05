@@ -277,7 +277,7 @@ change that session: the user must reinstall from the UI or restart Mixar.
   calibrate. Claude Code round trip verified; Codex not tested.
 - **Tests run (2026-10-04, after UX phase F):** unit+contract 79 pass (2 skipped); headless smoke passes (incl. solo
   with faked switch, placement, world, shadow catcher, Cycles still, F1–F5); GUI `-Ui` 103/103.
-- **Workflow coverage (ComfyQ `be109b3`, 61 workflows, pulled 2026-10-05):** **54/61 run** — library
+- **Workflow coverage (ComfyQ `be109b3`, 61 workflows, pulled 2026-10-05):** **56/61 run** — library
   presets 43 run + 2 failing (❌ Wan 2.1 ID-V2V ×2 = ComfyUI `WanImageToVideo … 'ref_pad_image'`, docs/preset-run.md),
   LTX deblur-upscale (sweep), SAM3 + PiD + SeedVR2 7B image + SeedVR2 4K (arch chain), **Pixal3D/TRELLIS.2** (Text → 3D
   chain, 2026-10-05, `tools/text3d_check.ps1`: Klein 35 s → Pixal3D 220 s, 694k faces, PBR 4096², complete car
@@ -291,8 +291,13 @@ change that session: the user must reinstall from the UI or restart Mixar.
   sound kept, sharp detail, frame-to-frame change +11 % = no flicker; its "longest edge" setting is really the
   SHORTEST edge, like the 4K one before b2renger's fix) and **FILM frame interpolation** (2× real time: 48 fps in
   29 s, sound kept, clean in-betweens; 4× slow motion: 20 s of video but the sound stays 5 s, as the workflow
-  warns), `live_check/never_run/video/`. **Never run (5):** Pixal3D multi-views, TripoSplat, SeedVR2 3B int8 video,
-  Gemma ×2. Removed upstream on 2026-10-05: TRELLIS2, Pixal3D image→mesh, Flux2 Dev t2i + edit, Qwen Viggle
+  warns), `live_check/never_run/video/`. **Pixal3D Multi-View** (189 s) and **TripoSplat** (47 s: .glb 4.9M faces with
+  vertex colours + .ply 1,048,576 Gaussian splats + .spz) run, but on a Herzog & de Meuron-style museum made from a
+  FLAT FRONT ELEVATION both failed as buildings: Qwen "character camera angle" cannot turn an elevation (left / back /
+  right came out as more elevations), so Multi-View built an L-shaped roofless shell; TripoSplat kept the white
+  backdrop as a room around a hollow roofless box. Lesson: 3D needs a 3/4 view (two façades + roof) or views that
+  really agree (e.g. 4 renders of a Blender blockout). `live_check/never_run/multiview/`. **Never run (3):** SeedVR2
+  3B int8 video, Gemma ×2. Removed upstream on 2026-10-05: TRELLIS2, Pixal3D image→mesh, Flux2 Dev t2i + edit, Qwen Viggle
   Turbo, Marigold depth + normals. Earlier per-family sweep: docs/workflow-matrix.md (24/66, historical).
 - **Visual baseline:** `baselines/2026-10-04/index.html` (local, gitignored, ~120 MB): per workflow description,
   Blender graph screenshot, inputs uploaded, prompt + settings sent, output (images, videos, GLB views),
