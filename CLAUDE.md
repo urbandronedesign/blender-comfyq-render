@@ -90,6 +90,10 @@ tools/preset_shots.py    visible sandbox Blender: each preset's graph rebuilt wi
 tools/workflow_check.ps1 run any workflow on the GPU with the plugin's client, no Blender (serve, book, download;
                          `next` = another job on the same model, `key=@file` uploads); switches models
 tools/text3d_check.ps1   GPU check of the Text → 3D preset chain (uses workflow_check)
+tools/museum_blockout.py blockout museum + 4 turnaround views by the plugin's clay pass (the BUILDING turns, camera
+                         and light stay: identical lighting; shadows + cavity on) → AI restyle → Pixal3D Multi-View
+tools/splat_render.py    load a 3DGS .ply (no splat support in Blender 5.2) as a coloured point cloud and render it
+                         with Cycles (colour = 0.5 + 0.2821·f_dc, radius = exp(scale), opacity = sigmoid, emission)
 tools/preset_report.py   HTML report of a run (description, graph shot, inputs, prompt/settings sent, output,
                          verdict from live_check/presets/notes.json) → baselines/<date>/ (gitignored);
                          --baseline <dir> shows the earlier output side by side. Baseline: baselines/2026-10-04
@@ -240,6 +244,12 @@ change that session: the user must reinstall from the UI or restart Mixar.
 42. **GUI checks: an open popup covers every later screenshot** (`wm.call_menu` / `call_panel` stay open in the
     scripted run). Open menus and popovers in the LAST steps (`step_server_panel`, `step_presets_menu`).
     `node.view_selected` needs `temp_override(window, area, region=<WINDOW region>)`, not just the area.
+44. **Points made by Geometry Nodes do not inherit the object's material**: Cycles draws them with its default grey
+    (seen with splats as a point cloud). Add a *Set Material* node after *Mesh to Points*. `Object.evaluated_geometry()`
+    shows the point cloud (the evaluated object still reports its empty mesh).
+45. **Workbench orthographic views of the 4 sides of an object**: turning the camera and the light gives each side a
+    different shade (studio light and shadow direction follow different rules). Turn the OBJECT (0/90/180/270°) under
+    a fixed camera and light. Straight-on faces all get one grey: enable shadows + cavity so recesses read.
 43. **Look at the screenshots, not only the check results**: the GUI run passed while the presets' How to use note
     cut its last step (frame too small) and a menu covered a shot. Frames show a Text block (`NodeFrame.text`) but
     wrap long lines: keep note lines under ~45 characters, size `560 × (70 + 30 × lines)`.
@@ -296,7 +306,13 @@ change that session: the user must reinstall from the UI or restart Mixar.
   FLAT FRONT ELEVATION both failed as buildings: Qwen "character camera angle" cannot turn an elevation (left / back /
   right came out as more elevations), so Multi-View built an L-shaped roofless shell; TripoSplat kept the white
   backdrop as a room around a hollow roofless box. Lesson: 3D needs a 3/4 view (two façades + roof) or views that
-  really agree (e.g. 4 renders of a Blender blockout). `live_check/never_run/multiview/`. **Never run (3):** SeedVR2
+  really agree (e.g. 4 renders of a Blender blockout). `live_check/never_run/multiview/`. Then plan A (2026-10-06,
+  `tools/museum_blockout.py`): 4 clay views of a blockout → Klein edit (same prompt + seed: 4 consistent copper views,
+  windows kept) → Multi-View (256 s): a CLOSED building with roof, windows in place, glazed ground floor — but the plan
+  came out square with chamfered corners (each view is framed separately, so 36 m vs 20 m is lost), plinth missing,
+  copper drifted olive. `live_check/never_run/museum/`. **Splats in Blender:** `tools/splat_render.py` renders
+  TripoSplat's 1M-Gaussian .ply in Cycles at ~1.3 s / view (64 samples, 900²) with true colours; the plugin's PLY
+  import is still plain `wm.ply_import` (bare vertices, no colour): worth replacing. **Never run (3):** SeedVR2
   3B int8 video, Gemma ×2. Removed upstream on 2026-10-05: TRELLIS2, Pixal3D image→mesh, Flux2 Dev t2i + edit, Qwen Viggle
   Turbo, Marigold depth + normals. Earlier per-family sweep: docs/workflow-matrix.md (24/66, historical).
 - **Visual baseline:** `baselines/2026-10-04/index.html` (local, gitignored, ~120 MB): per workflow description,
