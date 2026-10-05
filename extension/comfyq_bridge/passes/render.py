@@ -15,6 +15,7 @@ are restored afterwards.
 from __future__ import annotations
 
 import hashlib
+import itertools
 import re
 import threading
 import time
@@ -52,10 +53,16 @@ def scene_aspect(scene: bpy.types.Scene) -> float:
     return (r.resolution_x * r.pixel_aspect_x) / max(1, r.resolution_y * r.pixel_aspect_y)
 
 
+_SEQ = itertools.count(1)
+
+
 def _out_path(kind: str) -> Path:
+    """A new file for a pass. The counter matters: a graph prepares several inputs in the same second (four Image
+    nodes, two references), and a name made of the time alone let a later pass overwrite an earlier one before
+    its upload — a job received the wrong picture."""
     d = cache_dir() / "passes"
     d.mkdir(parents=True, exist_ok=True)
-    return d / f"{time.strftime('%Y%m%d_%H%M%S')}_{kind}.png"
+    return d / f"{time.strftime('%Y%m%d_%H%M%S')}_{next(_SEQ):04d}_{kind}.png"
 
 
 NEUTRAL_BG = (0.05, 0.05, 0.05)      # clay background: dark neutral grey, whatever the scene's world

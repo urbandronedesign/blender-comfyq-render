@@ -906,6 +906,17 @@ _fresh.name = "smoke fresh image"
 check(render.image_pass(_fresh, 256).is_file(),
       "an image loaded from a file and never displayed uploads (image_pass reads its pixels first)")
 bpy.data.images.remove(_fresh)
+# two inputs prepared in the same second must not share a file (a 4-view preset sent the left view as the front)
+_ia, _ib = bpy.data.images.new("smoke pass A", 64, 64), bpy.data.images.new("smoke pass B", 64, 64)
+_ia.pixels = [1.0, 0.0, 0.0, 1.0] * (64 * 64)
+_ib.pixels = [0.0, 0.0, 1.0, 1.0] * (64 * 64)
+_pa, _pb = render.image_pass(_ia, 64), render.image_pass(_ib, 64)
+_ra = bpy.data.images.load(str(_pa))
+_rb = bpy.data.images.load(str(_pb))
+check(_pa != _pb and _ra.pixels[0] > 0.9 and _rb.pixels[2] > 0.9 and _rb.pixels[0] < 0.1,
+      f"two passes in the same second get their own files ({_pa.name}, {_pb.name})")
+for _im in (_ia, _ib, _ra, _rb):
+    bpy.data.images.remove(_im)
 bpy.data.node_groups["ComfyQ Graph"].nodes.remove(_img_node)
 err, st = mcp_tool("blender_graph_status")
 check(not err and not st["running"] and st["nodes"], "MCP blender_graph_status")
@@ -1198,6 +1209,24 @@ _dead = sorted(f"{f.relative_to(_presets_root)} → {n['workflow_id']}"
                for n in json.loads(f.read_text(encoding="utf-8"))["nodes"]
                if n.get("workflow_id") and n["workflow_id"] not in _have)
 check(not _dead, f"shipped presets only use workflows ComfyQ has ({len(_have)} workflows; dead: {_dead})")
+# the Four views class preset: 4 Image nodes → 4 Klein edits sharing one Prompt and one fixed seed → 4 auto Saves
+_fv = json.loads(next(_presets_root.glob("class/Four views*.json")).read_text(encoding="utf-8"))
+for _w in {d["workflow_id"] for d in _fv["nodes"] if d.get("workflow_id")}:
+    _rq(_w)
+pump_until(lambda: all(d["workflow_id"] in SESSION.specs for d in _fv["nodes"] if d.get("workflow_id")), 30,
+           "four views preset specs")
+_ft = bpy.data.node_groups.new("Four views smoke", "ComfyQGraphTree")
+_gpo.build_saved(_fv, _ft, scene)
+_fw = [n for n in _ft.nodes if n.bl_idname == "ComfyQWorkflowNode"]
+_fseeds = {(it.i, it.randomize) for n in _fw for it in n.params if it.kind == "seed" and it.workflow_id == n.workflow_id}
+_fimg = {lk.from_node.label for lk in _ft.links if lk.from_node.bl_idname == "ComfyQImageNode"}
+_fprompt = [lk for lk in _ft.links if lk.from_node.bl_idname == "ComfyQPromptNode"]
+_fsaves = [n for n in _ft.nodes if n.bl_idname == "ComfyQSaveNode"]
+check(len(_fw) == 4 and _fimg == {"Front view", "Left view", "Back view", "Right view"} and len(_fprompt) == 4
+      and len(_fseeds) == 1 and not next(iter(_fseeds))[1] and len(_fsaves) == 4 and all(s.auto for s in _fsaves)
+      and all(lk.is_valid for lk in _ft.links),
+      f"Four views preset: 4 views → 4 Klein edits, one prompt, one fixed seed {_fseeds}, 4 auto Saves")
+bpy.data.node_groups.remove(_ft)
 _n3 = next((n for n in _st3.nodes if n.bl_idname == "NodeFrame" and n.label == "How to use"), None)
 check(_n3 is not None and _n3.text is not None and "Surfaces" in _n3.text.as_string(),
       "F3: the Architecture class preset shows its How to use steps")

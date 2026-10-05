@@ -1,0 +1,497 @@
+{
+ "format": 1,
+ "label": "Four views: clay or photo → rendering (Flux2 Klein edit)",
+ "description": "Four views of one building (front, left, back, right) — clay renders of your 3D model or real photos — rendered as finished photographs by Flux2 Klein image edit, one shared prompt and the same seed so the materials match across the views. No 3D step: the four pictures are saved next to the .blend.",
+ "made": "2026-10-06 00:09",
+ "nodes": [
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -900.0,
+    620.0
+   ],
+   "width": 340.0,
+   "label": "Prompt (all 4 views)",
+   "parent": "",
+   "text": "Re-render this picture of a building as a finished photorealistic architectural photograph, keeping exactly the same shape, proportions, openings and the same camera view: the main volume is clad in a perforated copper skin with a pixelated pattern of punched holes of varying sizes, the openings are deep windows with dark glass, the ground floor is glazed, the base is a light concrete plinth. Plain pure white background, soft even daylight, sharp architectural photograph."
+  },
+  {
+   "name": "Image",
+   "type": "ComfyQImageNode",
+   "location": [
+    -900.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "Front view",
+   "parent": ""
+  },
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -440.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "Front rendering",
+   "parent": "",
+   "workflow_id": "image_edit_flux2_klein_9b_image_edit",
+   "params": [
+    {
+     "key": "loadimage_image_76",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "flux2scheduler_steps_75_62",
+     "s": "",
+     "i": 20,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "randomnoise_noise_seed_75_73",
+     "s": "",
+     "i": 7,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "cliptextencode_text_75_74",
+     "s": "Change the camera angle to a first-person driver's perspective looking through the steering wheel at the dashboard and windshield, maintaining the same minimalist style and lighting",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "cliptextencode_text_75_67",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "emptyflux2latentimage_batch_size_75_66",
+     "s": "",
+     "i": 1,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    }
+   ]
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    60.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "Save front",
+   "parent": "",
+   "auto": true,
+   "folder": "//comfyq/views/",
+   "pattern": "front_{date}_{time}"
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    60.0,
+    300.0
+   ],
+   "width": 300.0,
+   "label": "Viewer",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Image.001",
+   "type": "ComfyQImageNode",
+   "location": [
+    -900.0,
+    -360.0
+   ],
+   "width": 300.0,
+   "label": "Left view",
+   "parent": ""
+  },
+  {
+   "name": "Workflow.001",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -440.0,
+    -360.0
+   ],
+   "width": 380.0,
+   "label": "Left rendering",
+   "parent": "",
+   "workflow_id": "image_edit_flux2_klein_9b_image_edit",
+   "params": [
+    {
+     "key": "loadimage_image_76",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "flux2scheduler_steps_75_62",
+     "s": "",
+     "i": 20,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "randomnoise_noise_seed_75_73",
+     "s": "",
+     "i": 7,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "cliptextencode_text_75_74",
+     "s": "Change the camera angle to a first-person driver's perspective looking through the steering wheel at the dashboard and windshield, maintaining the same minimalist style and lighting",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "cliptextencode_text_75_67",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "emptyflux2latentimage_batch_size_75_66",
+     "s": "",
+     "i": 1,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    }
+   ]
+  },
+  {
+   "name": "Save.001",
+   "type": "ComfyQSaveNode",
+   "location": [
+    60.0,
+    -360.0
+   ],
+   "width": 300.0,
+   "label": "Save left",
+   "parent": "",
+   "auto": true,
+   "folder": "//comfyq/views/",
+   "pattern": "left_{date}_{time}"
+  },
+  {
+   "name": "Image.002",
+   "type": "ComfyQImageNode",
+   "location": [
+    -900.0,
+    -720.0
+   ],
+   "width": 300.0,
+   "label": "Back view",
+   "parent": ""
+  },
+  {
+   "name": "Workflow.002",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -440.0,
+    -720.0
+   ],
+   "width": 380.0,
+   "label": "Back rendering",
+   "parent": "",
+   "workflow_id": "image_edit_flux2_klein_9b_image_edit",
+   "params": [
+    {
+     "key": "loadimage_image_76",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "flux2scheduler_steps_75_62",
+     "s": "",
+     "i": 20,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "randomnoise_noise_seed_75_73",
+     "s": "",
+     "i": 7,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "cliptextencode_text_75_74",
+     "s": "Change the camera angle to a first-person driver's perspective looking through the steering wheel at the dashboard and windshield, maintaining the same minimalist style and lighting",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "cliptextencode_text_75_67",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "emptyflux2latentimage_batch_size_75_66",
+     "s": "",
+     "i": 1,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    }
+   ]
+  },
+  {
+   "name": "Save.002",
+   "type": "ComfyQSaveNode",
+   "location": [
+    60.0,
+    -720.0
+   ],
+   "width": 300.0,
+   "label": "Save back",
+   "parent": "",
+   "auto": true,
+   "folder": "//comfyq/views/",
+   "pattern": "back_{date}_{time}"
+  },
+  {
+   "name": "Image.003",
+   "type": "ComfyQImageNode",
+   "location": [
+    -900.0,
+    -1080.0
+   ],
+   "width": 300.0,
+   "label": "Right view",
+   "parent": ""
+  },
+  {
+   "name": "Workflow.003",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -440.0,
+    -1080.0
+   ],
+   "width": 380.0,
+   "label": "Right rendering",
+   "parent": "",
+   "workflow_id": "image_edit_flux2_klein_9b_image_edit",
+   "params": [
+    {
+     "key": "loadimage_image_76",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "flux2scheduler_steps_75_62",
+     "s": "",
+     "i": 20,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "randomnoise_noise_seed_75_73",
+     "s": "",
+     "i": 7,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "cliptextencode_text_75_74",
+     "s": "Change the camera angle to a first-person driver's perspective looking through the steering wheel at the dashboard and windshield, maintaining the same minimalist style and lighting",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "cliptextencode_text_75_67",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "emptyflux2latentimage_batch_size_75_66",
+     "s": "",
+     "i": 1,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    }
+   ]
+  },
+  {
+   "name": "Save.003",
+   "type": "ComfyQSaveNode",
+   "location": [
+    60.0,
+    -1080.0
+   ],
+   "width": 300.0,
+   "label": "Save right",
+   "parent": "",
+   "auto": true,
+   "folder": "//comfyq/views/",
+   "pattern": "right_{date}_{time}"
+  },
+  {
+   "name": "Frame",
+   "type": "NodeFrame",
+   "location": [
+    -1520.0,
+    620.0
+   ],
+   "width": 560.0,
+   "label": "How to use",
+   "parent": "",
+   "height": 340.0,
+   "text": "1. In each Image node, open one view of the\n   same building: Front, Left, Back, Right\n   (clay renders of your model, or photos)\n2. Describe the materials in Prompt\n   (it feeds the 4 views; keep 'same shape')\n3. Run Graph: 4 jobs, one per view, all with\n   the same seed so the materials match\n4. Each Save keeps its view next to the .blend\n   (change Seed on all 4 for another variant)"
+  }
+ ],
+ "links": [
+  {
+   "from": "Image",
+   "from_socket": "Image",
+   "to": "Workflow",
+   "to_socket": "loadimage_image_76"
+  },
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "cliptextencode_text_75_74"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Save",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Image.001",
+   "from_socket": "Image",
+   "to": "Workflow.001",
+   "to_socket": "loadimage_image_76"
+  },
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow.001",
+   "to_socket": "cliptextencode_text_75_74"
+  },
+  {
+   "from": "Workflow.001",
+   "from_socket": "Image",
+   "to": "Save.001",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Image.002",
+   "from_socket": "Image",
+   "to": "Workflow.002",
+   "to_socket": "loadimage_image_76"
+  },
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow.002",
+   "to_socket": "cliptextencode_text_75_74"
+  },
+  {
+   "from": "Workflow.002",
+   "from_socket": "Image",
+   "to": "Save.002",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Image.003",
+   "from_socket": "Image",
+   "to": "Workflow.003",
+   "to_socket": "loadimage_image_76"
+  },
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow.003",
+   "to_socket": "cliptextencode_text_75_74"
+  },
+  {
+   "from": "Workflow.003",
+   "from_socket": "Image",
+   "to": "Save.003",
+   "to_socket": "Result"
+  }
+ ]
+}

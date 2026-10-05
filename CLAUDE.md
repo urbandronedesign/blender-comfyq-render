@@ -92,6 +92,8 @@ tools/workflow_check.ps1 run any workflow on the GPU with the plugin's client, n
 tools/text3d_check.ps1   GPU check of the Text → 3D preset chain (uses workflow_check)
 tools/museum_blockout.py blockout museum + 4 turnaround views by the plugin's clay pass (the BUILDING turns, camera
                          and light stay: identical lighting; shadows + cavity on) → AI restyle → Pixal3D Multi-View
+tools/make_views_preset.py  headless: builds the Four views class preset (4 Image → 4 Klein edits, one Prompt,
+                         seed 7, auto Save) from ComfyQ's live Klein parameters
 tools/splat_render.py    load a 3DGS .ply (no splat support in Blender 5.2) as a coloured point cloud and render it
                          with Cycles (colour = 0.5 + 0.2821·f_dc, radius = exp(scale), opacity = sigmoid, emission)
 tools/preset_report.py   HTML report of a run (description, graph shot, inputs, prompt/settings sent, output,
@@ -250,6 +252,9 @@ change that session: the user must reinstall from the UI or restart Mixar.
 45. **Workbench orthographic views of the 4 sides of an object**: turning the camera and the light gives each side a
     different shade (studio light and shadow direction follow different rules). Turn the OBJECT (0/90/180/270°) under
     a fixed camera and light. Straight-on faces all get one grey: enable shadows + cavity so recesses read.
+46. **Pass file names were the time to the second + kind**: a graph that prepares several inputs in one tick (four
+    Image nodes, two references) wrote them to ONE file, so a job got another view's picture (the Four views preset
+    rendered the left view as the front, 2026-10-06). `render._out_path` adds a counter; smoke checks two passes.
 43. **Look at the screenshots, not only the check results**: the GUI run passed while the presets' How to use note
     cut its last step (frame too small) and a menu covered a shot. Frames show a Text block (`NodeFrame.text`) but
     wrap long lines: keep note lines under ~45 characters, size `560 × (70 + 30 × lines)`.
@@ -369,6 +374,10 @@ change that session: the user must reinstall from the UI or restart Mixar.
   password). `prefs.active_profile()` is the one cached profile read. GUI -Ui 103/103.
 
 ## Next steps
+0. **Four views class preset** (2026-10-06, `presets/class/Four views - clay or photo to rendering (Flux2 Klein
+   edit).json`, `tools/make_views_preset.py`): run as a real graph in the sandbox (99 s, 4 views saved, consistent).
+   It found the pass-name bug (gotcha 46), fixed in `render._out_path`. Not yet installed in the user's Blender /
+   presets folder (ask).
 1. Text → 3D on Pixal3D **verified 2026-10-05** through the plugin's client (`tools/text3d_check.ps1`, no Blender:
    serve → submit → download; the Blender import is covered by the smoke test). Not yet run from the graph UI. Stale
    presets were moved to `%APPDATA%\comfyq-bridge\presets_removed_2026-10-05` (not deleted). F:\ComfyQ has a

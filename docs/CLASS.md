@@ -86,6 +86,12 @@ long list by lesson or task.
 - **Cycles render → photoreal (Flux2 Klein)**: a real Cycles render of the camera view (materials, lights,
   HDRI, shadow catchers; rendered in a separate Blender so the GPU is free), made photoreal by Flux2 Klein 9B
   image edit with the same composition. Viewer + Save. Tested on a supercar-on-a-driveway scene (2026-10-04).
+- **Four views: clay or photo → rendering (Flux2 Klein edit)**: four Image nodes (Front, Left, Back, Right) that
+  you fill yourself, with clay renders of your 3D model or with real photos of a building; one Prompt describes
+  the materials for all four; four Klein image edits with the same fixed seed (7) so the materials match across
+  the views; each view is saved automatically next to the .blend (`//comfyq/views/front_….png` …), the Viewer
+  shows the front. About 25 s per view. No 3D step (the views were consistent, but Pixal3D Multi-View could not
+  keep the building's proportions, 2026-10-06). Change the seed on all four nodes for another variant.
 - **Text → 3D model (Flux2 Klein + Pixal3D)**: describe an object; Klein makes a clean product picture (white
   background, whole object), Pixal3D (ComfyUI's built-in 3D nodes; a checkbox switches to TRELLIS.2) turns it into a
   textured 3D model (about 4 min; TRELLIS2 alone was removed from ComfyQ on 2026-10-05), imported beside the scene, on
