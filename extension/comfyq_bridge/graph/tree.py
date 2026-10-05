@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import functools
 import json
+from pathlib import Path
 
 import bpy
 from bpy.props import (
@@ -26,6 +27,7 @@ from ..client.params import is_disabled
 from ..passes.render import STILL_STYLES, STYLES
 from ..props import REL_PATH, ComfyQParamValue, tab_of
 from ..runtime.session import SESSION
+from ..wording import count
 from . import kinds
 
 TREE = "ComfyQGraphTree"
@@ -349,6 +351,71 @@ class ComfyQVideoFileNode(_FileNode, bpy.types.Node):
     bl_label = "Video File"
     bl_icon = "FILE_MOVIE"
     comfyq_kind = "video"
+
+
+_SCAN: dict = {}                    # (folder, recursive) -> (time, {"image": [...], "video": [...]}): draw is frequent
+
+
+def folder_files(node, max_age: float = 3.0) -> dict:
+    """The pictures and videos a Media Folder node would feed (scan cached a few seconds)."""
+    import time as _time
+
+    from . import batch
+    root = Path(bpy.path.abspath(node.folder)) if node.folder else None
+    if root is None:
+        return {"image": [], "video": []}
+    key = (str(root), bool(node.recursive))
+    hit = _SCAN.get(key)
+    if hit is None or _time.monotonic() - hit[0] > max_age:
+        hit = (_time.monotonic(), batch.scan(root, node.recursive))
+        _SCAN[key] = hit
+    return hit[1]
+
+
+class ComfyQFolderNode(_Node, bpy.types.Node):
+    """A folder of pictures or videos: Run Graph renders each file in turn (a batch) and the Save nodes write the
+    results to a new folder next to it, with the same subfolders"""
+    bl_idname = "ComfyQFolderNode"
+    bl_label = "Media Folder"
+    bl_icon = "FILE_FOLDER"
+    bl_width_default = 320
+
+    folder: StringProperty(name="Folder", subtype="DIR_PATH", options=REL_PATH,
+                           description="The folder of pictures (photos, clay renders…) or videos to render one by one")
+    recursive: BoolProperty(name="Include Subfolders", default=True,
+                            description="Also render the files of every subfolder; the results keep the same subfolders")
+    current: StringProperty(options={"HIDDEN", "SKIP_SAVE"},
+                            description="The file being rendered now (set by the batch, one after the other)")
+
+    def init(self, context):
+        self.outputs.new(SOCKET_IDNAME["image"], "Image")
+        self.outputs.new(SOCKET_IDNAME["video"], "Video")
+
+    def draw_buttons(self, context, layout):
+        from . import batch
+        from .run import batch_status
+        layout.prop(self, "folder", text="")
+        layout.prop(self, "recursive")
+        if not self.folder:
+            layout.label(text="Choose a folder of pictures or videos", icon="INFO")
+            return
+        root = Path(bpy.path.abspath(self.folder))
+        if not root.is_dir():
+            row = layout.row()
+            row.alert = True
+            row.label(text="This folder does not exist", icon="ERROR")
+            return
+        files = folder_files(self)
+        layout.label(text=f"{count(len(files['image']), 'picture')} · {count(len(files['video']), 'video')}",
+                     icon="FILE_IMAGE")
+        layout.label(text=f"Results in {batch.out_root(root).name}", icon="FOLDER_REDIRECT")
+        st = batch_status(self.id_data.name, self.name)
+        if st:                                     # a batch is running: progress, the file now, time left, ✕
+            row = layout.row(align=True)
+            row.progress(factor=st["factor"], type="BAR", text=st["text"])
+            row.operator("comfyq.graph_stop", text="", icon="CANCEL").tree = self.id_data.name
+            if st["file"]:
+                layout.label(text=st["file"], icon="IMAGE_DATA")
 
 
 class ComfyQAudioFileNode(_FileNode, bpy.types.Node):
@@ -899,11 +966,40 @@ class ComfyQSaveNode(_OutputNode, bpy.types.Node):
     pattern: StringProperty(name="Name", default="{source}_{date}_{time}",
                             description="File name: {node} {date} {time} {job} {workflow} {source}; "
                                         "the extension is the result's")
+    batch_suffix: StringProperty(name="Batch Suffix", default="_render",
+                                 description="In a batch from a Media Folder: added to each file's name "
+                                             "(facade_01.jpg → facade_01_render.png)")
 
     def draw_body(self, context, layout, media) -> None:
+        from . import batch
+        src = batch_source(self)
+        if src is not None and src.folder:             # fed by a Media Folder: the batch decides where files go
+            root = Path(bpy.path.abspath(src.folder))
+            layout.label(text=f"Batch: into {batch.out_root(root).name}", icon="FOLDER_REDIRECT")
+            layout.prop(self, "batch_suffix")
+            layout.label(text=f"e.g. name{self.batch_suffix}.png, same subfolders")
+            return
         col = layout.column(align=True)
         col.prop(self, "folder", text="")
         col.prop(self, "pattern", text="")
+
+
+def batch_source(node, _seen=None):
+    """The Media Folder node this node's input comes from (through workflow nodes and Reroutes), or None."""
+    seen = set() if _seen is None else _seen
+    for sock in node.inputs:
+        if not sock.is_linked:
+            continue
+        src, _out = upstream(sock)
+        if src is None or src.name in seen:
+            continue
+        seen.add(src.name)
+        if src.bl_idname == "ComfyQFolderNode":
+            return src
+        found = batch_source(src, seen)
+        if found is not None:
+            return found
+    return None
 
 
 OUTPUT_NODES = ("ComfyQViewerNode", "ComfyQImportNode", "ComfyQSaveNode")
@@ -916,12 +1012,12 @@ SOURCE_LABEL = {"image": "Scene render", "video": "Scene animation", "mask": "Se
                 "audio": "Audio file", "text": "Prompt"}
 
 NODE_CLASSES = (ComfyQImageNode, ComfyQSceneRenderNode, ComfyQMaskNode, ComfyQSceneAnimationNode,
-                ComfyQVideoFileNode, ComfyQAudioFileNode, ComfyQPromptNode, ComfyQWorkflowNode,
+                ComfyQVideoFileNode, ComfyQFolderNode, ComfyQAudioFileNode, ComfyQPromptNode, ComfyQWorkflowNode,
                 ComfyQSurfacesNode, ComfyQViewerNode, ComfyQImportNode, ComfyQSaveNode)
 RUN_NODES = (WORKFLOW_NODE, SURFACES_NODE)       # nodes a graph run books (a ComfyQ job / a SAM3 segmentation)
 OUTPUT_CLASSES = (ComfyQViewerNode, ComfyQImportNode, ComfyQSaveNode)
 SOURCE_NODES = (ComfyQSceneAnimationNode, ComfyQSceneRenderNode, ComfyQMaskNode, ComfyQImageNode,
-                ComfyQVideoFileNode, ComfyQAudioFileNode, ComfyQPromptNode)
+                ComfyQVideoFileNode, ComfyQFolderNode, ComfyQAudioFileNode, ComfyQPromptNode)
 
 
 def graph_trees():

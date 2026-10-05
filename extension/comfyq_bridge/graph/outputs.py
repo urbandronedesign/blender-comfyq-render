@@ -264,10 +264,25 @@ def _save(node, media: Media) -> str:
     return f"Saved {dst}"
 
 
+def save_batch(node, media: Media, root: Path, file: Path) -> str:
+    """A batch step's result → the results folder next to the input one, same subfolders, the file's own name
+    plus the Save node's Batch Suffix (an earlier result of the same file is replaced)."""
+    from . import batch
+    stem = batch.result_stem(root, file, node.batch_suffix)
+    stem.parent.mkdir(parents=True, exist_ok=True)
+    ext = Path(media.path).suffix if media.path else ".txt"
+    dst = stem.with_name(stem.name + ext)
+    if media.path:
+        shutil.copy2(media.path, dst)
+    else:
+        dst.write_text(media.text or "", encoding="utf-8")
+    return f"Saved {dst}"
+
+
 # -- the timer -----------------------------------------------------------------------------------------------
 def tick(tree, scene) -> None:
     """Thumbnails for Viewers, and "… when ready": act once per new result."""
-    from .tree import OUTPUT_NODES
+    from .tree import OUTPUT_NODES, batch_source
     for node in tree.nodes:
         if node.bl_idname not in OUTPUT_NODES:
             continue
@@ -282,6 +297,8 @@ def tick(tree, scene) -> None:
                 img = bpy.data.images.load(media.path, check_existing=True)
                 if img.preview is None:
                     img.preview_ensure()
+        if node.bl_idname == "ComfyQSaveNode" and batch_source(node) is not None:
+            continue                   # fed by a Media Folder: the batch saves each file (mirrored folder)
         if node.auto and media.key() != node.handled:
             try:
                 act(node, scene)

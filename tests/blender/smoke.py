@@ -1154,6 +1154,81 @@ finally:
         _ix = next((n for n, r in enumerate(scene.comfyq.jobs) if r.job_id == _jid), None)
         if _ix is not None:
             scene.comfyq.jobs.remove(_ix)
+# Batch renders from a Media Folder (no GPU: booking and finished jobs are faked, as for Retry)
+from bl_ext.user_default.comfyq_bridge.client.models import COMPLETED, Job
+from bl_ext.user_default.comfyq_bridge.graph import batch as _gbatch
+from bl_ext.user_default.comfyq_bridge.graph import run as _grun_bt
+from bl_ext.user_default.comfyq_bridge.runtime.session import JobView
+
+_img_wf = next((w for w in sorted(SESSION.served_ids())        # one required media input, and it is an image
+                if [x.kind for x in SESSION.client.params(w) if x.is_media and x.required] == ["image"]), None)
+if _img_wf is None:
+    check(True, "batch: no served workflow with an image input: skipped")
+else:
+    SESSION.specs[_img_wf] = SESSION.client.params(_img_wf)
+    _broot = Path(tempfile.mkdtemp()) / "photos"
+    for _rel in ("a.png", "sub/b.png", "sub/deep/c.png"):
+        _f = _broot / _rel
+        _f.parent.mkdir(parents=True, exist_ok=True)
+        _im = bpy.data.images.new("smoke batch src", 32, 24)
+        _im.filepath_raw, _im.file_format = str(_f), "PNG"
+        _im.save()
+        bpy.data.images.remove(_im)
+    _done_before = _gbatch.result_stem(_broot, _broot / "sub" / "b.png", "_smk")
+    _done_before.parent.mkdir(parents=True)
+    (_done_before.parent / (_done_before.name + ".png")).write_bytes(b"earlier")     # rendered before: skipped
+    _bt = bpy.data.node_groups.new("Batch smoke", "ComfyQGraphTree")
+    _bf = _bt.nodes.new("ComfyQFolderNode")
+    _bf.folder = str(_broot)
+    _bw = _bt.nodes.new("ComfyQWorkflowNode")
+    _bw.workflow_id = _img_wf
+    _bw.build(SESSION.specs[_img_wf])
+    _bsock = next(x for x in _bw.inputs if socket_kind(x) == "image" and x.enabled)
+    _bt.links.new(_bf.outputs["Image"], _bsock)
+    _bp = _bt.nodes.new("ComfyQPromptNode")
+    _bp.text = "batch smoke"
+    for _x in _bw.inputs:
+        if socket_kind(_x) == "text" and _x.enabled and not _x.is_linked:
+            _bt.links.new(_bp.outputs[0], _x)
+    _ok0, _m0 = _grun_bt.start(_bt, scene, *[_grun_bt.graph_targets(_bt, scene)[0], []])
+    check(not _ok0 and "Save node" in _m0, f"batch: refused without a Save node ({_m0})")
+    _bs = _bt.nodes.new("ComfyQSaveNode")
+    _bs.batch_suffix = "_smk"
+    _bt.links.new(_bw.outputs[0], _bs.inputs[0])
+    _fake = {"n": 0, "uploaded": []}
+
+    def _fake_run(work, done, **kw):
+        _fake["n"] += 1
+        jid = f"smoke-batch-{_fake['n']}"
+        res = Path(tempfile.mkdtemp()) / "result.png"
+        res.write_bytes(b"result")
+        SESSION.jobs[jid] = JobView(job=Job(id=jid, workflow_id=_img_wf, user_id="smoke", phase=COMPLETED), files=[res])
+        done(jid)
+
+    _run0b, _track0b = SESSION.run, SESSION.track
+    SESSION.run, SESSION.track = _fake_run, (lambda *a, **kw: None)
+    try:
+        _ok, _msg = _grun_bt.start(_bt, scene, _grun_bt.graph_targets(_bt, scene)[0], [])
+        pump_until(lambda: (_grun_bt.tick_all(), _bt.name not in _grun_bt.RUNS)[1], 30, "batch run")
+        _outs = sorted(x.relative_to(_gbatch.out_root(_broot)).as_posix() for x in _gbatch.out_root(_broot).rglob("*")
+                       if x.is_file())
+        check(_ok and "2 images to render" in _msg and "1 already done" in _msg and _fake["n"] == 2
+              and _outs == ["a_smk.png", "sub/b_smk.png", "sub/deep/c_smk.png"]
+              and (_gbatch.out_root(_broot) / "sub" / "b_smk.png").read_bytes() == b"earlier"
+              and (_gbatch.out_root(_broot) / "a_smk.png").read_bytes() == b"result" and not _bf.current,
+              f"batch: each picture rendered once, results mirrored into photos_renders with the suffix, the one "
+              f"done before skipped ({_msg}; {_outs}; jobs {_fake['n']})")
+        _ok2, _msg2 = _grun_bt.start(_bt, scene, _grun_bt.graph_targets(_bt, scene)[0], [])
+        check(_ok2 and "Nothing to do" in _msg2 and _fake["n"] == 2, f"batch: a second run has nothing to do ({_msg2})")
+        _bt.links.new(_bf.outputs["Video"], _bt.nodes.new("ComfyQViewerNode").inputs[0])
+        _ok3, _msg3 = _grun_bt.start(_bt, scene, _grun_bt.graph_targets(_bt, scene)[0], [])
+        check(not _ok3 and "one of them" in _msg3, f"batch: Image and Video both linked is refused ({_msg3})")
+    finally:
+        SESSION.run, SESSION.track = _run0b, _track0b
+        for _k in [k for k in SESSION.jobs if k.startswith("smoke-batch-")]:
+            SESSION.jobs.pop(_k, None)
+        _grun_bt.RUNS.pop(_bt.name, None)
+        bpy.data.node_groups.remove(_bt)
 # Surfaces node (SAM3 → prompt) in the graph: no SAM3 job here (found surfaces are faked)
 from bl_ext.user_default.comfyq_bridge.graph import outputs as _gout
 from bl_ext.user_default.comfyq_bridge.graph import preset_ops as _gpo
@@ -1227,6 +1302,19 @@ check(len(_fw) == 4 and _fimg == {"Front view", "Left view", "Back view", "Right
       and all(lk.is_valid for lk in _ft.links),
       f"Four views preset: 4 views → 4 Klein edits, one prompt, one fixed seed {_fseeds}, 4 auto Saves")
 bpy.data.node_groups.remove(_ft)
+# the Batch class preset: Media Folder (subfolders on) → Klein edit (fixed seed) ← Prompt; → Save with a batch suffix
+_bv = json.loads(next(_presets_root.glob("class/Batch*.json")).read_text(encoding="utf-8"))
+_btp = bpy.data.node_groups.new("Batch preset smoke", "ComfyQGraphTree")
+_gpo.build_saved(_bv, _btp, scene)
+_bfn = [n for n in _btp.nodes if n.bl_idname == "ComfyQFolderNode"]
+_bsv = [n for n in _btp.nodes if n.bl_idname == "ComfyQSaveNode"]
+_bwn = [n for n in _btp.nodes if n.bl_idname == "ComfyQWorkflowNode"]
+check(len(_bfn) == 1 and _bfn[0].recursive and _bfn[0].outputs["Image"].is_linked and len(_bsv) == 1
+      and _bsv[0].batch_suffix == "_render" and len(_bwn) == 1
+      and all(not it.randomize for it in _bwn[0].params if it.kind == "seed" and it.workflow_id == _bwn[0].workflow_id)
+      and all(lk.is_valid for lk in _btp.links),
+      "Batch preset: Media Folder (subfolders) → Klein edit (fixed seed) → Save with suffix _render")
+bpy.data.node_groups.remove(_btp)
 _n3 = next((n for n in _st3.nodes if n.bl_idname == "NodeFrame" and n.label == "How to use"), None)
 check(_n3 is not None and _n3.text is not None and "Surfaces" in _n3.text.as_string(),
       "F3: the Architecture class preset shows its How to use steps")

@@ -1059,6 +1059,44 @@ def step_preferences():
     yield 0.5
 
 
+def step_media_folder():
+    """Batch: a Media Folder node (folder, Include Subfolders, counts, results folder) → workflow → Save showing its
+    Batch Suffix. Drawn only (no batch run: GPU); the run is covered by the smoke test and the GPU checks."""
+    _w, area = graph_area()
+    before = area.spaces.active.node_tree
+    tree = bpy.data.node_groups.new("UI check batch", "ComfyQGraphTree")   # an empty graph: nothing on top
+    area.spaces.active.node_tree = tree
+    root = OUT / "batch_photos"
+    for rel in ("a.png", "north/b.png", "north/c.mp4"):
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_bytes(b"x")
+    f = tree.nodes.new("ComfyQFolderNode")
+    f.folder, f.location = str(root), (-700, 0)
+    wf_id = next(iter(sorted(S().served_ids())), "")
+    s = tree.nodes.new("ComfyQSaveNode")
+    s.location = (100, 0)
+    if wf_id in S().specs:
+        w = tree.nodes.new("ComfyQWorkflowNode")
+        w.workflow_id, w.location = wf_id, (-300, 0)
+        w.build(S().specs[wf_id])
+        sock = next((x for x in w.inputs if x.enabled and ext("graph.tree").socket_kind(x) == "image"), None)
+        if sock is not None:
+            tree.links.new(f.outputs["Image"], sock)
+        tree.links.new(w.outputs[0], s.inputs[0])
+    yield 0.3
+    region = next(r for r in area.regions if r.type == "WINDOW")
+    with bpy.context.temp_override(window=_w, area=area, region=region):
+        bpy.ops.node.view_all()
+    yield 0.8
+    shot("09k_media_folder")
+    files = ext("graph.tree").folder_files(f)
+    check("Batch: Media Folder node counts its files (2 pictures, 1 video, subfolders included) and draws",
+          len(files["image"]) == 2 and len(files["video"]) == 1
+          and not any("tree.py" in e and "Folder" in e for e in draw_errors),
+          {k: len(v) for k, v in files.items()})
+    area.spaces.active.node_tree = before
+
+
 def step_server_panel():
     """F2: the teacher's Server panel (served models, GPU memory, queue, connected people). This sandbox reads
     the real profiles file (gotcha 37): on the teacher's PC it is unlocked, on a student PC it is hidden."""
@@ -1093,7 +1131,7 @@ def step_presets_menu():
 STEPS = [step_start, step_connect, step_refresh, step_tabs_and_menu, step_chips, step_prompt, step_match,
          step_render_scene, step_animation, step_player, step_library, step_cleanup, step_finished_job_card,
          step_failed_job_card,
-         step_keyframe, step_graph, step_cycles_render, step_graph_run, step_generate, step_disconnect_reconnect, step_reload_file, step_extras, step_preferences, step_server_panel, step_presets_menu]
+         step_keyframe, step_graph, step_cycles_render, step_graph_run, step_generate, step_disconnect_reconnect, step_reload_file, step_extras, step_preferences, step_media_folder, step_server_panel, step_presets_menu]
 
 
 class Runner:

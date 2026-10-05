@@ -35,7 +35,8 @@ from .tree import (
 )
 
 SCENE_SOURCES = {"ComfyQSceneRenderNode", "ComfyQMaskNode", "ComfyQSceneAnimationNode"}
-RUNS: dict[str, Run] = {}            # tree name -> the run in progress
+FOLDER_NODE = "ComfyQFolderNode"
+RUNS: dict[str, Run | BatchRun] = {}   # tree name -> the run in progress
 SWITCH_TIMEOUT_S = 900               # solo mode: a model switch restarts ComfyQ (1–3 min); give up after this
 
 
@@ -70,6 +71,9 @@ def _own_hash(node, scene) -> str:
         img = node.image
         return engine.settings_hash(idn, img.name if img else "", img.filepath if img else "",
                                     img.is_dirty if img else False)
+    if idn == FOLDER_NODE:
+        p = Path(node.current) if node.current else None
+        return engine.settings_hash(idn, str(p), p.stat().st_mtime if p and p.is_file() else 0)
     if idn in ("ComfyQVideoFileNode", "ComfyQAudioFileNode"):
         p = Path(bpy.path.abspath(node.filepath)) if node.filepath else None
         return engine.settings_hash(idn, str(p), p.stat().st_mtime if p and p.is_file() else 0)
@@ -120,6 +124,7 @@ class Run:
         self.switch: dict | None = None                # {"wf", "state": asking|loading|failed, "t0", "error"}
         self.switched = False
         self.surface_jobs: dict[str, list[str]] = {}   # Surfaces node -> its SAM3 job ids (a Stop cancels them)
+        self.quiet = False                             # a batch step: no result shown at the end
         self.cycles: dict[tuple, render.CyclesRender] = {}   # Cycles sources rendering now (a Stop kills them)
 
     def tree(self):
@@ -162,7 +167,7 @@ class Run:
             if self.after:
                 if not self.error:
                     act_outputs(tree, scene, self.after)
-            else:
+            elif not self.quiet:
                 self._show_result(tree)
             return False
         return True
@@ -447,6 +452,17 @@ class Run:
             if src.image is None:
                 raise RuntimeError(f"“{src.name}”: choose an image")
             p = render.image_pass(src.image, edge)
+        elif idn == FOLDER_NODE:
+            from . import batch
+            p = Path(src.current) if src.current else None
+            if p is None or not p.is_file():
+                raise RuntimeError(f"“{src.name}”: Run Graph renders its files one by one")
+            if p.suffix.lower() in batch.IMAGE_EXTS:     # within the upload limits, like any picture
+                img = bpy.data.images.load(str(p), check_existing=False)
+                try:
+                    p = render.image_pass(img, edge)
+                finally:
+                    bpy.data.images.remove(img)            # a batch of hundreds must not fill the file
         elif idn in ("ComfyQVideoFileNode", "ComfyQAudioFileNode"):
             p = Path(bpy.path.abspath(src.filepath)) if src.filepath else None
             if p is None or not p.is_file():
@@ -596,37 +612,22 @@ def act_outputs(tree, scene, names) -> list[str]:
     return msgs
 
 
-def start(tree, scene, targets: list[str], selected: list[str], force: bool = False,
-          after: list[str] | tuple = ()) -> tuple[bool, str]:
-    """Plan and start a run; (ok, message). `after`: output nodes to act on once it is done (their
-    Generate: upstream results still up to date are reused, and then they just act)."""
-    if not SESSION.connected:
-        return False, "Connect to ComfyQ first"
-    if tree.name in RUNS:
-        return False, "This graph is already running (cancel its jobs first)"
-    nodes = describe(tree, scene)
-    try:
-        todo = engine.plan(nodes, targets, force=force, reuse_targets=bool(after))
-    except engine.CycleError as e:
-        return False, f"The graph loops: {e}"
-    if not todo and after:
-        return True, "Up to date: " + "; ".join(act_outputs(tree, scene, after))
-    if not todo:
-        return False, "Nothing to run: add a workflow node"
+def _check(tree, todo: list[str]) -> tuple[str, bool]:
+    """('' or why it cannot run, solo): settings loaded, models served (or Solo may load them), inputs linked."""
     served = SESSION.served_ids()
     unloaded = [n for n in todo if tree.nodes[n].bl_idname == WORKFLOW_NODE
                 and tree.nodes[n].workflow_id not in SESSION.specs]
     if unloaded:
-        return False, "Still loading the settings of: " + ", ".join(unloaded)
+        return "Still loading the settings of: " + ", ".join(unloaded), False
     unserved = [tree.nodes[n].draw_label() for n in todo if tree.nodes[n].workflow_id not in served]
     solo = bool(unserved) and solo_on()
     if unserved and not solo:
-        return False, "Not served right now (ask the teacher): " + ", ".join(unserved)
+        return "Not served right now (ask the teacher): " + ", ".join(unserved), False
     if solo:
         others = serving.blockers(SESSION.client)
         if others:
-            return False, (f"Solo mode: {count(len(others), 'job')} on ComfyQ ({others[0]}); models are only switched "
-                           f"when nobody is using the server")
+            return (f"Solo mode: {count(len(others), 'job')} on ComfyQ ({others[0]}); models are only switched "
+                    f"when nobody is using the server"), False
     missing = []
     for name in todo:
         node = tree.nodes[name]
@@ -640,7 +641,36 @@ def start(tree, scene, targets: list[str], selected: list[str], force: bool = Fa
         missing += [f"{name} › {s.label}" for s in specs
                     if s.is_media and s.required and s.key not in linked and not is_disabled(s, cur, specs)]
     if missing:
-        return False, "Link these inputs first: " + "; ".join(missing)
+        return "Link these inputs first: " + "; ".join(missing), False
+    return "", solo
+
+
+def start(tree, scene, targets: list[str], selected: list[str], force: bool = False,
+          after: list[str] | tuple = ()) -> tuple[bool, str]:
+    """Plan and start a run; (ok, message). `after`: output nodes to act on once it is done (their
+    Generate: upstream results still up to date are reused, and then they just act)."""
+    if not SESSION.connected:
+        return False, "Connect to ComfyQ first"
+    if tree.name in RUNS:
+        return False, "This graph is already running (cancel its jobs first)"
+    nodes = describe(tree, scene)
+    try:
+        chain = engine.plan(nodes, targets, force=True)
+    except engine.CycleError as e:
+        return False, f"The graph loops: {e}"
+    folders = [n for n in nodes if tree.nodes[n].bl_idname == FOLDER_NODE
+               and any(engine._depends_on(nodes, t, n) for t in chain)]
+    if folders:                                    # a chain fed by a Media Folder: once per file
+        return _start_batch(tree, scene, targets, selected, nodes, folders)
+    todo = engine.plan(nodes, targets, force=force, reuse_targets=bool(after))
+    if not todo and after:
+        return True, "Up to date: " + "; ".join(act_outputs(tree, scene, after))
+    if not todo:
+        return False, "Nothing to run: add a workflow node"
+    why, solo = _check(tree, todo)
+    if why:
+        return False, why
+    served = SESSION.served_ids()
     run = Run(tree, scene, todo, nodes, selected, after, solo=solo)
     RUNS[tree.name] = run
     run.tick()
@@ -665,12 +695,15 @@ def tick_all() -> None:
         if not alive:
             run.end_renders()
             RUNS.pop(name, None)
-            SESSION.status_note = f"Graph: {run.error}" if run.error else "Graph run finished"
+            summary = getattr(run, "summary", "")
+            SESSION.status_note = (f"Graph: {run.error}" if run.error else summary or "Graph run finished")
 
 
 def running(tree_name: str, node_name: str) -> str:
     """'' if not part of a run; else what it is doing ("waiting", "sending", "booked")."""
     run = RUNS.get(tree_name)
+    if isinstance(run, BatchRun):                  # a batch: what its current step is doing
+        run = run.inner
     if run is None or node_name not in run.pending:
         return ""
     if node_name in run.booked:
@@ -680,3 +713,163 @@ def running(tree_name: str, node_name: str) -> str:
     if run.cycles and any(engine._depends_on(run.nodes, node_name, k[0]) for k in run.cycles):
         return "rendering"
     return "waiting"
+
+
+# -- batch renders: a chain fed by a Media Folder, once per file -----------------------------------------------
+def _start_batch(tree, scene, targets, selected, nodes, folders) -> tuple[bool, str]:
+    from . import batch
+    from .tree import folder_files
+    if len(folders) > 1:
+        return False, "Use one Media Folder per run (" + ", ".join(folders) + ")"
+    fnode = tree.nodes[folders[0]]
+    if not fnode.folder or not Path(bpy.path.abspath(fnode.folder)).is_dir():
+        return False, f"“{fnode.name}”: choose a folder of pictures or videos"
+    linked = [o.name.lower() for o in fnode.outputs if o.is_linked]
+    if len(linked) != 1:
+        return False, f"“{fnode.name}”: link its Image output or its Video output (one of them)"
+    kind = linked[0]
+    root = Path(bpy.path.abspath(fnode.folder))
+    files = folder_files(fnode, max_age=0)[kind]
+    if not files:
+        return False, f"No {kind}s in {root}" + (" or its subfolders" if fnode.recursive else "")
+    saves = [n for n in nodes if tree.nodes[n].bl_idname == "ComfyQSaveNode" and engine._depends_on(nodes, n, fnode.name)]
+    if not saves:
+        return False, "Add a Save node after the workflow: the batch writes each result there"
+    todo_files = batch.remaining(files, root, [tree.nodes[n].batch_suffix for n in saves])
+    if not todo_files:
+        return True, f"Nothing to do: all {count(len(files), kind)} are already in {batch.out_root(root).name}"
+    fnode.current = str(todo_files[0])            # check the chain as the first file will run it
+    first = describe(tree, scene)
+    todo = engine.plan(first, targets, force=True)
+    why, solo = _check(tree, todo)
+    if why:
+        fnode.current = ""
+        return False, why
+    run = BatchRun(tree, scene, fnode, root, todo_files, len(files), targets, selected, saves, solo)
+    RUNS[tree.name] = run
+    run.tick()
+    done_before = len(files) - len(todo_files)
+    msg = f"Batch: {count(len(todo_files), kind)} to render, one after the other, into {batch.out_root(root).name}"
+    if done_before:
+        msg += f" ({done_before} already done, skipped)"
+    return True, msg
+
+
+class BatchRun:
+    """A chain fed by a Media Folder, run once per file, one job after the other (one student's batch never
+    floods the class queue). Each step is an ordinary `Run`; after it, each Save node copies the result to the
+    mirrored results folder. A failed file is noted and the batch goes on; Stop ends it (a new Run Graph resumes
+    with the files that have no result yet)."""
+
+    def __init__(self, tree, scene, fnode, root: Path, files: list[Path], total: int, targets, selected, saves,
+                 solo: bool):
+        self.tree_name, self.scene_name, self.folder_name = tree.name, scene.name, fnode.name
+        self.root, self.files, self.total = root, files, total
+        self.targets, self.selected, self.saves, self.solo = targets, selected, saves, solo
+        self.i = 0
+        self.inner: Run | None = None
+        self.t_file = 0.0
+        self.durations: list[float] = []
+        self.failed: list[str] = []
+        self.saved = 0
+        self.error = ""
+        self.summary = ""
+
+    def tree(self):
+        t = bpy.data.node_groups.get(self.tree_name)
+        return t if t is not None and t.bl_idname == TREE else None
+
+    def tick(self) -> bool:
+        tree, scene = self.tree(), bpy.data.scenes.get(self.scene_name)
+        if tree is None or scene is None or tree.nodes.get(self.folder_name) is None:
+            return False
+        if self.inner is not None:
+            if self.inner.tick():
+                return True
+            self._finish_file(tree)
+        while self.i < len(self.files):
+            if self._start_file(tree, scene):
+                return True
+        self._end(tree)
+        return False
+
+    def _start_file(self, tree, scene) -> bool:
+        """Start the run of the current file; False when there was nothing to run (then it is saved as is)."""
+        f = self.files[self.i]
+        tree.nodes[self.folder_name].current = str(f)
+        nodes = describe(tree, scene)
+        todo = engine.plan(nodes, self.targets, force=False)
+        self.t_file = time.monotonic()
+        if not todo:                                # the chain's results are already this file's
+            self.inner = None
+            self._save(tree, f)
+            self.i += 1
+            return False
+        self.inner = Run(tree, scene, todo, nodes, self.selected, (), solo=self.solo)
+        self.inner.quiet = True
+        self.inner.tick()
+        return True
+
+    def _finish_file(self, tree) -> None:
+        inner, f = self.inner, self.files[self.i]
+        self.inner = None
+        if inner.error:
+            self.failed.append(f"{f.name}: {inner.error}")
+        else:
+            self._save(tree, f)
+            self.durations.append(time.monotonic() - self.t_file)
+        self.i += 1
+
+    def _save(self, tree, f: Path) -> None:
+        from . import outputs
+        for name in self.saves:
+            node = tree.nodes.get(name)
+            media = outputs.linked(node) if node is not None else None
+            if media is None or not media.ready:
+                continue
+            node.status = outputs.save_batch(node, media, self.root, f)
+            node.handled = media.key()
+            self.saved += 1
+
+    def stop(self, tree) -> int:
+        n = self.inner.stop(tree) if self.inner is not None else 0
+        self.inner = None
+        self.i = len(self.files)
+        self.error = f"Batch stopped after {count(len(self.durations), 'file')}"
+        self._end(tree)
+        return n
+
+    def end_renders(self) -> None:
+        if self.inner is not None:
+            self.inner.end_renders()
+
+    def _end(self, tree) -> None:
+        from . import batch
+        node = tree.nodes.get(self.folder_name) if tree is not None else None
+        if node is not None:
+            node.current = ""
+        done = len(self.durations)
+        self.summary = (f"Batch done: {count(done, 'file')} rendered into {batch.out_root(self.root).name}"
+                        + (f", {len(self.failed)} failed ({self.failed[0]})" if self.failed else ""))
+
+    def status(self) -> dict:
+        """What the Media Folder node shows: progress, the file now, time left."""
+        from . import batch
+        n = len(self.files)
+        i = min(self.i, n)
+        f = self.files[i] if i < n else None
+        text = f"{i + 1 if f else n} / {n}"
+        left = batch.eta(self.durations, n - i)
+        if left:
+            text += f" · {left}"
+        if self.failed:
+            text += f" · {len(self.failed)} failed"
+        return {"factor": i / n if n else 1.0, "text": text,
+                "file": str(f.relative_to(self.root)) if f else ""}
+
+
+def batch_status(tree_name: str, node_name: str) -> dict | None:
+    run = RUNS.get(tree_name)
+    if isinstance(run, BatchRun) and run.folder_name == node_name:
+        return run.status()
+    return None

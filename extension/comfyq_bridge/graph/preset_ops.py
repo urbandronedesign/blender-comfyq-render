@@ -18,7 +18,7 @@ from . import kinds, presets
 from .tree import WORKFLOW_NODE, socket_kind
 
 SOURCE_TYPES = {"ComfyQSceneRenderNode", "ComfyQMaskNode", "ComfyQSceneAnimationNode", "ComfyQImageNode",
-                "ComfyQVideoFileNode", "ComfyQAudioFileNode", "ComfyQPromptNode"}
+                "ComfyQVideoFileNode", "ComfyQAudioFileNode", "ComfyQPromptNode", "ComfyQFolderNode"}
 
 
 def _in_graph(context) -> bool:
@@ -154,7 +154,7 @@ _NODE_PROPS = {
     "ComfyQSceneAnimationNode": ("style",), "ComfyQVideoFileNode": ("filepath",),
     "ComfyQAudioFileNode": ("filepath",), "ComfyQPromptNode": ("text",),
     "ComfyQViewerNode": ("auto",), "ComfyQImportNode": ("auto", "replace", "place", "on_ground", "size"),
-    "ComfyQSaveNode": ("auto", "folder", "pattern"),
+    "ComfyQSaveNode": ("auto", "folder", "pattern", "batch_suffix"), "ComfyQFolderNode": ("folder", "recursive"),
     "ComfyQSurfacesNode": ("intro", "outro", "threshold"),
 }
 

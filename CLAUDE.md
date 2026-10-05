@@ -59,6 +59,8 @@ extension/comfyq_bridge/
   help/student.html      students' quickstart, shipped in the zip, opened by ? (comfyq.help); docs/STUDENT.md points to it
   surfaces.py            bpy-free SAM3 surface labels ("wall|left wall: material") → prompt (arch chain)
   passes/segment.py runtime/segmentation.py   SAM3 on stills (3-frame MP4), union masks, overlay, fit_upload
+  graph/batch.py         bpy-free: Media Folder scan (recursive, pictures / videos), `<folder>_renders` mirrored
+                         paths + batch suffix, resume (`remaining`), ETA. `run.BatchRun` = one `Run` per file
   graph/                 node graph (Moodboard-style, docs/plans/node-graph.md): kinds.py + engine.py (bpy-free),
                          tree.py (nodes), ui.py (toolbar/operators/timer sync), run.py (running the graph),
                          outputs.py (Viewer/Import/Save), presets.py (bpy-free) + preset_ops.py (class presets)
@@ -92,6 +94,7 @@ tools/workflow_check.ps1 run any workflow on the GPU with the plugin's client, n
 tools/text3d_check.ps1   GPU check of the Text → 3D preset chain (uses workflow_check)
 tools/museum_blockout.py blockout museum + 4 turnaround views by the plugin's clay pass (the BUILDING turns, camera
                          and light stay: identical lighting; shadows + cavity on) → AI restyle → Pixal3D Multi-View
+tools/make_batch_preset.py  headless: builds the Batch class preset (Media Folder → Klein edit, seed 7 → Save _render)
 tools/make_views_preset.py  headless: builds the Four views class preset (4 Image → 4 Klein edits, one Prompt,
                          seed 7, auto Save) from ComfyQ's live Klein parameters
 tools/splat_render.py    load a 3DGS .ply (no splat support in Blender 5.2) as a coloured point cloud and render it
@@ -374,6 +377,11 @@ change that session: the user must reinstall from the UI or restart Mixar.
   password). `prefs.active_profile()` is the one cached profile read. GUI -Ui 103/103.
 
 ## Next steps
+0. **Batch renders** (2026-10-06): Media Folder node (`graph/tree.py ComfyQFolderNode`, Scene menu; folder,
+   Include Subfolders, Image / Video outputs) + `run.BatchRun` (sequential: one job at a time, the user's choice;
+   "Jobs at once" left out: the graph keeps one result per node) + Save **Batch Suffix** (`outputs.save_batch`,
+   auto Save skips folder-fed Save nodes) + class preset *Batch: folder → rendering (Flux2 Klein edit)*. Verified:
+   smoke (faked jobs), GPU pictures (Klein) and videos (FILM) through the real graph. Not yet installed (ask).
 0. **Four views class preset** (2026-10-06, `presets/class/Four views - clay or photo to rendering (Flux2 Klein
    edit).json`, `tools/make_views_preset.py`): run as a real graph in the sandbox (99 s, 4 views saved, consistent).
    It found the pass-name bug (gotcha 46), fixed in `render._out_path`. Installed (`f43678b`) and copied to the

@@ -86,6 +86,13 @@ long list by lesson or task.
 - **Cycles render → photoreal (Flux2 Klein)**: a real Cycles render of the camera view (materials, lights,
   HDRI, shadow catchers; rendered in a separate Blender so the GPU is free), made photoreal by Flux2 Klein 9B
   image edit with the same composition. Viewer + Save. Tested on a supercar-on-a-driveway scene (2026-10-04).
+- **Batch: folder → rendering (Flux2 Klein edit)**: a **Media Folder** node (choose a folder of photos or clay
+  renders; *Include Subfolders* is on) → one Prompt → Klein image edit with a fixed seed (a consistent series) →
+  Save. **Run Graph** renders the pictures one after the other (about 25 s each; the folder node shows `12 / 48`
+  and the time left, ✕ stops). The results go to a new folder next to yours, **`<name>_renders`**, with the same
+  subfolders and each file's name plus the Save node's **Batch Suffix** (`facade_01.jpg` → `facade_01_render.png`).
+  Stopped or crashed? Run Graph again: files already rendered are skipped. Any image or video chain can be
+  batched the same way: put a Media Folder where its Image (or Video File) node was, and a Save at the end.
 - **Four views: clay or photo → rendering (Flux2 Klein edit)**: four Image nodes (Front, Left, Back, Right) that
   you fill yourself, with clay renders of your 3D model or with real photos of a building; one Prompt describes
   the materials for all four; four Klein image edits with the same fixed seed (7) so the materials match across

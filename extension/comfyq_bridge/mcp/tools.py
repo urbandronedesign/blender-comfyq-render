@@ -716,7 +716,11 @@ def _node_dict(n) -> dict:
         d.update(surfaces=n.value(), intro=n.intro, outro=n.outro, threshold=round(n.threshold, 3),
                  found=[f"{r['label']} {r['coverage_pct']}%" for r in n.found()], prompt=n.prompt() or None,
                  overlay=n.result or None, note=n.note or None)
-    for k in ("style", "frame", "filepath", "auto", "folder", "status"):
+    elif n.bl_idname == "ComfyQFolderNode":
+        from ..graph.tree import folder_files
+        files = folder_files(n)
+        d.update(pictures=len(files["image"]), videos=len(files["video"]), current=n.current or None)
+    for k in ("style", "frame", "filepath", "auto", "folder", "recursive", "batch_suffix", "status"):
         if hasattr(n, k) and k in n.bl_rna.properties:
             d[k] = getattr(n, k)
     return d
@@ -846,7 +850,9 @@ def blender_graph_status(args: dict) -> dict:
             out.append({"node": n.name, "workflow_id": n.workflow_id, "state": running(t.name, n.name) or "idle",
                         "job": _job_dict(v.job) if v else None, "result": n.result or None, "note": n.note or None})
         run = RUNS.get(t.name)
-        return {"running": run is not None, "error": run.error if run else None, "nodes": out,
+        from ..graph.run import BatchRun
+        batch = run.status() if isinstance(run, BatchRun) else None
+        return {"running": run is not None, "error": run.error if run else None, "nodes": out, "batch": batch,
                 "status": SESSION.status_note}
     return on_main(go)
 
@@ -969,7 +975,9 @@ TOOLS = [
     Tool("blender_graph_set", "Change a node: a workflow node's setting by key (or `prompt`), a Prompt "
          "node's `text`, a Surfaces node's `surfaces` ('label: material' lines), a source's `style`/`frame`/"
          "`filepath` (an Image node's `image` = a local image file), "
-         "an output's `auto`/`folder`/`pattern`.",
+         "an output's `auto`/`folder`/`pattern`; a Media Folder's `folder`/`recursive` (a Run Graph then renders "
+         "each file, one job after the other) and a Save node's `batch_suffix` (results go to `<folder>_renders`, "
+         "same subfolders, name + suffix).",
          obj({"node": _S, "key": _S, "value": {}}, ("node", "key", "value")), blender_graph_set),
     Tool("blender_graph_run", "Run the graph (or one node and what it needs). Up-to-date results are reused; "
          "`force` re-runs upstream. Returns at once: follow with blender_graph_status.",
