@@ -2,7 +2,7 @@
  "format": 1,
  "label": "LivePortrait — animate a portrait from a driving video",
  "description": "Bring a still portrait to life. Upload a clear, front-facing portrait photo and a short driving video of a face that moves and talks — LivePortrait transfers the video's head motion plus eye and lip movement onto your…\nFrom: Portrait image, Driving video. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",

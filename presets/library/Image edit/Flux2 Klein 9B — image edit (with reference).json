@@ -2,7 +2,7 @@
  "format": 1,
  "label": "Flux2 Klein 9B — image edit (with reference)",
  "description": "Edit a source image using a second reference image. Useful for transferring style, composition, or specific elements.\nFrom: Scene render, Reference image, Prompt. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",
@@ -29,7 +29,8 @@
    "label": "Scene render",
    "parent": "",
    "style": "CLAY",
-   "frame": "CURRENT"
+   "frame": "CURRENT",
+   "cycles_samples": 64
   },
   {
    "name": "Image",

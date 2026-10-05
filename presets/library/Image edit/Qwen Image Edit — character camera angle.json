@@ -2,7 +2,7 @@
  "format": 1,
  "label": "Qwen Image Edit — character camera angle",
  "description": "Re-render an existing image from a new camera angle — one view per run. Upload a subject (a character, product, or object), describe the camera move, and the model shows the same subject from that viewpoint. To build…\nFrom: Character image, Prompt. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",

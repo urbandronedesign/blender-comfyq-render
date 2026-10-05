@@ -14,7 +14,7 @@ boxes: floor, three walls with a window and a door, ceiling, sofa, table, rug, s
 | | Qwen 2.1 depth control (2 MP, 30 steps) | 93 s | very good, more photographic light; layout kept |
 | | Flux2 Klein 9B edit | 25 s | fast, nice, but ~1 MP and changed the layout (the shelf box became a bookcase **and** an extra door) |
 | One surface | **Flux2 Klein inpaint** + the SAM3 floor mask (`blender_mask_image`) | 32 s | only the floor changed (plank → herringbone), the rest untouched |
-| Upscale | **SeedVR2 4K** (`utility_seedvr2_4k_upscale`, 7B fp16 "sharp", ~×2 → 4096×2324) | 51 s | **best**: believable linen and rug weave, clean wood, no repeating pattern (book spines still get small fake letters) |
+| Upscale | **SeedVR2 4K** (`utility_seedvr2_4k_upscale`, 7B fp16 "sharp", ~×2 → 4096×2324; since ComfyQ `be109b3` its *resolution* is labelled as the SHORTEST edge and *max_resolution* (default 4096, longest edge) is exposed: the default cap is what gives 4096 wide, so results are unchanged; raise the cap for more) | 51 s | **best**: believable linen and rug weave, clean wood, no repeating pattern (book spines still get small fake letters) |
 | | PiD ×4 (7616×4320) | 34 s | turns every fabric into the same worm-like squiggles: the "recognisable pattern" (first choice, rejected by the user) |
 | | SeedVR2 7B int8 (×4, colour "lab") | 65 s | a grid / screen-door pattern on the rug and bookcase, jagged fake lettering |
 | | Qwen depth control rendered natively at 4 MP (2720×1536, 40 steps), no upscale | 162 s | **fails**: blurred all over, layout changed (rug gone, extra door, white table). Qwen control holds at 2 MP |

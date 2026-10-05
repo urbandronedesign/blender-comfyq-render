@@ -2,7 +2,7 @@
  "format": 1,
  "label": "MiniMax H3 ControlNet (depth) — restyle a video from its 3D layout + audio",
  "description": "Upload a video and describe a new look. A temporally stable depth map (Video Depth Anything) is extracted from every frame and MiniMax H3 generates a brand-new video that keeps the 3D layout and motion — shapes, dista…\nFrom: Clay animation, Prompt. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",

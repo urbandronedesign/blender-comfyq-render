@@ -90,7 +90,7 @@ tools/preset_shots.py    visible sandbox Blender: each preset's graph rebuilt wi
 tools/preset_report.py   HTML report of a run (description, graph shot, inputs, prompt/settings sent, output,
                          verdict from live_check/presets/notes.json) → baselines/<date>/ (gitignored);
                          --baseline <dir> shows the earlier output side by side. Baseline: baselines/2026-10-04
-presets/library/         the generated workflow library (48 presets, committed; copied to the user's presets folder)
+presets/library/         the generated workflow library (46 presets since ComfyQ be109b3, committed; copied to the user's presets folder)
 ```
 
 ## Commands
@@ -256,9 +256,9 @@ change that session: the user must reinstall from the UI or restart Mixar.
 - **Node graph N0–N5** (docs/plans/node-graph.md): sources (Scene Render — Clay / Matcap / Material /
   **Cycles** —, Mask, Scene Animation, files, Prompt), workflow nodes from ComfyQ params, chains/reuse/cancel,
   outputs (Viewer / Import with Place·On ground·Size / Save), presets (5 built-in roles; saved JSON; subfolders =
-  submenus). **Library** `presets/library/` (48 generated, one per t2i / image-edit / i2v / video-edit workflow,
+  submenus). **Library** `presets/library/` (46 generated, one per t2i / image-edit / i2v / video-edit workflow,
   `tools/make_preset_library.py`); **class presets** `presets/class/` (Cycles render → photoreal (Klein); Text →
-  3D model (Klein + TRELLIS2)), copied to the user's `%APPDATA%\comfyq-bridge\presets\{Image,…,Class}`.
+  3D model (Klein + **Pixal3D**, was TRELLIS2 until ComfyQ removed it); Architecture), copied to the user's `%APPDATA%\comfyq-bridge\presets\{Image,…,Class}`.
 - **Solo mode** (pref, off by default, never in class): Run Graph / `blender_graph_run` loads each node's model
   (`runtime/serving.py`: alongside if it fits else main = ComfyQ restart; only when nothing is booked and no one
   has an unfinished job; last model stays loaded). Verified live many times (~30 s per switch).
@@ -274,10 +274,13 @@ change that session: the user must reinstall from the UI or restart Mixar.
   calibrate. Claude Code round trip verified; Codex not tested.
 - **Tests run (2026-10-04, after UX phase F):** unit+contract 79 pass (2 skipped); headless smoke passes (incl. solo
   with faked switch, placement, world, shadow catcher, Cycles still, F1–F5); GUI `-Ui` 103/103.
-- **Workflow coverage:** 48/66 run from Blender — preset library run 46/48 (docs/preset-run.md; ❌ Wan 2.1 ID-V2V
-  ×2 = ComfyUI `WanImageToVideo … 'ref_pad_image'`), LTX deblur-upscale (sweep), TRELLIS2 (3D chain), SAM3 + PiD + SeedVR2 7B image + SeedVR2 4K (arch chain) = 52/66. **Never
-  run (12):** Pixal3D ×3, TripoSplat, SeedVR2 video ×2 (HD, 3B int8), Marigold ×2, frame
-  interpolation, Gemma ×2, Stable Audio. Earlier per-family sweep: docs/workflow-matrix.md (24/66).
+- **Workflow coverage (ComfyQ `be109b3`, 61 workflows, pulled 2026-10-05):** **48/61 run from Blender** — library
+  presets 43 run + 2 failing (❌ Wan 2.1 ID-V2V ×2 = ComfyUI `WanImageToVideo … 'ref_pad_image'`, docs/preset-run.md),
+  LTX deblur-upscale (sweep), SAM3 + PiD + SeedVR2 7B image + SeedVR2 4K (arch chain). **Never run (11):** Pixal3D ×2
+  (multi-views, **Pixal3D/TRELLIS.2 = the Text → 3D preset now**), TripoSplat, SeedVR2 video ×2 (HD, 3B int8), frame
+  interpolation, Gemma ×2, Stable Audio, **new** Qwen 2.1 t2i *Fix* LoRA, **new** Qwen 2511 unblur upscale
+  (experimental). Removed upstream on 2026-10-05: TRELLIS2, Pixal3D image→mesh, Flux2 Dev t2i + edit, Qwen Viggle
+  Turbo, Marigold depth + normals. Earlier per-family sweep: docs/workflow-matrix.md (24/66, historical).
 - **Visual baseline:** `baselines/2026-10-04/index.html` (local, gitignored, ~120 MB): per workflow description,
   Blender graph screenshot, inputs uploaded, prompt + settings sent, output (images, videos, GLB views),
   verdict (`live_check/presets/notes.json`); sections Image / Image edit / Image → video / Video → video /

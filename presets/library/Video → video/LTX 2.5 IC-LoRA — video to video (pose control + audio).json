@@ -2,7 +2,7 @@
  "format": 1,
  "label": "LTX 2.5 IC-LoRA — video to video (pose control + audio)",
  "description": "Make a new character perform the movements of the people in your video. Upload a source video with people in it (and, optionally, a start image): the body, hand and face poses of every frame are detected (DWPose) and…\nFrom: Clay animation, First frame, Prompt. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",
@@ -41,7 +41,8 @@
    "label": "First frame",
    "parent": "",
    "style": "CLAY",
-   "frame": "START"
+   "frame": "START",
+   "cycles_samples": 64
   },
   {
    "name": "Prompt",

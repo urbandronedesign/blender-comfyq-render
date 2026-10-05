@@ -2,7 +2,7 @@
  "format": 1,
  "label": "LTX 2.3 IC-LoRA — image + audio to video (auto-prompt)",
  "description": "Bring a character image to life with a voice clip. Upload an image and a reference audio (speech), describe the shot, and LTX 2.3 generates a talking video synced to the audio. An in-graph Gemma model rewrites your pr…\nFrom: Character image, Reference audio, Prompt. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",

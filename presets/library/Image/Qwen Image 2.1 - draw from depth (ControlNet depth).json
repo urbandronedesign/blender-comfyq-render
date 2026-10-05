@@ -2,7 +2,7 @@
  "format": 1,
  "label": "Qwen Image 2.1 - draw from depth (ControlNet depth)",
  "description": "Upload a picture and the model draws something NEW that keeps its SHAPE and depth - what is near, what is far, how the space is arranged - while the prompt decides what everything actually is.  Depth holds on to volum…\nFrom: Prompt, Scene render. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",
@@ -41,7 +41,8 @@
    "label": "Scene render",
    "parent": "",
    "style": "CLAY",
-   "frame": "CURRENT"
+   "frame": "CURRENT",
+   "cycles_samples": 64
   },
   {
    "name": "Viewer",

@@ -2,7 +2,7 @@
  "format": 1,
  "label": "LTX 2.5 IC-LoRA — video to video (depth control + audio)",
  "description": "Restyle a video while keeping its motion and 3D layout. Upload a source video (and, optionally, a start image): a depth map is extracted from every frame (Video Depth Anything) and used as a guide, so LTX 2.5 generate…\nFrom: Clay animation, First frame, Prompt. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",
@@ -41,7 +41,8 @@
    "label": "First frame",
    "parent": "",
    "style": "CLAY",
-   "frame": "START"
+   "frame": "START",
+   "cycles_samples": 64
   },
   {
    "name": "Prompt",

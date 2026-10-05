@@ -2,7 +2,7 @@
  "format": 1,
  "label": "Flux2 Klein 9B — inpaint (paint & prompt)",
  "description": "Upload an image, paint over the part you want to replace, and describe what should appear there. Flux.2 Klein regenerates only the painted area and blends it back into the picture. Great for removing or swapping objects.\nFrom: Mask (selected objects), Prompt. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",

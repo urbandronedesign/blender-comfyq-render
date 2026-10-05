@@ -2,7 +2,7 @@
  "format": 1,
  "label": "Wan 2.2 Bernini-R — image editing with a reference image",
  "description": "Edit an image guided by a second reference image. Upload the image to edit, a reference image (a look, subject, or object to bring in), and a text instruction — the Bernini-R model (Wan 2.2) regenerates the image foll…\nFrom: Scene render, Reference image, Prompt. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",
@@ -29,7 +29,8 @@
    "label": "Scene render",
    "parent": "",
    "style": "CLAY",
-   "frame": "CURRENT"
+   "frame": "CURRENT",
+   "cycles_samples": 64
   },
   {
    "name": "Image",

@@ -71,10 +71,10 @@ _STILL = Role(("t2i", "image-edit"), needs=("image",),
                       "bernini_r_image_editing"),
               avoid=("inpaint", "character", "quadview", "angles", "style_reference", "edit_ref", "reference"))
 _TO_3D = Role(("3d",), needs=("image",),
-              prefer=("trellis2_image_to_textured_mesh", "pixal3d_image_to_mesh", "pixal3d_trellis2"),
+              prefer=("pixal3d_trellis2", "trellis2_image_to_textured_mesh", "pixal3d_image_to_mesh"),
               avoid=("multi_views", "splat", "gaussian"))
 _UPSCALE = Role(("i2i", "preprocessor", "utility"), needs=("image",),
-                prefer=("seedvr2_7b_int8_image_upscale", "seedvr2_4k_upscale", "pid_image_upscale"),
+                prefer=("seedvr2_4k_upscale", "seedvr2_7b_int8_image_upscale", "pid_image_upscale"),
                 avoid=("video", "depth", "normals", "segment"))
 
 PROMPT = "ComfyQPromptNode"

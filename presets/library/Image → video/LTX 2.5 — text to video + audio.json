@@ -2,7 +2,7 @@
  "format": 1,
  "label": "LTX 2.5 — text to video + audio",
  "description": "Type a prompt and LTX 2.5 generates a short video from scratch, with a matching audio track — no input image needed. Describe the scene, the action as it unfolds over time, the camera move, and any sounds or dialogue.…\nFrom: Prompt. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",

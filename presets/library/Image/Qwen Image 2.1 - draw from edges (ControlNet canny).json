@@ -2,7 +2,7 @@
  "format": 1,
  "label": "Qwen Image 2.1 - draw from edges (ControlNet canny)",
  "description": "Upload a picture and the model draws something NEW that keeps its outlines - the shapes and the layout stay, everything else comes from your prompt.  It works from the edges of your picture, so it is at its best where…\nFrom: Prompt, Scene render. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",
@@ -41,7 +41,8 @@
    "label": "Scene render",
    "parent": "",
    "style": "CLAY",
-   "frame": "CURRENT"
+   "frame": "CURRENT",
+   "cycles_samples": 64
   },
   {
    "name": "Viewer",

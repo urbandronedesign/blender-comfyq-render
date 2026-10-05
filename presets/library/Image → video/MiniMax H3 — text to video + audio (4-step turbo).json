@@ -2,7 +2,7 @@
  "format": 1,
  "label": "MiniMax H3 — text to video + audio (4-step turbo)",
  "description": "Type a prompt and MiniMax H3 generates a short video **with a matching audio track** — no input image needed. Describe the scene, what happens over time, the camera move, and the sounds you want to hear.  This bundle…\nFrom: Prompt. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",

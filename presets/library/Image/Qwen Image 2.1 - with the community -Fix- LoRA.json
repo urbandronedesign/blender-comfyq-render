@@ -1,8 +1,8 @@
 {
  "format": 1,
- "label": "Flux2 Dev — image edit",
- "description": "Upload an image and describe the change you want. Flux.2 Dev edits it while keeping the rest of the picture intact (great for photos, drawings, or screenshots). Turn on Fast mode for a quicker 8-step result.\nFrom: Scene render, Prompt. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "label": "Qwen Image 2.1 - with the community \"Fix\" LoRA",
+ "description": "The same Qwen Image 2.1 text-to-image model as the plain bundle, plus a community adapter that aims to clean up its weak spots - and, just as importantly, the sampling settings its author ships with it.  Built to be c…\nFrom: Prompt. Viewer + Save",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",
@@ -14,34 +14,21 @@
    "width": 380.0,
    "label": "",
    "parent": "",
-   "workflow_id": "image_edit_flux2_dev_image_edit",
+   "workflow_id": "image_qwen_image_2_1_t2i_fix",
    "params": [],
    "match_scene": true
-  },
-  {
-   "name": "Scene Render",
-   "type": "ComfyQSceneRenderNode",
-   "location": [
-    -820.0,
-    0.0
-   ],
-   "width": 300.0,
-   "label": "Scene render",
-   "parent": "",
-   "style": "CLAY",
-   "frame": "CURRENT"
   },
   {
    "name": "Prompt",
    "type": "ComfyQPromptNode",
    "location": [
     -820.0,
-    -330.0
+    0.0
    ],
    "width": 340.0,
    "label": "Prompt",
    "parent": "",
-   "text": "Change the background to a sunny beach. Keep the person and their pose unchanged."
+   "text": "A weathered enamel shop sign above a rainy Parisian street, the sign reads \"CAFÉ DES ARTS\" in cream lettering on deep green, warm window light spilling onto wet cobbles, shallow depth of field, photographic"
   },
   {
    "name": "Viewer",
@@ -72,16 +59,10 @@
  ],
  "links": [
   {
-   "from": "Scene Render",
-   "from_socket": "Image",
-   "to": "Workflow",
-   "to_socket": "loadimage_image_46"
-  },
-  {
    "from": "Prompt",
    "from_socket": "Text",
    "to": "Workflow",
-   "to_socket": "cliptextencode_text_68_6"
+   "to_socket": "textencodeqwenimage21_prompt_459_452"
   },
   {
    "from": "Workflow",
@@ -97,7 +78,7 @@
   }
  ],
  "library": {
-  "workflow_id": "image_edit_flux2_dev_image_edit",
-  "category": "image-edit"
+  "workflow_id": "image_qwen_image_2_1_t2i_fix",
+  "category": "t2i"
  }
 }

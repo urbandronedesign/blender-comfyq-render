@@ -2,7 +2,7 @@
  "format": 1,
  "label": "Krea 2 Turbo — QuadView character turnaround (4 panels)",
  "description": "Upload a picture of a character and get back one landscape image (1536x1024) split into four panels of that same character: a face close-up, a front full-body view, a side full-body view and a back full-body view. It'…\nFrom: Character image, Prompt. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",

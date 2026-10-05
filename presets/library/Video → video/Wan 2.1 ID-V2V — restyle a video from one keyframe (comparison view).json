@@ -2,7 +2,7 @@
  "format": 1,
  "label": "Wan 2.1 ID-V2V — restyle a video from one keyframe (comparison view)",
  "description": "Restyle a video while the people in it keep their face, expression and movement. Upload your source video and a stylized keyframe — the first frame of that same video, repainted in the look you want (make it with an i…\nFrom: Clay animation, Stylized keyframe, Prompt. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",

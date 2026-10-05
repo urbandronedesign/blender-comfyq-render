@@ -2,7 +2,7 @@
  "format": 1,
  "label": "Wan 2.2 Bernini-R — AI image editing",
  "description": "Edit an image by describing the change in words. Upload an image and type an instruction (e.g. \"make it night\", \"add snow\", \"turn the car red\") — the Bernini-R model (Wan 2.2) regenerates the image following your prom…\nFrom: Scene render, Prompt. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",
@@ -29,7 +29,8 @@
    "label": "Scene render",
    "parent": "",
    "style": "CLAY",
-   "frame": "CURRENT"
+   "frame": "CURRENT",
+   "cycles_samples": 64
   },
   {
    "name": "Prompt",

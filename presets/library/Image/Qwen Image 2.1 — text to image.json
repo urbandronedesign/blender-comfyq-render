@@ -2,7 +2,7 @@
  "format": 1,
  "label": "Qwen Image 2.1 — text to image",
  "description": "Make an image from a written description with Qwen Image 2.1. It is unusually good at TEXT inside the picture — signs, posters, packaging, handwriting — in Latin and Chinese alike, so put the words you want rendered i…\nFrom: Prompt. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",

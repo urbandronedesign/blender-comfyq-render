@@ -68,7 +68,7 @@ CANDIDATES = {
 INPAINT = ("image_edit_flux2_klein_inpaint_prompt", "loadimage_image_1", "cliptextencode_text_6")
 UPSCALERS = {
     "pid": ("utility_pid_image_upscale", "loadimage_image_1", {}),
-    "seedvr2_4k": ("utility_seedvr2_4k_upscale", "source_image_16", {"resolution_10": 3840}),   # fp16 7B "sharp", ×2
+    "seedvr2_4k": ("utility_seedvr2_4k_upscale", "source_image_16", {"resolution_10": 3840}),   # fp16 7B "sharp", ×2; resolution = SHORTEST edge, max_resolution_10 (4096, longest) caps it
     "seedvr2_7b": ("utility_seedvr2_7b_int8_image_upscale", "loadimage_image_1",
                    {"seedvr2postprocessing_color_correction_method_66_59": "lab"}),
 }

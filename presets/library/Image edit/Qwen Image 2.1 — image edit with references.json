@@ -2,7 +2,7 @@
  "format": 1,
  "label": "Qwen Image 2.1 — image edit with references",
  "description": "Edit a picture with Qwen Image 2.1 — or, with no picture at all, just generate one from the prompt.  Upload up to 16 pictures and refer to them in the prompt as <image1>, <image2> and so on. Image 1 is the one being e…\nFrom: Prompt, Scene render, Image 2. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",
@@ -41,7 +41,8 @@
    "label": "Scene render",
    "parent": "",
    "style": "CLAY",
-   "frame": "CURRENT"
+   "frame": "CURRENT",
+   "cycles_samples": 64
   },
   {
    "name": "Image",

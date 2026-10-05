@@ -2,7 +2,7 @@
  "format": 1,
  "label": "LTX 2.3 IC-LoRA — reference sheet to video (ingredients + audio)",
  "description": "Generate a new video whose characters, props and location match a reference sheet.  The one from Dynamic Charactersheet krea2 for instance or one made by hand.  Upload ONE composite image on a black background with no…\nFrom: Reference sheet, Prompt. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",

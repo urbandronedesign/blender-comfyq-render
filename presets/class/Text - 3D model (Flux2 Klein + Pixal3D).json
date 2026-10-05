@@ -1,7 +1,7 @@
 {
  "format": 1,
- "label": "Text → 3D model (Flux2 Klein + TRELLIS2)",
- "description": "Describe an object: Flux2 Klein 9B makes a clean product picture of it (white background, whole object), TRELLIS2 turns it into a textured 3D model, imported beside the scene, on the ground, 4.5 m long (change Size on the Import node). Viewer shows the picture.",
+ "label": "Text → 3D model (Flux2 Klein + Pixal3D)",
+ "description": "Describe an object: Flux2 Klein 9B makes a clean product picture of it (white background, whole object), Pixal3D (ComfyUI's built-in 3D nodes) turns it into a textured 3D model, imported beside the scene, on the ground, 4.5 m long (change Size on the Import node). Viewer shows the picture.",
  "made": "2026-10-04 14:33",
  "nodes": [
   {
@@ -40,9 +40,9 @@
    "width": 380.0,
    "label": "",
    "parent": "",
-   "workflow_id": "3d_trellis2_image_to_textured_mesh",
+   "workflow_id": "3d_pixal3d_trellis2_image_to_model",
    "params": [],
-   "match_scene": true
+   "match_scene": false
   },
   {
    "name": "Viewer",
@@ -97,7 +97,7 @@
    "from": "Workflow",
    "from_socket": "Image",
    "to": "Workflow.001",
-   "to_socket": "loadimage_image_6"
+   "to_socket": "loadimage_image_122"
   },
   {
    "from": "Workflow",

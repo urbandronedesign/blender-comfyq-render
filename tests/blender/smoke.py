@@ -1190,6 +1190,14 @@ _l3 = {(lk.from_node.bl_idname, lk.to_node.bl_idname, lk.to_socket.identifier) f
 check(("ComfyQSurfacesNode", "ComfyQWorkflowNode", "textencodeqwenimage21_prompt_459_474") in _l3
       and ("ComfyQSceneRenderNode", "ComfyQSurfacesNode", "Image") in _l3
       and len(_l3) == 6, f"Architecture class preset: Cycles → Surfaces (SAM3) → Qwen edit prompt → SeedVR2 ({len(_l3)} links)")
+# every shipped preset (class + library) names workflows this ComfyQ still has (upstream removed 7 on 2026-10-05)
+_have = {w.id for w in SESSION.workflows}
+_presets_root = Path(__file__).resolve().parents[2] / "presets"
+_dead = sorted(f"{f.relative_to(_presets_root)} → {n['workflow_id']}"
+               for f in list(_presets_root.glob("class/*.json")) + list(_presets_root.glob("library/*/*.json"))
+               for n in json.loads(f.read_text(encoding="utf-8"))["nodes"]
+               if n.get("workflow_id") and n["workflow_id"] not in _have)
+check(not _dead, f"shipped presets only use workflows ComfyQ has ({len(_have)} workflows; dead: {_dead})")
 _n3 = next((n for n in _st3.nodes if n.bl_idname == "NodeFrame" and n.label == "How to use"), None)
 check(_n3 is not None and _n3.text is not None and "Surfaces" in _n3.text.as_string(),
       "F3: the Architecture class preset shows its How to use steps")

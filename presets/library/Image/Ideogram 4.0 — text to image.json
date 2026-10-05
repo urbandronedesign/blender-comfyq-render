@@ -2,7 +2,7 @@
  "format": 1,
  "label": "Ideogram 4.0 — text to image",
  "description": "Ideogram 4.0 text-to-image. The prompt must be Ideogram's structured JSON \"caption\": a high_level_description, a style_description, and a compositional_deconstruction listing the background and each element (objects a…\nFrom: Prompt. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",

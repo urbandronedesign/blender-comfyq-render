@@ -2,7 +2,7 @@
  "format": 1,
  "label": "Krea-2 Turbo — text to image (+ style LoRA)",
  "description": "Fast text-to-image with Krea 2 Turbo (8 steps). Type a prompt, pick an aspect ratio and, if you like, a style LoRA.  \"Enhance prompt with AI\" lets a small language model rewrite your prompt into a richer description b…\nFrom: Prompt. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",

@@ -2,7 +2,7 @@
  "format": 1,
  "label": "Krea 2 Turbo — generate in the style of 1–3 pictures",
  "description": "Generate a new picture in the STYLE of one to three pictures you supply. Krea 2 Turbo reads the look — palette, material, light, brushwork, grain — from your references and applies it to whatever you describe, rather…\nFrom: Prompt, Style reference 1. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",

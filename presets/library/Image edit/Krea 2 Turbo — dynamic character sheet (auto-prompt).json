@@ -2,7 +2,7 @@
  "format": 1,
  "label": "Krea 2 Turbo — dynamic character sheet (auto-prompt)",
  "description": "Upload one picture of a subject — a person, an anime or game character, an animal, a creature, a robot, a vehicle or an object — and get back a full production-style character sheet on a 3:2 landscape page (1536x1024)…\nFrom: Subject image. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",

@@ -2,7 +2,7 @@
  "format": 1,
  "label": "Wan Animate 2 — make a character perform a video's motion",
  "description": "Give your character someone else's moves. Upload a picture of your character (who) and a driving video of a person moving (what motion) — Wan Animate 2 makes your character perform that motion. The motion is read stra…\nFrom: Character image, Clay animation, Prompt. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",

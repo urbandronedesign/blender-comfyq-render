@@ -2,7 +2,7 @@
  "format": 1,
  "label": "Wan 2.2 Bernini-R — video editing with reference (auto-prompt)",
  "description": "Restyle a video using a reference image, with the edit prompt written for you. Upload a clip and a reference image (a character, look, or setting to bring in) — a Gemma-4 vision model describes the video and the refer…\nFrom: Clay animation, Reference image, Prompt. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",

@@ -2,7 +2,7 @@
  "format": 1,
  "label": "FastVideo FastH3 — text to video with sound (8 steps)",
  "description": "Write a scene and get a short film back WITH its soundtrack — dialogue, effects and music are generated together with the picture, in sync.  This is MiniMax H3 distilled to 8 sampling steps by FastVideo, so it is seve…\nFrom: Prompt. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",

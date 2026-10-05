@@ -2,7 +2,7 @@
  "format": 1,
  "label": "Wan 2.2 — key-frame animation (4 frames to video)",
  "description": "Turn four still key frames into one continuous video. Wan 2.2 generates a smooth animated transition between each consecutive pair of frames (frame 1→2, 2→3, 3→4) and stitches the three segments into a single clip.  I…\nFrom: First frame, Key frame 2, Key frame 3, Last frame, Prompt. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",
@@ -29,7 +29,8 @@
    "label": "First frame",
    "parent": "",
    "style": "CLAY",
-   "frame": "START"
+   "frame": "START",
+   "cycles_samples": 64
   },
   {
    "name": "Image",
@@ -64,7 +65,8 @@
    "label": "Last frame",
    "parent": "",
    "style": "CLAY",
-   "frame": "END"
+   "frame": "END",
+   "cycles_samples": 64
   },
   {
    "name": "Prompt",

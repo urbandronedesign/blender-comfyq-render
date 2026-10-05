@@ -2,7 +2,7 @@
  "format": 1,
  "label": "Wan 2.2 Bernini-R — video editing with a reference image",
  "description": "Edit a short video guided by a reference image. Upload a clip, a reference image (a look, subject, or object to bring in), and a text instruction — the Bernini-R model (Wan 2.2) regenerates the clip following the prom…\nFrom: Clay animation, Reference image, Prompt. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",

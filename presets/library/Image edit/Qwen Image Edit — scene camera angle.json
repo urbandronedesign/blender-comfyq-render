@@ -2,7 +2,7 @@
  "format": 1,
  "label": "Qwen Image Edit — scene camera angle",
  "description": "Re-render an existing scene or image from a new camera angle — one view per run. Upload a scene, describe the camera move, and the model re-renders it from that viewpoint. To explore a full set of angles, schedule the…\nFrom: Scene render, Prompt. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",
@@ -29,7 +29,8 @@
    "label": "Scene render",
    "parent": "",
    "style": "CLAY",
-   "frame": "CURRENT"
+   "frame": "CURRENT",
+   "cycles_samples": 64
   },
   {
    "name": "Prompt",

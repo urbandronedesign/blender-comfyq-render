@@ -2,7 +2,7 @@
  "format": 1,
  "label": "Wan 2.2 Bernini-R — AI video editing",
  "description": "Edit or restyle a short video by describing the change in words. Upload a clip and type an instruction — the Bernini-R model (Wan 2.2) regenerates the clip following your prompt while keeping its motion and timing. Th…\nFrom: Clay animation, Prompt. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",

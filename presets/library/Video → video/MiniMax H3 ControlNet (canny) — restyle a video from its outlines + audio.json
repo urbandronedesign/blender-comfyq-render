@@ -2,7 +2,7 @@
  "format": 1,
  "label": "MiniMax H3 ControlNet (canny) — restyle a video from its outlines + audio",
  "description": "Upload a video and describe a new look. The clip is turned into an edge map (Canny) and MiniMax H3 generates a brand-new video that follows those outlines — new characters, materials, setting and lighting — with a mat…\nFrom: Clay animation, Prompt. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",

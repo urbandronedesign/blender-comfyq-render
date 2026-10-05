@@ -2,7 +2,7 @@
  "format": 1,
  "label": "MiniMax H3 — image to video + audio (4-step turbo)",
  "description": "Upload a picture and describe what should happen: your image becomes the first frame and MiniMax H3 animates it into a short video **with a matching audio track**. Describe the motion, the camera move and the sounds y…\nFrom: First frame, Prompt. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",
@@ -29,7 +29,8 @@
    "label": "First frame",
    "parent": "",
    "style": "CLAY",
-   "frame": "START"
+   "frame": "START",
+   "cycles_samples": 64
   },
   {
    "name": "Prompt",

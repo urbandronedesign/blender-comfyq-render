@@ -2,7 +2,7 @@
  "format": 1,
  "label": "Flux2 Klein 9B — reference + depth control (pose transfer)",
  "description": "Combine two images: a Reference image (the subject, character, or style you want) and a Structure image (any photo whose composition you want to reuse). Flux.2 Klein extracts a depth map from the Structure image and r…\nFrom: Reference image, Scene render, Prompt. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",
@@ -40,7 +40,8 @@
    "label": "Scene render",
    "parent": "",
    "style": "CLAY",
-   "frame": "CURRENT"
+   "frame": "CURRENT",
+   "cycles_samples": 64
   },
   {
    "name": "Prompt",

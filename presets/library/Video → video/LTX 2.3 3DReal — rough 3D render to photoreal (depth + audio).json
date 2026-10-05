@@ -2,7 +2,7 @@
  "format": 1,
  "label": "LTX 2.3 3DReal — rough 3D render to photoreal (depth + audio)",
  "description": "Turn a rough 3D render into a photorealistic clip. Upload a rough 3D render as the source video and a reference image that sets the look; depth is extracted (MoGe) and used as an IC-LoRA control while the 3DREAL LoRA…\nFrom: Reference image, Clay animation, Prompt. Viewer + Save",
- "made": "2026-10-04 09:32",
+ "made": "2026-10-05 22:04",
  "nodes": [
   {
    "name": "Workflow",
