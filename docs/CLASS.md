@@ -88,7 +88,7 @@ long list by lesson or task.
   image edit with the same composition. Viewer + Save. Tested on a supercar-on-a-driveway scene (2026-10-04).
 - **Text → 3D model (Flux2 Klein + Pixal3D)**: describe an object; Klein makes a clean product picture (white
   background, whole object), Pixal3D (ComfyUI's built-in 3D nodes; a checkbox switches to TRELLIS.2) turns it into a
-  textured 3D model (TRELLIS2 alone was removed from ComfyQ on 2026-10-05), imported beside the scene, on
+  textured 3D model (about 4 min; TRELLIS2 alone was removed from ComfyQ on 2026-10-05), imported beside the scene, on
   the ground, 4.5 m long (Import node › Size). Two models: in class, both must be served (or use solo mode).
 - **Architecture: Cycles render → photoreal → 4K upscale (Qwen edit + SeedVR2)**: a Cycles render of a
   blocked-out room → **Surfaces (SAM3)** node: SAM3 finds each surface of its list (floor, walls, ceiling,

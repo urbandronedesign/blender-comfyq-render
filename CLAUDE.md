@@ -87,6 +87,7 @@ tools/make_preset_library.py  headless (sandbox profile): one saved preset per i
 tools/preset_run.py      run every library preset through the MCP on the open scene (Solo on), resumable
 tools/contact_sheet.py   review sheets of results (start/mid/end frames, audio) — ComfyUI's python (cv2, av)
 tools/preset_shots.py    visible sandbox Blender: each preset's graph rebuilt with its run result → screenshots
+tools/text3d_check.ps1   GPU check of the Text → 3D preset chain with the plugin's client, no Blender (switches models)
 tools/preset_report.py   HTML report of a run (description, graph shot, inputs, prompt/settings sent, output,
                          verdict from live_check/presets/notes.json) → baselines/<date>/ (gitignored);
                          --baseline <dir> shows the earlier output side by side. Baseline: baselines/2026-10-04
@@ -274,10 +275,11 @@ change that session: the user must reinstall from the UI or restart Mixar.
   calibrate. Claude Code round trip verified; Codex not tested.
 - **Tests run (2026-10-04, after UX phase F):** unit+contract 79 pass (2 skipped); headless smoke passes (incl. solo
   with faked switch, placement, world, shadow catcher, Cycles still, F1–F5); GUI `-Ui` 103/103.
-- **Workflow coverage (ComfyQ `be109b3`, 61 workflows, pulled 2026-10-05):** **48/61 run from Blender** — library
+- **Workflow coverage (ComfyQ `be109b3`, 61 workflows, pulled 2026-10-05):** **49/61 run** — library
   presets 43 run + 2 failing (❌ Wan 2.1 ID-V2V ×2 = ComfyUI `WanImageToVideo … 'ref_pad_image'`, docs/preset-run.md),
-  LTX deblur-upscale (sweep), SAM3 + PiD + SeedVR2 7B image + SeedVR2 4K (arch chain). **Never run (11):** Pixal3D ×2
-  (multi-views, **Pixal3D/TRELLIS.2 = the Text → 3D preset now**), TripoSplat, SeedVR2 video ×2 (HD, 3B int8), frame
+  LTX deblur-upscale (sweep), SAM3 + PiD + SeedVR2 7B image + SeedVR2 4K (arch chain), **Pixal3D/TRELLIS.2** (Text → 3D
+  chain, 2026-10-05, `tools/text3d_check.ps1`: Klein 35 s → Pixal3D 220 s, 694k faces, PBR 4096², complete car
+  with an invented back; renders in `live_check/text3d/`). **Never run (10):** Pixal3D multi-views, TripoSplat, SeedVR2 video ×2 (HD, 3B int8), frame
   interpolation, Gemma ×2, Stable Audio, **new** Qwen 2.1 t2i *Fix* LoRA, **new** Qwen 2511 unblur upscale
   (experimental). Removed upstream on 2026-10-05: TRELLIS2, Pixal3D image→mesh, Flux2 Dev t2i + edit, Qwen Viggle
   Turbo, Marigold depth + normals. Earlier per-family sweep: docs/workflow-matrix.md (24/66, historical).
@@ -335,8 +337,8 @@ change that session: the user must reinstall from the UI or restart Mixar.
   password). `prefs.active_profile()` is the one cached profile read. GUI -Ui 103/103.
 
 ## Next steps
-1. **Run the Text → 3D class preset (Klein → `3d_pixal3d_trellis2_image_to_model`) end to end on the GPU** and look
-   at the imported model: the model has never run from Blender (user chose to install first, 2026-10-05). Stale
+1. Text → 3D on Pixal3D **verified 2026-10-05** through the plugin's client (`tools/text3d_check.ps1`, no Blender:
+   serve → submit → download; the Blender import is covered by the smoke test). Not yet run from the graph UI. Stale
    presets were moved to `%APPDATA%\comfyq-bridge\presets_removed_2026-10-05` (not deleted). F:\ComfyQ has a
    `git stash` from before the pull: **leave it, and never touch the ComfyQ repo** (user, 2026-10-05).
 2. UX audit finished (A–F). Next UI work: follow `.claude/skills/blender-ui-audit`; user feedback on phase F in class.
