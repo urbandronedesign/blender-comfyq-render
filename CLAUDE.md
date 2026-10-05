@@ -18,7 +18,7 @@ Git: local repo, branch `main`, no remote. Commit author = repo-local `urbandron
 ## Environment (this machine)
 | Thing | Where |
 |---|---|
-| **Blender 5.2.2 LTS** (Python 3.13.13) — the host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (build of commit `d0e8da4`: UX phase F + ComfyQ be109b3 update), Allow Online Access on, **AI agents (MCP server) ON** (port 8790), **Teacher tools ON** (agents may load models; set 2026-10-04 by a startup script + `save_userpref`). Theme = Mixar's **"Mixar Forest"** with Input node colour changed from #ff284d to #3d4640 (calmer graph headers) (exported from `%APPDATA%\Mixar\Mixar\5.2\config\mixar_userpref.blend`, preset `scripts\presets\interface_theme\mixar_forest.xml`; previous prefs backed up as `config\userpref.before_mixar_theme.blend`) Default of `smoke_test.ps1` and `comfyq.ps1` |
+| **Blender 5.2.2 LTS** (Python 3.13.13) — the host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (build of commit `f43678b`: + Four views preset and the pass-name fix), Allow Online Access on, **AI agents (MCP server) ON** (port 8790), **Teacher tools ON** (agents may load models; set 2026-10-04 by a startup script + `save_userpref`). Theme = Mixar's **"Mixar Forest"** with Input node colour changed from #ff284d to #3d4640 (calmer graph headers) (exported from `%APPDATA%\Mixar\Mixar\5.2\config\mixar_userpref.blend`, preset `scripts\presets\interface_theme\mixar_forest.xml`; previous prefs backed up as `config\userpref.before_mixar_theme.blend`) Default of `smoke_test.ps1` and `comfyq.ps1` |
 | Mixar 4.2.0 | **uninstalled 2026-10-03** (was `C:\Program Files\Mixar\mixar.exe`, profile `%APPDATA%\Mixar\Mixar\5.2`) |
 | ComfyQ server (Node, Socket.IO, SQLite) | `F:\ComfyQ`, http://127.0.0.1:3000 — user works with b2renger, full control of its code |
 | ComfyUI 0.37, torch 2.8 cu128, RTX 5090 32 GB | `F:\ComfyUI_windows_portable_nvidia\…`, :8188 (listens on 0.0.0.0 — P1.0 issue) |
@@ -259,8 +259,8 @@ change that session: the user must reinstall from the UI or restart Mixar.
     cut its last step (frame too small) and a menu covered a shot. Frames show a Text block (`NodeFrame.text`) but
     wrap long lines: keep note lines under ~45 characters, size `560 × (70 + 30 × lines)`.
 
-## Status (2026-10-05, last commit `d0e8da4`, installed `d0e8da4`; ComfyQ pulled to `be109b3`) — **hand-over for b2renger / the teacher: docs/RUNBOOK.md**
-- **Host:** Blender 5.2.2 LTS; the user's profile has build `d0e8da4` (MCP ON, Teacher tools ON, **Solo ON**).
+## Status (2026-10-05, last commit `f43678b`, installed `f43678b`; ComfyQ pulled to `be109b3`) — **hand-over for b2renger / the teacher: docs/RUNBOOK.md**
+- **Host:** Blender 5.2.2 LTS; the user's profile has build `f43678b` (MCP ON, Teacher tools ON, **Solo ON**).
   **This PC is the teacher PC**: `%APPDATA%\comfyq-bridge\profiles.toml` = profile `teacher` (default,
   127.0.0.1:3000, random `admin_password`; ComfyQ itself has no admin password yet, so any value works). Without it
   Solo / Load Model / the agents' teacher tools are locked (UX phase A). Never copy that file to student PCs.
@@ -376,8 +376,8 @@ change that session: the user must reinstall from the UI or restart Mixar.
 ## Next steps
 0. **Four views class preset** (2026-10-06, `presets/class/Four views - clay or photo to rendering (Flux2 Klein
    edit).json`, `tools/make_views_preset.py`): run as a real graph in the sandbox (99 s, 4 views saved, consistent).
-   It found the pass-name bug (gotcha 46), fixed in `render._out_path`. Not yet installed in the user's Blender /
-   presets folder (ask).
+   It found the pass-name bug (gotcha 46), fixed in `render._out_path`. Installed (`f43678b`) and copied to the
+   user's `presets\Class` folder (2026-10-06).
 1. Text → 3D on Pixal3D **verified 2026-10-05** through the plugin's client (`tools/text3d_check.ps1`, no Blender:
    serve → submit → download; the Blender import is covered by the smoke test). Not yet run from the graph UI. Stale
    presets were moved to `%APPDATA%\comfyq-bridge\presets_removed_2026-10-05` (not deleted). F:\ComfyQ has a
