@@ -18,7 +18,7 @@ Git: branch `main`, remote `origin` = public GitHub `urbandronedesign/blender-co
 ## Environment (this machine)
 | Thing | Where |
 |---|---|
-| **Blender 5.2.2 LTS** (Python 3.13.13) — the host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (build of commit `5c70c06`: + batch renders from a folder), Allow Online Access on, **AI agents (MCP server) ON** (port 8790), **Teacher tools ON** (agents may load models; set 2026-10-04 by a startup script + `save_userpref`). Theme = Mixar's **"Mixar Forest"** with Input node colour changed from #ff284d to #3d4640 (calmer graph headers) (exported from `%APPDATA%\Mixar\Mixar\5.2\config\mixar_userpref.blend`, preset `scripts\presets\interface_theme\mixar_forest.xml`; previous prefs backed up as `config\userpref.before_mixar_theme.blend`) Default of `smoke_test.ps1` and `comfyq.ps1` |
+| **Blender 5.2.2 LTS** (Python 3.13.13) — the host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (build of commit `cb6571b`, 2026-10-21: + 3D model / camera inputs, lane-restore wait), Allow Online Access on, **AI agents (MCP server) ON** (port 8790), **Teacher tools ON** (agents may load models; set 2026-10-04 by a startup script + `save_userpref`). Theme = Mixar's **"Mixar Forest"** with Input node colour changed from #ff284d to #3d4640 (calmer graph headers) (exported from `%APPDATA%\Mixar\Mixar\5.2\config\mixar_userpref.blend`, preset `scripts\presets\interface_theme\mixar_forest.xml`; previous prefs backed up as `config\userpref.before_mixar_theme.blend`) Default of `smoke_test.ps1` and `comfyq.ps1` |
 | ComfyQ server (Node, Socket.IO, SQLite) | `F:\ComfyQ`, http://127.0.0.1:3000 — user works with b2renger, full control of its code |
 | ComfyUI 0.37, torch 2.8 cu128, RTX 5090 32 GB | `F:\ComfyUI_windows_portable_nvidia\…`, :8188 (listens on 0.0.0.0 — P1.0 issue) |
 | Ollama | 127.0.0.1:11434 |
@@ -403,7 +403,7 @@ change that session: the user must reinstall from the UI or restart Blender.
   square). Gaussian splats render in Cycles (`tools/splat_render.py`). Four views preset; pass-name bug fixed
   (gotcha 46); batch renders from a folder.
 
-## Work of 2026-10-21 (not committed / not installed yet)
+## Work of 2026-10-21 (commit `cb6571b`, pushed, installed in the user's Blender 5.2)
 - Folder renamed MixarAI → ComfyQRender: `.venv` rebuilt (it pointed at the old path), `requirements-dev.txt` added (`685d4cf`).
 - ComfyQ is now 68 commits past `be109b3` (65 workflows). New param types supported: **`model3d`** (Remesh & decimate,
   UV unwrap: input source *Selected Objects* / *File*; graph nodes **Scene Objects** (collection or selection) and
