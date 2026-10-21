@@ -442,6 +442,13 @@ change that session: the user must reinstall from the UI or restart Blender.
   (15,452 triangles kept; its own UVs and 5 textures replaced by new UVs + AO). Two fixes from it: **startup timers
   persistent** (Blender opened WITH a .blend dropped auto-connect and the MCP server: gotcha 13), and **agents open
   the graph** (`mcp/tools._show_graph`: add_preset / graph_run open the ComfyQ window's graph when none is open).
+- **Blockout animation → photoreal video (2026-10-21, docs/blockout-video.md):** scene `tools/make_cliff_house_scene.py`
+  (cliff-edge house, terrace, glass pool, 5 s camera move) → `E:\zaki\cliff_house.blend`; GPU driver
+  `tools/cliff_video_check.py`; keyframe FLUX.3 Klein edit from the MATERIAL first frame (clay made cone trees into
+  zinc sculptures); video LTX 2.5 canny > depth (crisper) >> 3DReal (black sky, white cones). New class preset
+  *Blockout animation → photoreal video (FLUX.3 keyframe + LTX canny)* (`tools/make_blockout_video_preset.py`),
+  run end to end (`tools/preset_e2e.py`); built-in *AI keyframe → video* unchanged. Sheets
+  `tools/video_compare_sheet.py`.
 - Library still lacks the other new ComfyQ workflows (FLUX.3 Klein edit ×2, Qwen 2.1 relight, …): run
   `make_preset_library.py` per category when the user asks for the sync.
 

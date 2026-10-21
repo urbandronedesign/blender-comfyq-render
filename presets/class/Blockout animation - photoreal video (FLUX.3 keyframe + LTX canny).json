@@ -1,0 +1,333 @@
+{
+ "format": 1,
+ "label": "Blockout animation → photoreal video (FLUX.3 keyframe + LTX canny)",
+ "description": "A blockout's camera animation filmed as a photoreal video. FLUX.3 Klein first turns the first frame (rendered with the materials' viewport colours, so trees, water and glass read as such) into a photoreal picture; LTX 2.5 IC-LoRA canny then follows the clay animation's edges and camera move in that look, with a sound track. Tested on a cliff-edge house (2026-10-21): the volumes, struts and glass pool hold for the whole move; about 2 min for the keyframe and 4 min for the video, two model loads. Canny beat depth (crisper edges), 3DReal failed (black sky).",
+ "made": "2026-10-21 23:23",
+ "nodes": [
+  {
+   "name": "Scene Render",
+   "type": "ComfyQSceneRenderNode",
+   "location": [
+    -1300.0,
+    300.0
+   ],
+   "width": 300.0,
+   "label": "First frame (material colours)",
+   "parent": "",
+   "style": "MATERIAL",
+   "frame": "START",
+   "cycles_samples": 64
+  },
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -1300.0,
+    -20.0
+   ],
+   "width": 340.0,
+   "label": "Keyframe prompt",
+   "parent": "",
+   "text": "Turn <ref_image_0> into a photorealistic architectural photograph, keeping exactly the same composition, camera angle, shapes and proportions. A modern house hangs over the edge of a rocky granite cliff: board-formed concrete core and piers running down the rock, a warm larch-clad volume cantilevered over the void on thin steel struts with a deep glazed loggia, a white fibre-cement panelled volume with recessed windows, a dark standing-seam zinc tower, a timber deck terrace with a glass-sided infinity pool full of turquoise water. Pine forest on the plateau, snow patches and dry winter grass on the rocks, overcast winter sky with soft diffuse light, warm light glowing in the windows, crisp detail, high-end architectural visualisation."
+  },
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -820.0,
+    220.0
+   ],
+   "width": 380.0,
+   "label": "Keyframe (FLUX.3 Klein)",
+   "parent": "",
+   "workflow_id": "image_edit_flux3_klein_image_edit",
+   "params": [
+    {
+     "key": "image",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "prompt",
+     "s": "In <ref_image_0>, change the colour of her top to deep red; keep her face, hair, pose, lighting and the background exactly the same.",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "improve_prompt",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "megapixels",
+     "s": "",
+     "i": 0,
+     "f": 1.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "steps",
+     "s": "",
+     "i": 50,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "cfg",
+     "s": "",
+     "i": 0,
+     "f": 3.5,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "seed",
+     "s": "",
+     "i": 7,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    }
+   ]
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    -340.0,
+    520.0
+   ],
+   "width": 300.0,
+   "label": "Keyframe viewer",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Scene Animation",
+   "type": "ComfyQSceneAnimationNode",
+   "location": [
+    -820.0,
+    -320.0
+   ],
+   "width": 300.0,
+   "label": "Clay animation",
+   "parent": "",
+   "style": "CLAY"
+  },
+  {
+   "name": "Prompt.001",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -820.0,
+    -620.0
+   ],
+   "width": 340.0,
+   "label": "Video prompt",
+   "parent": "",
+   "text": "Photorealistic cinematic shot slowly rising and pushing in towards a modern house on the edge of a rocky cliff: board-formed concrete piers down the rock, a warm larch-clad volume cantilevered on thin steel struts, a white panelled volume, a dark zinc tower, a glass-sided pool with turquoise water on a timber deck. Snow patches and dry winter grass on the rocks, pine forest, overcast winter sky, soft diffuse light, warm light in the windows. Smooth steady camera, no people. Sound: soft wind over the cliff and distant birds."
+  },
+  {
+   "name": "Workflow.001",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -340.0,
+    -40.0
+   ],
+   "width": 380.0,
+   "label": "Video (LTX 2.5 canny)",
+   "parent": "",
+   "workflow_id": "video_edit_ltx2_5_iclora_canny_control",
+   "params": [
+    {
+     "key": "loadvideo_file_5001",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "primitiveboolean_value_5014_5506",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": true,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_2004",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "primitivestringmultiline_value_5508",
+     "s": "A hand-crafted claymation stop-motion film: soft rounded clay characters and props with visible fingerprints, warm pastel colors, soft studio lighting and a shallow depth of field. The motion follows the original shot naturally. Gentle ambient sounds match the scene.",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "comfyswitchnode_switch_5014_5556",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "ltxaddvideoicloraguide_strength_9002_5012",
+     "s": "",
+     "i": 0,
+     "f": 1.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "primitiveint_value_9910",
+     "s": "",
+     "i": 512,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "video_slice_duration_9900",
+     "s": "",
+     "i": 0,
+     "f": 5.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "randomnoise_noise_seed_5516_4832",
+     "s": "",
+     "i": 7,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    }
+   ],
+   "match_scene": true
+  },
+  {
+   "name": "Viewer.001",
+   "type": "ComfyQViewerNode",
+   "location": [
+    160.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "Viewer",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    160.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "Save",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}",
+   "batch_suffix": "_render"
+  },
+  {
+   "name": "Frame",
+   "type": "NodeFrame",
+   "location": [
+    -1920.0,
+    300.0
+   ],
+   "width": 560.0,
+   "label": "How to use",
+   "parent": "",
+   "height": 430.0,
+   "text": "1. Animate the scene camera (the blockout\n   can be plain boxes; give trees, water,\n   glass their own viewport colours)\n2. Keyframe prompt: describe the finished\n   picture (keep <ref_image_0> in it)\n3. Video prompt: the same scene, the camera\n   move and the sound\n4. Run Graph: FLUX.3 makes the first frame\n   (Keyframe viewer), then LTX films the\n   clay animation in that look (about 4 min)\n5. Keyframe wrong? Change its prompt or\n   seed and run again before the video"
+  }
+ ],
+ "links": [
+  {
+   "from": "Scene Render",
+   "from_socket": "Image",
+   "to": "Workflow",
+   "to_socket": "image"
+  },
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "prompt"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Scene Animation",
+   "from_socket": "Video",
+   "to": "Workflow.001",
+   "to_socket": "loadvideo_file_5001"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Workflow.001",
+   "to_socket": "loadimage_image_2004"
+  },
+  {
+   "from": "Prompt.001",
+   "from_socket": "Text",
+   "to": "Workflow.001",
+   "to_socket": "primitivestringmultiline_value_5508"
+  },
+  {
+   "from": "Workflow.001",
+   "from_socket": "Video",
+   "to": "Viewer.001",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow.001",
+   "from_socket": "Video",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ]
+}

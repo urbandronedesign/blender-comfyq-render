@@ -127,6 +127,13 @@ long list by lesson or task.
   back, 12 s per view once loaded. Heavy model (27 GB): it needs the main slot.
 
 Built by `tools/make_new_inputs_presets.py` (headless, sandbox profile) from ComfyQ's live parameters.
+- **Blockout animation → photoreal video (FLUX.3 keyframe + LTX canny)**: the first frame rendered with the materials'
+  viewport colours → **FLUX.3 Klein edit** (Keyframe prompt, seed 7; Keyframe viewer) → with the **clay animation** →
+  **LTX 2.5 IC-LoRA canny** (Video prompt, seed 7, clip matched to the scene) → Viewer + Save. Give trees, water and
+  glass their own viewport colours (grey cones become sculptures). About 1–2 min for the keyframe and 4 min for the
+  video, two large models (in class: Klein edit as a lane, LTX canny as the main model; or Solo). Tested on a
+  cliff-edge house, canny beat depth and 3DReal: [blockout-video.md](blockout-video.md). Built by
+  `tools/make_blockout_video_preset.py`. The built-in *AI keyframe → video* preset stays as it was.
 
 ### The workflow library (one preset per image / video workflow)
 `presets\library\` in this repository holds 48 ready-made graphs, one per workflow of ComfyQ's image and
