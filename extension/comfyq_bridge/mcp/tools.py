@@ -707,6 +707,25 @@ def _tree():
     return ensure_graph()
 
 
+def _show_graph() -> None:
+    """Open the graph where the user can watch it (main thread): the ComfyQ window with the graph next to its
+    viewer, as the bar's graph button does. Without it an agent's graph and the Viewer's renders exist but
+    nothing shows them. Nothing to do in background mode or when a graph editor is already open."""
+    from ..graph.ui import graph_editor
+    if bpy.app.background or graph_editor()[1] is not None:
+        return
+    wm = bpy.context.window_manager
+    win = bpy.context.window or (wm.windows[0] if wm.windows else None)
+    if win is None:
+        return
+    area = max(win.screen.areas, key=lambda a: a.width * a.height)
+    try:
+        with bpy.context.temp_override(window=win, screen=win.screen, area=area):
+            bpy.ops.comfyq.open_graph()
+    except RuntimeError as e:                  # never fail the agent's request over the view
+        print("ComfyQ: could not open the graph for the agent:", e)
+
+
 def _node_dict(n) -> dict:
     from ..graph.tree import WORKFLOW_NODE, upstream
     d: dict[str, Any] = {"name": n.name, "type": n.bl_idname.replace("ComfyQ", "").replace("Node", ""),
@@ -760,6 +779,7 @@ def blender_graph_add_preset(args: dict) -> dict:
 
     def start():
         t = _tree()
+        _show_graph()
         preset_ops.add_preset(t.name, bpy.context.scene.name, key,
                               lambda ok, msg, names: (box.update(ok=ok, msg=msg, names=names), got.set()))
     on_main(start)
@@ -829,6 +849,7 @@ def blender_graph_run(args: dict) -> dict:
     def go():
         from ..graph import engine, run
         t, sc = _tree(), bpy.context.scene
+        _show_graph()                          # the user watches the run, and the Viewer has a viewer to show in
         name = args.get("node") or ""
         if name and t.nodes.get(name) is None:
             raise ToolError(f"No node {name!r}")

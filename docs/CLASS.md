@@ -110,6 +110,23 @@ long list by lesson or task.
   materials in the Surfaces node's list (`floor: polished concrete`); that only rewrites the prompt. Three
   models (SAM3, Qwen edit, SeedVR2 4K): in class, serve them, or use solo mode. Repainting one surface (Klein
   inpaint with its SAM3 mask) is done by an agent (`blender_mask_image`): see [arch-render.md](arch-render.md).
+- **Remesh: scene objects → clean low-poly**: a **Scene Objects** node (the selected objects, or a Collection, sent
+  as one GLB) → Remesh & decimate (Target triangle count, Watertight remesh, Smoothing, Sharp-edge angle) → imported
+  beside the scene, on the ground, at its own size, next to the original. A very large model (made in millimetres)
+  comes back empty (*Faces: 0*): scale it down or turn off Watertight remesh. Light model (0.2 GB).
+- **UV unwrap: scene objects → UVs + AO**: Scene Objects → UV unwrap (UVs ready for texturing + an ambient
+  occlusion bake) → imported beside the scene; the UV layout and AO pictures are in the job's results folder.
+  14 s for 3,500 triangles, about a minute for 700,000. Light model (1.9 GB).
+- **Clean up a model: remesh + UV unwrap**: both in a chain, for a heavy scan or AI-made mesh (e.g. the Text → 3D
+  result). Tested 2026-10-21: Suzanne 15,744 → 2,000 triangles with UVs in under 30 s. Both models fit alongside
+  most others.
+- **Reshoot from another angle (Qwen 2511)**: a clay Scene Render (the scene camera's view = the front) → Qwen
+  Image-Edit 2511 with a **camera block** (Around 0 front / 90 right side / 180 back, Height, Zoom; or orbit the 3D
+  Viewport around the selected subject and press **From 3D View**) → Viewer + Save. Fixed seed (7) so several
+  angles of one subject agree; the hidden sides are invented. Tested 2026-10-21: 90 → a true profile, 180 → the
+  back, 12 s per view once loaded. Heavy model (27 GB): it needs the main slot.
+
+Built by `tools/make_new_inputs_presets.py` (headless, sandbox profile) from ComfyQ's live parameters.
 
 ### The workflow library (one preset per image / video workflow)
 `presets\library\` in this repository holds 48 ready-made graphs, one per workflow of ComfyQ's image and

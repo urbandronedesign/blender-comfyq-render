@@ -1,0 +1,195 @@
+{
+ "format": 1,
+ "label": "Clean up a model: remesh + UV unwrap",
+ "description": "A heavy model (a scan, an AI-made mesh) made ready for texturing: rebuilt as a clean low-poly mesh, then given UVs and an ambient occlusion bake. Tested on 2026-10-21: 15,744 → 2,000 triangles with UVs in under 30 s. The result is imported beside the scene.",
+ "made": "2026-10-21 22:33",
+ "nodes": [
+  {
+   "name": "Scene Objects",
+   "type": "ComfyQSceneObjectsNode",
+   "location": [
+    -1400.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "Scene Objects",
+   "parent": ""
+  },
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -920.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "Remesh",
+   "parent": "",
+   "workflow_id": "3d_mesh_remesh_decimate",
+   "params": [
+    {
+     "key": "load3dadvanced_model_file_6",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "primitiveint_value_2",
+     "s": "",
+     "i": 2000,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "primitiveboolean_value_3",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": true,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "primitiveint_value_4",
+     "s": "",
+     "i": 2,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "primitivefloat_value_5",
+     "s": "",
+     "i": 90,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    }
+   ]
+  },
+  {
+   "name": "Workflow.001",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -420.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "UV unwrap",
+   "parent": "",
+   "workflow_id": "3d_mesh_uv_unwrap",
+   "params": [
+    {
+     "key": "load3dadvanced_model_file_6",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "primitiveint_value_2",
+     "s": "",
+     "i": 2048,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "unwrapmesh_segmenter_8",
+     "s": "pec",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "primitiveint_value_3",
+     "s": "",
+     "i": 1,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "primitiveint_value_4",
+     "s": "",
+     "i": 64,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "primitivefloat_value_5",
+     "s": "",
+     "i": 0,
+     "f": 1.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    }
+   ]
+  },
+  {
+   "name": "Import to Scene",
+   "type": "ComfyQImportNode",
+   "location": [
+    80.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "Import to Scene",
+   "parent": "",
+   "auto": true,
+   "replace": true,
+   "place": "BESIDE",
+   "on_ground": true,
+   "size": 0.0
+  },
+  {
+   "name": "Frame",
+   "type": "NodeFrame",
+   "location": [
+    -2020.0,
+    0.0
+   ],
+   "width": 560.0,
+   "label": "How to use",
+   "parent": "",
+   "height": 310.0,
+   "text": "1. Select the model to clean up\n2. Remesh: set the Target triangle count\n3. Run Graph: remesh, then UV unwrap\n4. The clean model with UVs is imported\n   beside the scene\n   Empty result (Faces: 0)? The model is too\n   large: scale it down, or turn off\n   Watertight remesh"
+  }
+ ],
+ "links": [
+  {
+   "from": "Scene Objects",
+   "from_socket": "3D Model",
+   "to": "Workflow",
+   "to_socket": "load3dadvanced_model_file_6"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "3D Model",
+   "to": "Workflow.001",
+   "to_socket": "load3dadvanced_model_file_6"
+  },
+  {
+   "from": "Workflow.001",
+   "from_socket": "3D Model",
+   "to": "Import to Scene",
+   "to_socket": "Result"
+  }
+ ]
+}

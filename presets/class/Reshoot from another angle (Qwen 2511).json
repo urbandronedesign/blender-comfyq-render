@@ -1,0 +1,142 @@
+{
+ "format": 1,
+ "label": "Reshoot from another angle (Qwen 2511)",
+ "description": "The scene camera's view of the subject is the front; Qwen Image-Edit 2511 redraws the same subject from where the camera block says: Around (0 front, 90 right side, 180 back), Height, Zoom, or From 3D View (orbit the 3D Viewport around the selected subject, then press it). One fixed seed, so several angles of one subject agree. The hidden sides are invented by the model. Tested on 2026-10-21: 90 → profile, 180 → back, 12 s per view once loaded.",
+ "made": "2026-10-21 22:33",
+ "nodes": [
+  {
+   "name": "Scene Render",
+   "type": "ComfyQSceneRenderNode",
+   "location": [
+    -900.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "Scene Render",
+   "parent": "",
+   "style": "CLAY",
+   "frame": "CURRENT",
+   "cycles_samples": 64
+  },
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -420.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "Reshoot",
+   "parent": "",
+   "workflow_id": "image_edit_qwen_2511_multiple_angles",
+   "params": [
+    {
+     "key": "loadimage_image_1",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "cameraangle_221",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null,
+     "camera": "{\"horizontal\": 90, \"vertical\": 0, \"zoom\": 5.0}"
+    },
+    {
+     "key": "primitiveboolean_value_219_168",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": true,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loraloadermodelonly_strength_model_219_220",
+     "s": "",
+     "i": 0,
+     "f": 1.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "ksampler_seed_219_169",
+     "s": "",
+     "i": 7,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    }
+   ]
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    80.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "Viewer",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    80.0,
+    -160.0
+   ],
+   "width": 300.0,
+   "label": "Save",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}",
+   "batch_suffix": "_render"
+  },
+  {
+   "name": "Frame",
+   "type": "NodeFrame",
+   "location": [
+    -1520.0,
+    0.0
+   ],
+   "width": 560.0,
+   "label": "How to use",
+   "parent": "",
+   "height": 310.0,
+   "text": "1. Frame the subject with the scene camera\n   (that view is the front)\n2. Reshoot: set Around / Height / Zoom, or\n   orbit the 3D Viewport and press\n   From 3D View\n3. Run Graph; Viewer shows the new view\n4. Same seed for every angle: the views\n   of one subject agree"
+  }
+ ],
+ "links": [
+  {
+   "from": "Scene Render",
+   "from_socket": "Image",
+   "to": "Workflow",
+   "to_socket": "loadimage_image_1"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ]
+}

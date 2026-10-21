@@ -99,6 +99,10 @@ tools/museum_blockout.py blockout museum + 4 turnaround views by the plugin's cl
 tools/make_batch_preset.py  headless: builds the Batch class preset (Media Folder → Klein edit, seed 7 → Save _render)
 tools/make_views_preset.py  headless: builds the Four views class preset (4 Image → 4 Klein edits, one Prompt,
                          seed 7, auto Save) from ComfyQ's live Klein parameters
+tools/make_new_inputs_presets.py  headless: the 4 class presets for 3D-model / camera workflows (Remesh, UV unwrap,
+                         Clean up = both chained, Reshoot from another angle (Qwen 2511, Around 90, seed 7))
+tools/new_inputs_check.py  GPU: Scene Objects → Remesh → UV unwrap, and Qwen 2511 at 90 / 180, through the graph
+tools/lane_race_check.py / lane_race_fix_check.py  reproduce ComfyQ's lane-port race / prove the bridge's wait
 tools/splat_render.py    load a 3DGS .ply (no splat support in Blender 5.2) as a coloured point cloud and render it
                          with Cycles (colour = 0.5 + 0.2821·f_dc, radius = exp(scale), opacity = sigmoid, emission)
 tools/preset_report.py   HTML report of a run (description, graph shot, inputs, prompt/settings sent, output,
@@ -429,6 +433,15 @@ change that session: the user must reinstall from the UI or restart Blender.
   first wait (up to 5 min, worker thread) until every lane in `GET /admin/config` `workflows.extraLaneWorkflowIds`
   is in `GET /admin/lanes` (`serving.restoring` / `wait_restored`) — also keeps the fit check honest. Live proof
   (`tools/lane_race_fix_check.py`): opened right after a restart, it waited 10 s, got 8190, job ok in 26 s.
+- **Class presets (4 new, copied to the user's `presets\Class`):** Remesh, UV unwrap, Clean up a model (remesh +
+  UV unwrap), Reshoot from another angle (Qwen 2511); rebuilt headless with every link valid. The user's
+  `presets\Image edit` got the 2511 library preset; its two dead camera-angle presets were removed.
+- **Visible test in the user's Blender (22:45, driven through its MCP server, demo scene `E:\zaki\new_inputs_demo.blend`
+  by `tools/make_demo_scene.py`):** the 4 presets ran (remesh, UV unwrap, clean-up chain, Qwen 2511 at 90 / 180), then the
+  Khronos DamagedHelmet GLB (CC BY 4.0, `E:\zaki\downloads\khronos_damaged_helmet`) UV-unwrapped without decimation
+  (15,452 triangles kept; its own UVs and 5 textures replaced by new UVs + AO). Two fixes from it: **startup timers
+  persistent** (Blender opened WITH a .blend dropped auto-connect and the MCP server: gotcha 13), and **agents open
+  the graph** (`mcp/tools._show_graph`: add_preset / graph_run open the ComfyQ window's graph when none is open).
 - Library still lacks the other new ComfyQ workflows (FLUX.3 Klein edit ×2, Qwen 2.1 relight, …): run
   `make_preset_library.py` per category when the user asks for the sync.
 

@@ -1,0 +1,121 @@
+{
+ "format": 1,
+ "label": "Remesh: scene objects → clean low-poly",
+ "description": "The selected objects (or a collection) sent as one model and rebuilt as a clean low-poly mesh: Target triangle count, Watertight remesh (one closed shell), Smoothing passes, Sharp-edge angle. The result is imported beside the scene, on the ground, at the size it was made. A model in millimetres (very large) can come back empty: scale it down or turn off Watertight remesh.",
+ "made": "2026-10-21 22:33",
+ "nodes": [
+  {
+   "name": "Scene Objects",
+   "type": "ComfyQSceneObjectsNode",
+   "location": [
+    -900.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "Scene Objects",
+   "parent": ""
+  },
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -420.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "Remesh",
+   "parent": "",
+   "workflow_id": "3d_mesh_remesh_decimate",
+   "params": [
+    {
+     "key": "load3dadvanced_model_file_6",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "primitiveint_value_2",
+     "s": "",
+     "i": 2000,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "primitiveboolean_value_3",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": true,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "primitiveint_value_4",
+     "s": "",
+     "i": 2,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "primitivefloat_value_5",
+     "s": "",
+     "i": 90,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    }
+   ]
+  },
+  {
+   "name": "Import to Scene",
+   "type": "ComfyQImportNode",
+   "location": [
+    80.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "Import to Scene",
+   "parent": "",
+   "auto": true,
+   "replace": true,
+   "place": "BESIDE",
+   "on_ground": true,
+   "size": 0.0
+  },
+  {
+   "name": "Frame",
+   "type": "NodeFrame",
+   "location": [
+    -1520.0,
+    0.0
+   ],
+   "width": 560.0,
+   "label": "How to use",
+   "parent": "",
+   "height": 340.0,
+   "text": "1. Select the objects to rebuild (or pick\n   a Collection on Scene Objects)\n2. Remesh: set the Target triangle count\n3. Run Graph\n4. The low-poly model is imported beside\n   the scene, next to the original\n   Empty result (Faces: 0)? The model is too\n   large: scale it down, or turn off\n   Watertight remesh"
+  }
+ ],
+ "links": [
+  {
+   "from": "Scene Objects",
+   "from_socket": "3D Model",
+   "to": "Workflow",
+   "to_socket": "load3dadvanced_model_file_6"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "3D Model",
+   "to": "Import to Scene",
+   "to_socket": "Result"
+  }
+ ]
+}

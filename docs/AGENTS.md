@@ -51,7 +51,7 @@ args = ["C:/Users/<you>/AppData/Roaming/Blender Foundation/Blender/5.2/extension
 | `blender_graph_describe` | The ComfyQ node graph: nodes, models, settings, prompts, links, results |
 | `blender_graph_add_preset` | Add a class preset (`render_image`, `clay_v2v`, `keyframe_v2v`, `image_3d`, `image_upscale`, or a saved one) |
 | `blender_graph_set` | Change a node: a setting or `prompt`, a source's style/frame/file, an output's options |
-| `blender_graph_run` / `blender_graph_status` | Run the graph (or one node) and follow it |
+| `blender_graph_run` / `blender_graph_status` | Run the graph (or one node) and follow it. `blender_graph_add_preset` and `blender_graph_run` open the graph in the ComfyQ window when no graph editor is open, so the user watches the agent's graph and the Viewer's renders show in its viewer |
 | `comfyq_list_workflows` | Served workflows (or all): what they make, VRAM badge, description |
 | `comfyq_describe_workflow` | A workflow's parameters. A `camera` parameter (e.g. Qwen 2511 reshoot from another angle) takes JSON `{"horizontal": 0-360 (0 front, 90 right side, 180 back), "vertical": degrees, "zoom": 0 wide-10 close-up}` and lists its `camera` block (ranges + the shot words the model gets); a `model` parameter takes a mesh file (`files`, e.g. from `blender_render kind=objects`) |
 | `comfyq_submit` | Book a job: settings, local files for media inputs, prompt → job id |

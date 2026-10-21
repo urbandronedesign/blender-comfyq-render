@@ -1,0 +1,130 @@
+{
+ "format": 1,
+ "label": "UV unwrap: scene objects → UVs + AO",
+ "description": "The selected objects (or a collection) sent as one model and given UVs ready for texturing, with an ambient occlusion bake. The model comes back imported beside the scene; the UV layout and AO pictures are in the job's results folder. Cost follows the mesh density (14 s for 3,500 triangles, about a minute for 700,000).",
+ "made": "2026-10-21 22:33",
+ "nodes": [
+  {
+   "name": "Scene Objects",
+   "type": "ComfyQSceneObjectsNode",
+   "location": [
+    -900.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "Scene Objects",
+   "parent": ""
+  },
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -420.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "UV unwrap",
+   "parent": "",
+   "workflow_id": "3d_mesh_uv_unwrap",
+   "params": [
+    {
+     "key": "load3dadvanced_model_file_6",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "primitiveint_value_2",
+     "s": "",
+     "i": 2048,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "unwrapmesh_segmenter_8",
+     "s": "pec",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "primitiveint_value_3",
+     "s": "",
+     "i": 1,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "primitiveint_value_4",
+     "s": "",
+     "i": 64,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "primitivefloat_value_5",
+     "s": "",
+     "i": 0,
+     "f": 1.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    }
+   ]
+  },
+  {
+   "name": "Import to Scene",
+   "type": "ComfyQImportNode",
+   "location": [
+    80.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "Import to Scene",
+   "parent": "",
+   "auto": true,
+   "replace": true,
+   "place": "BESIDE",
+   "on_ground": true,
+   "size": 0.0
+  },
+  {
+   "name": "Frame",
+   "type": "NodeFrame",
+   "location": [
+    -1520.0,
+    0.0
+   ],
+   "width": 560.0,
+   "label": "How to use",
+   "parent": "",
+   "height": 250.0,
+   "text": "1. Select the objects to unwrap (or pick\n   a Collection on Scene Objects)\n2. Run Graph\n3. The model with UVs is imported beside\n   the scene; the UV layout and AO pictures\n   are in its results folder"
+  }
+ ],
+ "links": [
+  {
+   "from": "Scene Objects",
+   "from_socket": "3D Model",
+   "to": "Workflow",
+   "to_socket": "load3dadvanced_model_file_6"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "3D Model",
+   "to": "Import to Scene",
+   "to_socket": "Result"
+  }
+ ]
+}

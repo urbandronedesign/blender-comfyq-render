@@ -110,8 +110,10 @@ def register() -> None:
     SESSION.on_connected = _reattach_all
     bpy.app.handlers.load_post.append(_on_load)
     bpy.app.timers.register(_tick, first_interval=PUMP_INTERVAL_S, persistent=True)
-    bpy.app.timers.register(_auto_connect, first_interval=1.0)
-    bpy.app.timers.register(_start_mcp, first_interval=1.0)
+    # persistent: Blender opened WITH a .blend loads it after registering add-ons, and a file load drops
+    # non-persistent timers (gotcha 13): neither auto-connect nor the agents' server ever started
+    bpy.app.timers.register(_auto_connect, first_interval=1.0, persistent=True)
+    bpy.app.timers.register(_start_mcp, first_interval=1.0, persistent=True)
 
 
 def unregister() -> None:
