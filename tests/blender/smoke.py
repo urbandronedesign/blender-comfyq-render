@@ -132,6 +132,34 @@ hole = float((px.reshape(-1, 4)[:, 3] < 0.5).mean())
 check(0.02 < hole < 0.6, f"mask pass: {hole:.1%} of pixels transparent (the cube)")
 check(tuple(cube.color) == (1.0, 1.0, 1.0, 1.0), "object color restored")
 
+# mesh input (ComfyQ `model3d`): the selected objects as one GLB, selection and visibility restored
+from bl_ext.user_default.comfyq_bridge.passes import mesh as mesh_pass
+
+cam_ob = scene.camera
+bpy.ops.object.select_all(action="DESELECT")
+cam_ob.select_set(True)
+bpy.context.view_layer.objects.active = cam_ob
+cube.hide_set(True)
+glb = mesh_pass.mesh_pass([cube, cam_ob])
+check(glb.suffix == ".glb" and glb.read_bytes()[:4] == b"glTF", f"mesh pass writes a GLB ({glb.stat().st_size} bytes)")
+check(cube.hide_get() and not cube.select_get() and cam_ob.select_get()
+      and bpy.context.view_layer.objects.active == cam_ob, "mesh pass restores selection, active object, hidden")
+cube.hide_set(False)
+check(mesh_pass.exportable([cam_ob]) == [] and abs(mesh_pass.size([cube]) - 2.0) < 1e-4
+      and not mesh_pass.size_warning([cube]), "only geometry is exported; the 2 m cube is not too large")
+fp = mesh_pass.fingerprint([cube])
+cube.location.x += 0.5
+bpy.context.view_layer.update()                # matrix_world follows on the next depsgraph update
+check(mesh_pass.fingerprint([cube]) != fp, "moving an object changes what a Scene Objects node sends")
+cube.location.x -= 0.5
+cube.scale = (40, 40, 40)
+bpy.context.view_layer.update()
+check(bool(mesh_pass.size_warning([cube])), "an 80 m model is flagged (ComfyQ's remesh returns nothing)")
+cube.scale = (1, 1, 1)
+bpy.context.view_layer.update()
+bpy.ops.object.select_all(action="DESELECT")
+cube.select_set(True)
+
 # -- importers (no network) -------------------------------------------------------------
 tmp = cache_dir() / "smoke"
 tmp.mkdir(parents=True, exist_ok=True)
@@ -349,6 +377,79 @@ for w in SESSION.workflows:
         bad_nodes.append(w.id)
     tree.nodes.remove(n)
 check(not bad_nodes, f"all {len(SESSION.workflows)} workflows become nodes with the right sockets {bad_nodes}")
+
+# serving waits for the lanes ComfyQ restores after a restart (else a new lane takes a restoring lane's port)
+from bl_ext.user_default.comfyq_bridge.runtime import serving as _srv
+
+
+class _FakeLanes:
+    def __init__(self, back_after, remembered):
+        self.polls, self.back_after, self.remembered = 0, back_after, remembered
+
+    def server_lanes(self):
+        self.polls += 1
+        up = [{"workflowId": "main_wf", "port": 8188}]
+        if self.polls >= self.back_after:
+            up.append({"workflowId": "klein_lane", "port": 8189})
+        return {"available": True, "lanes": up, "fit": {}}
+
+    def admin_config(self):
+        return {"config": {"workflows": {"extraLaneWorkflowIds": self.remembered}}}
+
+
+_clock = [0.0]
+_fake = _FakeLanes(3, ["klein_lane"])
+_left = _srv.wait_restored(_fake, sleep=lambda s: _clock.__setitem__(0, _clock[0] + s), clock=lambda: _clock[0])
+check(_left == [] and _fake.polls == 3, f"serving: waits until the remembered lane is back ({_fake.polls} polls)")
+_clock[0] = 0.0
+_fake = _FakeLanes(10**9, ["klein_lane", "never_back"])
+_left = _srv.wait_restored(_fake, timeout=10, sleep=lambda s: _clock.__setitem__(0, _clock[0] + s),
+                           clock=lambda: _clock[0])
+check(_left == ["klein_lane", "never_back"] and _clock[0] >= 10, f"serving: gives up after the timeout ({_left})")
+_live_left = _srv.restoring(SESSION.client)
+check(isinstance(_live_left, list), f"serving: live ComfyQ answers what it is restoring ({_live_left})")
+
+# new parameter types: a mesh input (`model3d`) is a 3D Model socket fed by Scene Objects; a `camera` is a chip
+from bl_ext.user_default.comfyq_bridge.client import camera as cq_camera
+from bl_ext.user_default.comfyq_bridge.ops.workflow import set_camera, sync_items
+
+mesh_wf = next((w.id for w in SESSION.workflows if any(s.kind == "model" for s in SESSION.specs[w.id])), None)
+cam_wf = next((w.id for w in SESSION.workflows if any(s.kind == "camera" for s in SESSION.specs[w.id])), None)
+if mesh_wf:
+    n = tree.nodes.new("ComfyQWorkflowNode")
+    n.workflow_id = mesh_wf
+    n.build(SESSION.specs[mesh_wf])
+    mkey = next(s.key for s in SESSION.specs[mesh_wf] if s.kind == "model")
+    sock = next(x for x in n.inputs if x.identifier == mkey)
+    bpy.ops.comfyq.graph_add_source(tree=tree.name, node=n.name, key=mkey)
+    src = sock.links[0].from_node if sock.is_linked else None
+    check(socket_kind(sock) == "model" and src is not None and src.bl_idname == "ComfyQSceneObjectsNode",
+          f"{mesh_wf}: the 3D model input gets a Scene Objects source")
+    bpy.ops.object.select_all(action="DESELECT")
+    cube.select_set(True)
+    check([o.name for o in src.objects(scene)] == ["Cube"], "Scene Objects sends the selected objects")
+    from bl_ext.user_default.comfyq_bridge.graph import run as grun
+    r = grun.Run(tree, scene, [n.name], grun.describe(tree, scene), ["Cube"], ())
+    f = r._file(scene, src, next(s for s in SESSION.specs[mesh_wf] if s.kind == "model"))
+    check(f.suffix == ".glb" and f.is_file(), f"a graph run exports it as {f.name}")
+    for x in (n, src):
+        tree.nodes.remove(x)
+else:
+    print("  skip: ComfyQ has no workflow with a 3D model input")
+if cam_wf:
+    cspec = next(s for s in SESSION.specs[cam_wf] if s.kind == "camera")
+    sync_items(scene.comfyq.params, cam_wf, SESSION.specs[cam_wf])
+    cit = param_item(scene, cspec.key, cam_wf)
+    cam0 = cq_camera.dumps(cq_camera.parse(cspec.default, cspec.extra.get("camera")))
+    check(cit is not None and cit.value() == cam0, f"{cam_wf}: camera chip starts at ComfyQ's default {cam0}")
+    set_camera(cit, {"horizontal": 450, "vertical": 20, "zoom": 8.04}, cspec)
+    check(json.loads(cit.value()) == {"horizontal": 90, "vertical": 20, "zoom": 8.0}, f"camera set: {cit.value()}")
+    from bl_ext.user_default.comfyq_bridge.client.params import validate
+    sent, _err = validate(SESSION.specs[cam_wf], {cspec.key: cit.value()})
+    check(sent.get(cspec.key) == cit.value(), "the camera is sent as ComfyQ's JSON")
+    print("  camera shot:", cq_camera.describe(cspec.extra.get("camera"), json.loads(cit.value())))
+else:
+    print("  skip: ComfyQ has no workflow with a camera setting")
 
 # N1: change model keeps links on inputs of the same kind, and each model's settings
 other = next(w.id for w in SESSION.workflows if w.id != v2v and w.id in SESSION.specs
@@ -752,7 +853,9 @@ scene = bpy.context.scene
 t2 = bpy.data.node_groups.get("ComfyQ Graph")
 check(t2 is not None and len(t2.nodes) == 3 and len(t2.links) >= 1, "the graph is saved with the file")
 w2 = next(n for n in t2.nodes if n.bl_idname == "ComfyQWorkflowNode")
-check(w2.workflow_id == v2v and len(w2.inputs) == len(want), "workflow node reloads with its sockets")
+check(w2.workflow_id == v2v and len(w2.inputs) == len(want),
+      f"workflow node reloads with its sockets ({w2.workflow_id} vs {v2v}: {[x.identifier for x in w2.inputs]} "
+      f"vs {want})")
 graph_file.unlink(missing_ok=True)
 
 # P1.4: the MCP server for AI agents, called over HTTP like an agent would (the test pumps the main thread)

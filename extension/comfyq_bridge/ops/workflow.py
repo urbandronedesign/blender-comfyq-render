@@ -12,6 +12,7 @@ import bpy
 from bpy.props import BoolProperty, IntProperty, StringProperty
 
 from .. import match as scene_match
+from ..client import camera
 from ..client.params import ParamSpec
 from ..passes import animation, render
 from ..props import DEFAULT_SOURCE, INT_MAX, param_item, tab_of
@@ -75,6 +76,8 @@ def sync_items(coll, wf_id: str, specs: list[ParamSpec]) -> None:
             it.f = float(d or 0)
         elif s.kind == "bool":
             it.b = bool(d)
+        elif s.kind == "camera":
+            set_camera(it, d, s)
         elif s.is_media:
             it.source = DEFAULT_SOURCE.get(s.kind, "FILE")
 
@@ -91,6 +94,14 @@ def apply_values(scene: bpy.types.Scene, wf_id: str, values: dict) -> None:
         elif it.kind == "enum":
             it.s = str(v)
             it.e = str(v)
+        elif it.kind == "camera":
+            set_camera(it, v, next((s for s in SESSION.specs.get(wf_id, ()) if s.key == key), None))
+
+
+def set_camera(it, value, spec: ParamSpec | None) -> None:
+    """Put a camera value (JSON text or dict, ComfyQ's format) into an item's three fields."""
+    cam = camera.parse(value, spec.extra.get("camera") if spec else None)
+    it.cam_h, it.cam_v, it.cam_zoom = round(cam["horizontal"]) % 360, round(cam["vertical"]), cam["zoom"]
 
 
 def select_workflow(scene: bpy.types.Scene, wf_id: str, role: str = "main") -> None:
@@ -484,6 +495,70 @@ class COMFYQ_OT_unlink_prompt(bpy.types.Operator):
         return {"FINISHED"}
 
 
+def view3d_eye(context):
+    """Where the 3D Viewport looks from: the window's first 3D Viewport (the one the pointer is over first)."""
+    areas = [context.area] if context.area and context.area.type == "VIEW_3D" else []
+    for win in [context.window, *context.window_manager.windows]:
+        if win is not None:
+            areas += [a for a in win.screen.areas if a.type == "VIEW_3D"]
+    for area in areas:
+        r3d = area.spaces.active.region_3d
+        if r3d is not None:
+            return r3d.view_matrix.inverted().translation.copy()
+    return None
+
+
+def camera_from_view(context, spec: ParamSpec | None) -> tuple[dict, str]:
+    """The camera position of the 3D Viewport's view around the selected objects (all visible ones when
+    nothing is selected), measured from the scene camera. Returns (camera, "") or ({}, the reason)."""
+    from ..passes import mesh
+    eye = view3d_eye(context)
+    if eye is None:
+        return {}, "Open a 3D Viewport and orbit it to the view to ask for"
+    objs = mesh.exportable(context.selected_objects) or mesh.exportable(context.visible_objects)
+    b = mesh.bounds(objs)
+    if b is None:
+        return {}, "Select the subject first"
+    centre, radius = b
+    front = context.scene.camera.matrix_world.translation if context.scene.camera else None
+    cam = camera.from_view(tuple(eye), tuple(centre), radius, tuple(front) if front is not None else None,
+                           spec.extra.get("camera") if spec else None)
+    return cam, ""
+
+
+class COMFYQ_OT_camera_from_view(bpy.types.Operator):
+    bl_idname = "comfyq.camera_from_view"
+    bl_label = "From 3D View"
+    bl_description = ("Set the camera position from the 3D Viewport's view of the selected objects, "
+                      "measured from the scene camera (the front of the picture sent)")
+    bl_options = {"INTERNAL", "UNDO"}
+    key: StringProperty(options={"HIDDEN"})
+    workflow_id: StringProperty(options={"HIDDEN"})
+    tree: StringProperty(options={"HIDDEN"})        # set when the setting belongs to a graph node
+    node: StringProperty(options={"HIDDEN"})
+
+    def execute(self, context):
+        if self.tree:
+            from ..graph.tree import find_node
+            n = find_node(self.tree, self.node)
+            it = n.item(self.key) if n is not None else None
+            wf_id = n.workflow_id if n is not None else ""
+        else:
+            it = param_item(context.scene, self.key, self.workflow_id or None)
+            wf_id = self.workflow_id or context.scene.comfyq.workflow_id
+        if it is None:
+            return {"CANCELLED"}
+        spec = next((s for s in SESSION.specs.get(wf_id, ()) if s.key == self.key), None)
+        cam, why = camera_from_view(context, spec)
+        if why:
+            self.report({"WARNING"}, why)
+            return {"CANCELLED"}
+        set_camera(it, cam, spec)
+        shot = camera.describe(spec.extra.get("camera") if spec else None, cam)
+        self.report({"INFO"}, f"Camera: {shot}" if shot else "Camera position set")
+        return {"FINISHED"}
+
+
 # -- detached window ------------------------------------------------------------------------
 # Layout:  ┌──────────────────────┬────────────┐
 #          │ Image Editor         │ ComfyQ bar │   passes, keyframes, results (videos play here)
@@ -749,4 +824,4 @@ class COMFYQ_OT_open_window(bpy.types.Operator):
 
 classes = (COMFYQ_OT_set_workflow, COMFYQ_MT_workflows, COMFYQ_MT_keyframe_workflows, COMFYQ_OT_random_seed,
            COMFYQ_OT_match_scene, COMFYQ_OT_preview_pass, COMFYQ_OT_cancel_cycles, COMFYQ_OT_help, COMFYQ_OT_preview_animation, COMFYQ_OT_edit_prompt,
-           COMFYQ_OT_unlink_prompt, COMFYQ_OT_open_window)
+           COMFYQ_OT_unlink_prompt, COMFYQ_OT_camera_from_view, COMFYQ_OT_open_window)

@@ -144,7 +144,8 @@ class COMFYQ_MT_graph_output(bpy.types.Menu):
 class COMFYQ_MT_graph_scene(bpy.types.Menu):
     bl_idname = "COMFYQ_MT_graph_scene"
     bl_label = "Scene"
-    bl_description = "Add a source node: scene render, clay animation, selection mask, image, video, audio, prompt"
+    bl_description = ("Add a source node: scene render, clay animation, selection mask, image, video, audio, "
+                      "scene objects, 3D model, prompt")
 
     def draw(self, context):
         for cls in SOURCE_NODES:
@@ -686,6 +687,7 @@ def node_from_bar(tree, scene, wf_id: str, x: float, y: float, keyframe_ok: bool
         if bar is None or it is None or s.is_media:
             continue
         it.s, it.i, it.f, it.b, it.randomize = bar.s, bar.i, bar.f, bar.b, bar.randomize
+        it.cam_h, it.cam_v, it.cam_zoom = bar.cam_h, bar.cam_v, bar.cam_zoom
         if s.options and bar.s in s.options:
             it.e = bar.s
         if bar.text is not None:                           # a copy: editing the node leaves the bar alone
@@ -714,7 +716,9 @@ def _source_from_bar(tree, scene, spec, kind, bar, src, keyframe_ok, x, y):
             return node_from_bar(tree, scene, kf, x - 100, y, keyframe_ok=False).outputs[0]
         src = "STRUCTURE"
     node = None
-    if src == "ANIMATION":
+    if src == "SELECTION":
+        node = tree.nodes.new("ComfyQSceneObjectsNode")
+    elif src == "ANIMATION":
         node = tree.nodes.new("ComfyQSceneAnimationNode")
         node.style = style
     elif src in ("STRUCTURE", "MASK"):
@@ -725,8 +729,9 @@ def _source_from_bar(tree, scene, spec, kind, bar, src, keyframe_ok, x, y):
         node = tree.nodes.new("ComfyQImageNode")
         node.image = bar.image
     elif src == "FILE" and bar is not None and bar.path:
-        if kind in ("video", "audio"):
-            node = tree.nodes.new("ComfyQVideoFileNode" if kind == "video" else "ComfyQAudioFileNode")
+        if kind in ("video", "audio", "model"):
+            node = tree.nodes.new({"video": "ComfyQVideoFileNode", "audio": "ComfyQAudioFileNode",
+                                   "model": "ComfyQModelFileNode"}[kind])
             node.filepath = bar.path
         else:
             node = tree.nodes.new("ComfyQImageNode")

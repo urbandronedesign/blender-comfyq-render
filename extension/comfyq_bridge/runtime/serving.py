@@ -9,12 +9,46 @@ how = "alongside": a lane next to the main workflow (no restart; must fit in VRA
 """
 from __future__ import annotations
 
+import time
+
 from ..client.api import ComfyQClient
 from ..client.http import ComfyQError
 
+RESTORE_TIMEOUT_S = 300
+
+
+def restoring(client: ComfyQClient) -> list[str]:
+    """Lanes ComfyQ remembers but has not brought back yet. After a restart it reopens them in the background,
+    ~15 s each, and until one is back its port is free in ComfyQ's eyes: a lane opened then gets the SAME port
+    (both report it, one ComfyUI runs, the new lane's first job fails "comfyui-process-exited"), and the fit
+    check ignores its VRAM (docs/RUNBOOK.md §7.1, 1b)."""
+    try:
+        info = client.server_lanes()
+        if info.get("available") is False:            # not serving at all: nothing is being restored
+            return []
+        cfg = (client.admin_config().get("config") or {}).get("workflows") or {}
+    except ComfyQError:
+        return []
+    have = {ln.get("workflowId") for ln in info.get("lanes") or []}
+    return [w for w in cfg.get("extraLaneWorkflowIds") or [] if w not in have]
+
+
+def wait_restored(client: ComfyQClient, timeout: float = RESTORE_TIMEOUT_S, sleep=time.sleep,
+                  clock=time.monotonic) -> list[str]:
+    """Block (worker thread) until ComfyQ has brought its remembered lanes back; returns those still missing
+    at the timeout (a lane that fails to come back is dropped from ComfyQ's list, so this normally ends)."""
+    t0 = clock()
+    while True:
+        left = restoring(client)
+        if not left or clock() - t0 >= timeout:
+            return left
+        sleep(2)
+
 
 def choose(client: ComfyQClient, wf_id: str, how: str = "auto", force: bool = False) -> str:
-    """The way to serve `wf_id` now ("alongside" / "main"), or ComfyQError saying why not."""
+    """The way to serve `wf_id` now ("alongside" / "main"), or ComfyQError saying why not. Waits first for the
+    lanes ComfyQ is still restoring after a restart (their ports and VRAM are not counted until they are back)."""
+    wait_restored(client)
     info = client.server_lanes()
     fit = (info.get("fit") or {}).get(wf_id) or {}
     if how == "auto":
@@ -33,6 +67,7 @@ def choose(client: ComfyQClient, wf_id: str, how: str = "auto", force: bool = Fa
 def serve(client: ComfyQClient, wf_id: str, how: str, force: bool = False) -> None:
     """Ask ComfyQ to serve it (blocking HTTP: opening a lane waits for the model to load)."""
     if how == "alongside":
+        wait_restored(client)                      # a lane opened during the restore takes a restoring lane's port
         client.open_lane(wf_id, force=force)
     else:
         client.activate(wf_id)

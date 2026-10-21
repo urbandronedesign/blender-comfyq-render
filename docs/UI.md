@@ -61,6 +61,7 @@ Check: `bar warns about result strips in the scene`, `Clean up removes them`.
 | Red line *“Not served right now”* | The chosen workflow has no lane on the server: Generate would be refused | — |
 | Number / toggle / list chips | The workflow's own settings (strength, resolution, clip length, toggles such as *Use a start image*). Kept **per workflow**: switching models never loses tweaks | `enum chip … is sent`, smoke test `switching workflows keeps each workflow's settings` |
 | **Seed** + ⟳ | Seed value; ⟳ on = a new random seed for every job | `seed chip` |
+| **Camera position** block (workflows with a ComfyQ `camera` setting, e.g. *Qwen Image-Edit 2511 — reshoot from another angle*) | Full width under the chips: **Around** (0 front, 90 right side, 180 back), **Height** (degrees above the subject), **Zoom** (0 wide → 10 close-up); under them, the shot the model is told (*Right side view eye-level shot medium shot*: only 8 directions × 4 heights × 3 framings exist, so a small nudge may change nothing). **From 3D View** sets the three from the 3D Viewport: orbit the view to where the camera should stand, around the selected objects (all visible ones when none is selected); the angle is measured from the **scene camera** (= the front of the picture sent), zoom from the distance in object sizes. Narrow sidebar: sliders stacked | GUI `camera: From 3D View sets the shot from the orbited 3D Viewport…`, `camera block draws…` (`09m_camera_bar.png`); smoke `camera chip starts at ComfyQ's default…`, `the camera is sent as ComfyQ's JSON`; unit `tests/unit/test_camera.py` (the shot words match ComfyUI's own node on 5110 positions) |
 
 ### 2.3 Prompt
 | Control | Does | Check |
@@ -83,10 +84,11 @@ The main prompt is also sent as the job's prompt, so ComfyQ's job cards show it 
 
 Generate always renders the clay animation fresh, whatever this preview shows.
 
-### 2.5 Inputs (references) — one block per image / video / mask / audio input
+### 2.5 Inputs (references) — one block per image / video / mask / audio / 3D model input
 | Control | Does |
 |---|---|
-| Source list | **Scene render** (camera view, at the first/last frame for start/end inputs) · **AI keyframe** · **Render + selection mask** · **Blender image** · **File** · **Leave empty** · (video) **Scene animation** |
+| Source list | **Scene render** (camera view, at the first/last frame for start/end inputs) · **AI keyframe** · **Render + selection mask** · **Blender image** · **File** · **Leave empty** · (video) **Scene animation** · (3D model) **Selected Objects** / **File** |
+| *N objects sent as a GLB file* (3D model input, Selected Objects) | Generate exports the selected meshes / curves / text as one GLB (modifiers applied, world placement kept; selection restored). Red *Select the objects to send* when none is. Red warning when the model is 50 m or more across: ComfyQ's remesh returns an **empty mesh** for very large models (a model in millimetres): scale it down or turn off *Watertight remesh*. GUI `3D model input defaults to Selected Objects`, `3D model input draws` (`09n_mesh_bar.png`); smoke `mesh pass writes a GLB`, `… restores selection…`, `an 80 m model is flagged` |
 | Image picker / file path | Shown for *Blender image* / *File* |
 
 ### 2.6 AI keyframe (an image input set to *AI keyframe*)
@@ -221,6 +223,9 @@ collection* first, so it never reached ComfyQ.
 | WINDOW | the ComfyQ window | window button |
 | HELP | the student quickstart | ? (bar, graph header) |
 | USER | a person | name · server row, Server panel queue and Connected |
+| VIEW_CAMERA | a camera position setting | camera block heading |
+| ORIENTATION_VIEW | take it from the 3D Viewport | From 3D View |
+| MESH_DATA / FILE_3D | a 3D model input | 3D model input heading, Scene Objects node / 3D Model File node |
 
 Labels follow Blender's HIG: Title Case, "..." only on buttons that open a dialog (Change Model..., Save As...,
 Clean Up..., Save Graph as Preset...), no "you", no abbreviations, tooltips start with a verb; every greyed-out
@@ -241,7 +246,7 @@ the window opens if needed). Saved with the file.
 
 | Control | Does | Check |
 |---|---|---|
-| Header **Scene** | Adds a source node: Scene Animation (clay video), Scene Render (still, first/last/current frame; style Clay / Matcap / Material colors / **Cycles (final render)** + *Samples*: a real Cycles render — materials, lights, HDRI, shadow catchers — made in a separate background Blender from a temporary copy of the scene, so the GPU is free again before the ComfyQ job; GPU, else CPU. **Blender stays responsive**: the node shows *Cycles 40/64 · 0:12* with a ✕ (**Stop Cycles Render**), nodes waiting on it say *Waiting for the Cycles render* (graph Stop kills the render), Render Frame shows the picture when done), Selection Mask, Image, Video File, Audio File, Prompt | `toolbar › Scene › Scene Animation adds the node`, `F1: Render Frame (Cycles) returns at once…`, `F1: Blender stays responsive while Cycles renders…` (`09j_cycles_rendering.png`); smoke `F1: …` |
+| Header **Scene** | Adds a source node: Scene Animation (clay video), Scene Render (still, first/last/current frame; style Clay / Matcap / Material colors / **Cycles (final render)** + *Samples*: a real Cycles render — materials, lights, HDRI, shadow catchers — made in a separate background Blender from a temporary copy of the scene, so the GPU is free again before the ComfyQ job; GPU, else CPU. **Blender stays responsive**: the node shows *Cycles 40/64 · 0:12* with a ✕ (**Stop Cycles Render**), nodes waiting on it say *Waiting for the Cycles render* (graph Stop kills the render), Render Frame shows the picture when done), Selection Mask, Image, Video File, Audio File, **Scene Objects** (the selected objects — or a *Collection* — as one GLB file for 3D-model inputs; a run sends what was selected when it started; re-runs when the objects move or change shape), **3D Model File** (.glb .gltf .obj .stl .ply .fbx), Prompt. An unlinked 3D model input offers **+ Scene objects** | `toolbar › Scene › Scene Animation adds the node`, GUI `graph: a 3D model input adds a Scene Objects node`, `graph: camera chip and Scene Objects node draw` (`09o_new_inputs_graph.png`); smoke `the 3D model input gets a Scene Objects source`, `a graph run exports it as …glb`, `moving an object changes what a Scene Objects node sends`, `F1: Render Frame (Cycles) returns at once…`, `F1: Blender stays responsive while Cycles renders…` (`09j_cycles_rendering.png`); smoke `F1: …` |
 | Header **Image · Video · 3D · Splats · Audio · Tools** | Adds a workflow node (served first, VRAM badge). Same entries in Shift+A | `toolbar › Video › … adds a node with its inputs as sockets` |
 | Header 🔍 (and Shift+A › *Any Model...*) | Search every workflow by name and add it | — |
 | Header **Presets** | Class presets: *Scene render → image*, *Clay animation → video*, *AI keyframe → video*, *Image → 3D model*, *Image → upscale* — built from the workflows ComfyQ serves now (served first, then the best match), added right of the graph, each with a **How to use** note (a Frame showing numbered steps; saved presets keep their notes, the class presets have one too); then saved presets in two sections, **Saved on This PC** and **Shared** (the Shared Presets Folder preference, the profile's `presets_dir`, `COMFYQ_BRIDGE_PRESETS`; subfolders = submenus, e.g. the 48-preset workflow library: Image / Image edit / Image → video / Video → video); **Save Graph as Preset…**, **Open Presets Folder** (Explorer on `%APPDATA%\comfyq-bridge\presets`, path + count in the status bar), **Open Shared Presets Folder** (when one is set). Teacher guide: [CLASS.md](CLASS.md) | `N5: Presets › AI keyframe → video builds the graph…`, `N5/F4: Save Graph as Preset writes into the Shared Presets Folder…`, `F4: Presets menu draws…` (`09i_presets_menu_shared.png`); smoke `Shared Presets Folder (preference + profile presets_dir) listed…`, `preset “…”: built from …`, `saved preset rebuilds the same graph`, `F3: preset “…” has a How to use note` |

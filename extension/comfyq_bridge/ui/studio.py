@@ -12,18 +12,21 @@ import json
 import bpy
 
 from .. import match as scene_match
+from ..client import camera
 from ..client.params import ParamSpec, is_disabled
 from ..ops import workflow as wfops
 from ..passes import animation
 from ..props import param_item, workflow_items
 from ..runtime.session import SESSION
+from ..wording import count
 
 PHASE_TEXT = {
     "scheduled": "Waiting in queue", "uploading-inputs": "Preparing inputs", "submitted": "Starting",
     "executing": "Generating", "collecting-outputs": "Collecting result", "completed": "Done",
     "failed": "Failed", "cancelled": "Cancelled",
 }
-MEDIA_ICON = {"video": "FILE_MOVIE", "audio": "SOUND", "image": "IMAGE_DATA", "mask": "SELECT_SET"}
+MEDIA_ICON = {"video": "FILE_MOVIE", "audio": "SOUND", "image": "IMAGE_DATA", "mask": "SELECT_SET",
+              "model": "MESH_DATA"}
 
 
 def _visible(scene, wf_id: str, specs: list[ParamSpec]) -> list[ParamSpec]:
@@ -132,6 +135,7 @@ def draw_studio(layout: bpy.types.UILayout, context, columns: int = 2, dialog: b
         if body is not None:
             grid = body.grid_flow(row_major=True, columns=columns, even_columns=True, align=False)
             draw_chips(grid, scene, cq.workflow_id, visible)
+            draw_cameras(body, scene, cq.workflow_id, visible)
     if wf and wf.id not in served:
         col = box.column(align=True)
         col.alert = True
@@ -214,6 +218,36 @@ def draw_chips(grid, scene, wf_id: str, visible: list[ParamSpec], get=None) -> N
             grid.prop(it, "e", text=short)
 
 
+def draw_cameras(layout, scene, wf_id: str, visible: list[ParamSpec], get=None, node=None,
+                 chars: int | None = None) -> None:
+    """Camera positions, full width under the chips (a block is too tall for a grid cell)."""
+    for s in visible:
+        if s.kind != "camera":
+            continue
+        it = get(s.key) if get else param_item(scene, s.key, wf_id)
+        if it is not None:
+            draw_camera(layout.column(align=True), it, s, node, chars or _CHARS[0])
+
+
+def draw_camera(col, it, spec: ParamSpec, node=None, chars: int = 60) -> None:
+    """A camera position: three sliders, the shot the model will be told, and From 3D View."""
+    col.label(text=scene_match.short_label(spec.label, 40), icon="VIEW_CAMERA")
+    row = col.row(align=True) if chars >= 45 else col.column(align=True)    # narrow: "Around" would be cut
+    row.prop(it, "cam_h")
+    row.prop(it, "cam_v")
+    row.prop(it, "cam_zoom")
+    cam = camera.parse(it.value(), spec.extra.get("camera"))   # the bundle's limits, as ComfyQ applies them
+    shot = camera.describe(spec.extra.get("camera"), cam)
+    if shot:
+        box = col.box().column(align=True)
+        for line in wrap(shot.capitalize(), chars, max_lines=3):
+            box.label(text=line)
+    op = col.operator("comfyq.camera_from_view", icon="ORIENTATION_VIEW")
+    op.key, op.workflow_id = spec.key, it.workflow_id
+    if node is not None:
+        op.tree, op.node = node.id_data.name, node.name
+
+
 def draw_prompts(layout, scene, wf_id: str, visible: list[ParamSpec], big: bool) -> None:
     prompts = [s for s in visible if s.kind in ("prompt", "text")]
     for s in prompts:
@@ -262,10 +296,31 @@ def draw_media(layout, context, wf_id: str, visible: list[ParamSpec], columns: i
             col.label(text="Selected objects mark the area to repaint")
         elif it.source == "STRUCTURE":
             col.label(text=f"Camera view at frame {scene_match.frame_for(s, wfops.scene_facts(scene))}")
+        elif it.source == "SELECTION":
+            from ..passes import mesh
+            draw_selection(col, mesh.exportable(context.selected_objects))
     for s in media:
         it = param_item(scene, s.key, wf_id)
         if it.source == "KEYFRAME":
             _draw_keyframe(layout, context, s, it, columns)
+
+
+def draw_selection(col, objs, empty: str = "Select the objects to send") -> None:
+    """What a mesh input sends (`objs`, exportable ones), and the size remeshing cannot handle."""
+    from ..passes import mesh
+    n = len(objs)
+    if not n:
+        row = col.row()
+        row.alert = True
+        row.label(text=empty, icon="ERROR")
+        return
+    col.label(text=f"{count(n, 'object')} sent as a GLB file", icon="CHECKMARK")
+    warn = mesh.size_warning(objs)
+    if warn:
+        sub = col.column(align=True)
+        sub.alert = True
+        for k, line in enumerate(wrap(warn, _CHARS[0], max_lines=3)):
+            sub.label(text=line, icon="ERROR" if k == 0 else "BLANK1")
 
 
 def _draw_keyframe(layout, context, spec: ParamSpec, it, columns: int) -> None:
@@ -289,6 +344,7 @@ def _draw_keyframe(layout, context, spec: ParamSpec, it, columns: int) -> None:
     if kf_specs:
         visible = _visible(scene, kf.id, kf_specs)
         draw_chips(grid, scene, kf.id, visible)
+        draw_cameras(box, scene, kf.id, visible)
         draw_prompts(box, scene, kf.id, visible, big=False)
         sub = [s for s in visible if s.is_media]
         if sub:

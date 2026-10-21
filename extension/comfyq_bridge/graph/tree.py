@@ -353,6 +353,41 @@ class ComfyQVideoFileNode(_FileNode, bpy.types.Node):
     comfyq_kind = "video"
 
 
+class ComfyQModelFileNode(_FileNode, bpy.types.Node):
+    """A 3D model file from disk (.glb, .gltf, .obj, .stl, .ply, .fbx)"""
+    bl_idname = "ComfyQModelFileNode"
+    bl_label = "3D Model File"
+    bl_icon = "FILE_3D"
+    comfyq_kind = "model"
+
+
+class ComfyQSceneObjectsNode(_Node, bpy.types.Node):
+    """Scene objects sent as one GLB file (modifiers applied): what mesh workflows (remesh, UV unwrap) take"""
+    bl_idname = "ComfyQSceneObjectsNode"
+    bl_label = "Scene Objects"
+    bl_icon = "MESH_DATA"
+    bl_width_default = 300
+
+    collection: PointerProperty(type=bpy.types.Collection, name="Collection",
+                                description="Send the objects of this collection; empty sends the selected objects")
+
+    def init(self, context):
+        self.outputs.new(SOCKET_IDNAME["model"], "3D Model")
+
+    def objects(self, scene) -> list:
+        from ..passes import mesh
+        if self.collection is not None:
+            return mesh.exportable(self.collection.all_objects)
+        return mesh.exportable(o for o in scene.objects if o.select_get())
+
+    def draw_buttons(self, context, layout):
+        from ..ui.studio import draw_selection
+        layout.prop(self, "collection", text="")
+        draw_selection(layout.column(align=True), self.objects(context.scene),
+                       "Select the objects to send" if self.collection is None
+                       else "This collection has no objects to send")
+
+
 _SCAN: dict = {}                    # (folder, recursive) -> (time, {"image": [...], "video": [...]}): draw is frequent
 
 
@@ -611,7 +646,7 @@ class ComfyQWorkflowNode(_Node, bpy.types.Node):
 
     def _draw(self, context, layout, columns: int) -> None:
         from ..ops.workflow import shared_budget, vram_badge
-        from ..ui.studio import draw_chips
+        from ..ui.studio import draw_cameras, draw_chips
         wf = workflow_of(self.workflow_id)
         specs = SESSION.specs.get(self.workflow_id)
         head = layout.row(align=True)
@@ -649,6 +684,8 @@ class ComfyQWorkflowNode(_Node, bpy.types.Node):
         visible = [s for s in specs if self.item(s.key) is not None and not is_disabled(s, current, specs)]
         grid = layout.grid_flow(row_major=True, columns=columns, even_columns=True, align=False)
         draw_chips(grid, context.scene, self.workflow_id, visible, get=self.item)
+        draw_cameras(layout, context.scene, self.workflow_id, visible, get=self.item, node=self,
+                     chars=max(20, int(self.width / 7)))
         linked = {sock.identifier for sock in self.inputs if sock.is_linked}
         for s in visible:
             if s.kind in ("prompt", "text") and s.key not in linked:
@@ -665,7 +702,8 @@ class ComfyQWorkflowNode(_Node, bpy.types.Node):
                                + (" (needed)" if s.required else ""), icon="ERROR" if s.required else "INFO")
                 target(row.operator("comfyq.graph_add_source", text=SOURCE_LABEL[kind], icon="ADD"), self, s.key)
         if hidden:
-            noun = {"image": "Reference Image", "video": "Video", "audio": "Audio", "mask": "Mask"}.get(
+            noun = {"image": "Reference Image", "video": "Video", "audio": "Audio", "mask": "Mask",
+                    "model": "3D Model"}.get(
                 hidden[0].kind, "Input")
             target(layout.operator("comfyq.graph_more_inputs", text=f"Add {noun} ({len(hidden)} Free)", icon="ADD"),
                    self)
@@ -1007,17 +1045,19 @@ OUTPUT_NODES = ("ComfyQViewerNode", "ComfyQImportNode", "ComfyQSaveNode")
 
 # Source node offered by the "+" of an unlinked input
 SOURCE_FOR = {"image": "ComfyQSceneRenderNode", "video": "ComfyQSceneAnimationNode", "mask": "ComfyQMaskNode",
-              "audio": "ComfyQAudioFileNode", "text": "ComfyQPromptNode"}
+              "audio": "ComfyQAudioFileNode", "text": "ComfyQPromptNode", "model": "ComfyQSceneObjectsNode"}
 SOURCE_LABEL = {"image": "Scene render", "video": "Scene animation", "mask": "Selection mask",
-                "audio": "Audio file", "text": "Prompt"}
+                "audio": "Audio file", "text": "Prompt", "model": "Scene objects"}
 
 NODE_CLASSES = (ComfyQImageNode, ComfyQSceneRenderNode, ComfyQMaskNode, ComfyQSceneAnimationNode,
-                ComfyQVideoFileNode, ComfyQFolderNode, ComfyQAudioFileNode, ComfyQPromptNode, ComfyQWorkflowNode,
+                ComfyQVideoFileNode, ComfyQFolderNode, ComfyQAudioFileNode, ComfyQSceneObjectsNode,
+                ComfyQModelFileNode, ComfyQPromptNode, ComfyQWorkflowNode,
                 ComfyQSurfacesNode, ComfyQViewerNode, ComfyQImportNode, ComfyQSaveNode)
 RUN_NODES = (WORKFLOW_NODE, SURFACES_NODE)       # nodes a graph run books (a ComfyQ job / a SAM3 segmentation)
 OUTPUT_CLASSES = (ComfyQViewerNode, ComfyQImportNode, ComfyQSaveNode)
 SOURCE_NODES = (ComfyQSceneAnimationNode, ComfyQSceneRenderNode, ComfyQMaskNode, ComfyQImageNode,
-                ComfyQVideoFileNode, ComfyQFolderNode, ComfyQAudioFileNode, ComfyQPromptNode)
+                ComfyQVideoFileNode, ComfyQFolderNode, ComfyQAudioFileNode, ComfyQSceneObjectsNode,
+                ComfyQModelFileNode, ComfyQPromptNode)
 
 
 def graph_trees():

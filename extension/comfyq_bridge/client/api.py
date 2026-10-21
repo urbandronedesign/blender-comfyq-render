@@ -80,6 +80,11 @@ class ComfyQClient:
         """GET /admin/lanes: {lanes, card: {vramGb, usedGb}, fit: {workflow id: {ok, reason, needGb…}}}."""
         return self.http.get("/admin/lanes") or {}
 
+    def admin_config(self) -> dict[str, Any]:
+        """GET /admin/config: {config (no secrets), hasAdminPassword…}; `config.workflows.extraLaneWorkflowIds` =
+        the lanes ComfyQ brings back after a restart."""
+        return self.http.get("/admin/config") or {}
+
     def open_lane(self, workflow_id: str, force: bool = False) -> dict[str, Any]:
         """Serve alongside the main workflow (no restart). Refused (409, with `fit`) when it does not fit."""
         return self.http.post_json("/admin/lanes", {"workflowId": workflow_id, "force": force},

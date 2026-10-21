@@ -13,8 +13,10 @@ import math
 from dataclasses import dataclass, field
 from typing import Any
 
+from . import camera
+
 # Media kinds: the value is the filename returned by POST /upload.
-MEDIA_KINDS = frozenset({"image", "video", "audio", "mask"})
+MEDIA_KINDS = frozenset({"image", "video", "audio", "mask", "model"})
 
 _TYPE_MAP = {
     "textarea": "prompt",
@@ -27,13 +29,15 @@ _TYPE_MAP = {
     "video": "video",
     "audio": "audio",
     "mask": "mask",   # LoadImage reading the alpha channel: transparent = area to change
+    "model3d": "model",   # a 3D mesh file (.glb, .obj, .ply…) uploaded like any media
+    "camera": "camera",   # a camera position around the subject: JSON text, see camera.py
 }
 
 
 @dataclass(frozen=True)
 class ParamSpec:
     key: str
-    kind: str                       # prompt|text|int|float|seed|bool|enum|image|video|audio|mask
+    kind: str                       # prompt|text|int|float|seed|bool|enum|camera|image|video|audio|mask|model
     label: str
     default: Any = None
     required: bool = False
@@ -91,6 +95,7 @@ def spec_from_wire(p: dict[str, Any], lane_entry: dict[str, Any] | None = None) 
         disabled_when=p.get("disabledWhen"),
         order=int(p.get("order") or 0),
         wire_type=wire,
+        extra={"camera": p.get("camera") or {}} if kind == "camera" else {},
     )
 
 
@@ -133,6 +138,9 @@ def clamp(spec: ParamSpec, value: Any) -> Any:
     if spec.kind == "enum":
         s = str(value)
         return s if not spec.options or s in spec.options else spec.default
+    if spec.kind == "camera":
+        cam = spec.extra.get("camera")
+        return camera.dumps(camera.parse(value, cam))
     return value
 
 
@@ -167,6 +175,9 @@ def json_schema(specs: list[ParamSpec]) -> dict[str, Any]:
         else:
             prop = {"type": "string"}
         prop["description"] = s.label + (" (uploaded filename from comfyq_upload)" if s.is_media else "")
+        if s.kind == "camera":
+            prop["description"] += (' (JSON {"horizontal": 0-360 degrees, 0 = front, 90 = right side, 180 = back; '
+                                    '"vertical": elevation in degrees; "zoom": 0 wide to 10 close-up})')
         if s.min is not None and prop["type"] in ("integer", "number"):
             prop["minimum"] = s.min
         if s.max is not None and prop["type"] in ("integer", "number"):

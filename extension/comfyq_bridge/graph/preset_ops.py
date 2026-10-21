@@ -18,7 +18,8 @@ from . import kinds, presets
 from .tree import WORKFLOW_NODE, socket_kind
 
 SOURCE_TYPES = {"ComfyQSceneRenderNode", "ComfyQMaskNode", "ComfyQSceneAnimationNode", "ComfyQImageNode",
-                "ComfyQVideoFileNode", "ComfyQAudioFileNode", "ComfyQPromptNode", "ComfyQFolderNode"}
+                "ComfyQVideoFileNode", "ComfyQAudioFileNode", "ComfyQPromptNode", "ComfyQFolderNode",
+                "ComfyQSceneObjectsNode", "ComfyQModelFileNode"}
 
 
 def _in_graph(context) -> bool:
@@ -28,7 +29,7 @@ def _in_graph(context) -> bool:
 
 def _inputs_of(wf_id: str) -> list[str] | None:
     specs = SESSION.specs.get(wf_id)
-    return None if specs is None else [s.kind for s in specs if s.kind in ("image", "mask", "video", "audio")]
+    return None if specs is None else [s.kind for s in specs if s.is_media]
 
 
 def when_specs(ids, then, fail, timeout: float = 25.0) -> None:
@@ -152,7 +153,7 @@ def build_builtin(preset: presets.Preset, tree, scene, choice: dict[str, str | N
 _NODE_PROPS = {
     "ComfyQSceneRenderNode": ("style", "frame", "cycles_samples"), "ComfyQMaskNode": ("style", "frame"),
     "ComfyQSceneAnimationNode": ("style",), "ComfyQVideoFileNode": ("filepath",),
-    "ComfyQAudioFileNode": ("filepath",), "ComfyQPromptNode": ("text",),
+    "ComfyQAudioFileNode": ("filepath",), "ComfyQModelFileNode": ("filepath",), "ComfyQPromptNode": ("text",),
     "ComfyQViewerNode": ("auto",), "ComfyQImportNode": ("auto", "replace", "place", "on_ground", "size"),
     "ComfyQSaveNode": ("auto", "folder", "pattern", "batch_suffix"), "ComfyQFolderNode": ("folder", "recursive"),
     "ComfyQSurfacesNode": ("intro", "outro", "threshold"),
@@ -193,7 +194,8 @@ def serialize(tree, label: str, description: str) -> dict:
         elif n.bl_idname == WORKFLOW_NODE:
             d["workflow_id"] = n.workflow_id
             d["params"] = [{"key": it.key, "s": it.s, "i": it.i, "f": it.f, "b": it.b, "randomize": it.randomize,
-                            "text": it.text.as_string() if it.text is not None else None}
+                            "text": it.text.as_string() if it.text is not None else None,
+                            **({"camera": it.value()} if it.kind == "camera" else {})}
                            for it in n.params if it.workflow_id == n.workflow_id]
         elif n.bl_idname == "NodeFrame":
             d["height"] = round(n.height, 1)
@@ -243,6 +245,10 @@ def build_saved(data: dict, tree, scene=None) -> list:
                 if it is None:
                     continue
                 it.s, it.i, it.f, it.b, it.randomize = p["s"], p["i"], p["f"], p["b"], p["randomize"]
+                if p.get("camera"):
+                    from ..ops.workflow import set_camera
+                    set_camera(it, p["camera"], next((s for s in SESSION.specs[node.workflow_id]
+                                                      if s.key == it.key), None))
                 if p.get("text"):
                     it.text = bpy.data.texts.new(f"ComfyQ prompt · {node.name}")
                     it.text.write(p["text"])

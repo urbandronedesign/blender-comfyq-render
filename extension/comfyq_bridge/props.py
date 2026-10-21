@@ -17,6 +17,7 @@ from bpy.props import (
     StringProperty,
 )
 
+from .client import camera
 from .passes.render import STYLES
 from .runtime.session import SESSION
 
@@ -44,12 +45,15 @@ _SRC = {
     "NONE": ("Leave Empty", "Send nothing; the workflow uses its own default", "X", 5),
     "KEYFRAME": ("AI Keyframe", "Restyle the scene frame with a chosen image model first",
                  "SHADERFX", 6),
+    "SELECTION": ("Selected Objects", "The selected objects, sent as a GLB file (modifiers applied)",
+                  "OBJECT_DATA", 7),
 }
 _SOURCES_BY_KIND = {
     "image": ("STRUCTURE", "KEYFRAME", "MASK", "IMAGE", "FILE", "NONE"),
     "mask": ("MASK", "STRUCTURE", "IMAGE", "FILE"),
     "video": ("ANIMATION", "FILE", "NONE"),
     "audio": ("FILE", "NONE"),
+    "model": ("SELECTION", "FILE"),
 }
 # Built once and kept alive: Blender crashes or shows garbage if enum item strings are freed.
 _SOURCE_ITEMS = {kind: [(k, *_SRC[k]) for k in keys] for kind, keys in _SOURCES_BY_KIND.items()}
@@ -118,11 +122,20 @@ class ComfyQParamValue(bpy.types.PropertyGroup):
     source: EnumProperty(name="", items=_source_items)
     image: PointerProperty(name="", type=bpy.types.Image)
     path: StringProperty(name="", subtype="FILE_PATH", options=REL_PATH)
+    # a `camera` param: where the camera stands around the subject (ComfyUI's CameraAngle axes)
+    cam_h: IntProperty(name="Around", min=0, max=360, default=0,
+                       description="Turn the camera around the subject: 0 front, 90 right side, 180 back")
+    cam_v: IntProperty(name="Height", min=-30, max=60, default=0,
+                       description="Raise the camera above the subject (negative looks up from below)")
+    cam_zoom: FloatProperty(name="Zoom", min=0.0, max=10.0, default=5.0, step=10, precision=1,
+                            description="Frame the subject from a wide shot (0) to a close-up (10)")
 
     def value(self):
         """Current value as sent to ComfyQ (prompt text blocks win over the one-line field)."""
         if self.kind in ("prompt", "text"):
             return self.text.as_string().strip() if self.text else self.s
+        if self.kind == "camera":
+            return camera.dumps({"horizontal": self.cam_h, "vertical": self.cam_v, "zoom": self.cam_zoom})
         return {"bool": self.b, "int": self.i, "seed": self.i, "float": self.f}.get(self.kind, self.s)
 
 

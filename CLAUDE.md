@@ -38,7 +38,10 @@ extension/comfyq_bridge/
     api.py               ComfyQClient: login, workflows, params, upload, submit (also sends top-level prompt), wait, download
     transport/base.py    ComfyQTransport interface (phase 2 adds RestTransport)
     transport/socketio_transport.py  phase 1: book_job / cancel_job / delete_job, state_update/state_patch cache
-    params.py            meta.json params -> ParamSpec (prompt/text/int/float/seed/bool/enum/image/video/audio/mask)
+    params.py            meta.json params -> ParamSpec (prompt/text/int/float/seed/bool/enum/camera/image/video/audio/
+                         mask/model; ComfyQ `model3d` = kind "model", a mesh file uploaded like media)
+    camera.py            ComfyQ `camera` param (JSON {horizontal, vertical, zoom}): parse/clamp, the shot words
+                         (port of ComfyQ cameraAngle.js, checked against ComfyUI's 5110-point fixture), from_view
     models.py http.py profile.py doctor.py cli.py
   match.py               scene <-> workflow matching (duration/frames/fps/size/aspect by label), frame_for() start/last frame
   props.py               Scene.comfyq: tab, workflow_id, keyframe_workflow_id, params (per workflow!), jobs (inputs JSON)
@@ -46,6 +49,8 @@ extension/comfyq_bridge/
   runtime/session.py     SESSION: worker pool + main-thread queue (pump), connect, specs cache, JobView, reattach, download
   passes/render.py       Workbench passes: structure (clay = true grayscale), mask (RGBA alpha = repaint area), image
   passes/animation.py    clay animation MP4 (frame range through scene camera), cache + depsgraph staleness
+  passes/mesh.py         3D-model inputs: selected objects → one GLB (modifiers applied), size warning (remesh
+                         returns an empty mesh at ~80 units), fingerprint for the graph's Scene Objects node
   ops/generate.py        start_job (render inputs -> upload -> book), AI-keyframe chain, cancel/import/open folder
   ops/workflow.py        select workflow, menus, match scene, previews, multi-line prompt (Text), detached ComfyQ window
   ops/results.py         job-card buttons (save copy, import file, download) + Clean up
@@ -397,6 +402,35 @@ change that session: the user must reinstall from the UI or restart Blender.
 - 3D from a building: front elevation (failed), Blender blockout → 4 clay views → Klein → Multi-View (closed but
   square). Gaussian splats render in Cycles (`tools/splat_render.py`). Four views preset; pass-name bug fixed
   (gotcha 46); batch renders from a folder.
+
+## Work of 2026-10-21 (not committed / not installed yet)
+- Folder renamed MixarAI → ComfyQRender: `.venv` rebuilt (it pointed at the old path), `requirements-dev.txt` added (`685d4cf`).
+- ComfyQ is now 68 commits past `be109b3` (65 workflows). New param types supported: **`model3d`** (Remesh & decimate,
+  UV unwrap: input source *Selected Objects* / *File*; graph nodes **Scene Objects** (collection or selection) and
+  **3D Model File**; MCP `blender_render kind=objects`) and **`camera`** (Qwen 2511 reshoot from another angle:
+  Around / Height / Zoom + the shot words + **From 3D View** = the 3D Viewport's view around the selection,
+  measured from the scene camera). Library: the two removed Qwen camera-angle presets replaced by the 2511 one.
+  Verified: unit + contract 93, smoke PASSED, GUI -Ui 110/110 (screenshots looked at). **GPU (2026-10-21,
+  `tools/new_inputs_check.py`, headless sandbox, Solo):** Qwen 2511 from a clay Suzanne, Around 90 → a true profile
+  (87 s incl. model switch), 180 → the back (12 s); graph Scene Objects → Remesh (15,744 → 1,999 faces) → UV unwrap
+  (UVs + layout + AO PNGs) in 24 s. Results in `live_check/new_inputs*/`. **Rerun after the lane-restore wait
+  (22:25, `live_check/new_inputs_rerun/`): all 3 pass first time** (mesh chain 85 s incl. loading both models,
+  2,000 faces + UVs; Qwen 90 → profile 51 s, 180 → back 12 s); ComfyQ then put back to Klein t2i + Klein edit lane.
+- **ComfyQ now has an admin password** (set by the user in its admin page): lanes, model downloads etc. need it;
+  `activate-workflow` (main switch) is still ungated. The teacher profile's `admin_password` was updated by the user
+  (checked with `POST /admin/verify-password`, never printed). Restart Blender to pick up a changed profile.
+- **ComfyQ lane-port race (for b2renger), reproduced 2026-10-21 with `tools/lane_race_check.py`:** after a restart
+  `restoreRemembered()` reopens the remembered lanes in the background (not awaited, ~15 s per lane), and
+  `LaneManager._nextPort()` only counts lanes already in `this.lanes` (a lane registers after its ComfyUI started).
+  A lane opened in that window (Solo / Load Model right after a main switch) gets the restoring lane's port:
+  A (opened after the restore) → 8190, job ok 31 s; B (opened during it) → both lanes on 8189, one process, job
+  `comfyui-process-exited` in 7 s. Fix on their side: reserve the port before `await worker.start()` (or count
+  lanes being opened). `live_check/lane_race/report.json`. **Bridge workaround done:** `runtime/serving.choose()` and `serve(alongside)`
+  first wait (up to 5 min, worker thread) until every lane in `GET /admin/config` `workflows.extraLaneWorkflowIds`
+  is in `GET /admin/lanes` (`serving.restoring` / `wait_restored`) — also keeps the fit check honest. Live proof
+  (`tools/lane_race_fix_check.py`): opened right after a restart, it waited 10 s, got 8190, job ok in 26 s.
+- Library still lacks the other new ComfyQ workflows (FLUX.3 Klein edit ×2, Qwen 2.1 relight, …): run
+  `make_preset_library.py` per category when the user asks for the sync.
 
 ## Next steps
 1. Wait for the user's feedback on the **Batch** and **Four views** presets in their Blender (installed `5c70c06`).

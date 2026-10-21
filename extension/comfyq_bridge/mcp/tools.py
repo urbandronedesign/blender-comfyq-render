@@ -101,6 +101,8 @@ def comfyq_describe_workflow(args: dict) -> dict:
             p["disabled_when"] = s.disabled_when
         if s.is_media:
             p["give_a_local_file_in"] = "files"
+        if s.kind == "camera":           # value = JSON {"horizontal", "vertical", "zoom"}; the words the model gets
+            p["camera"] = s.extra.get("camera", {})
         params.append(p)
     return {"id": wf_id, "name": w.name if w else wf_id, "description": w.description if w else "",
             "served": wf_id in SESSION.served_ids(), "parameters": params}
@@ -361,8 +363,18 @@ def _cycles(edge: int | None, frame: int | None, samples: int, progress=None) ->
 
 
 def blender_render(args: dict) -> dict:
-    from ..passes import animation, render
+    from ..passes import animation, mesh, render
     kind, style = args.get("kind", "still"), args.get("style", "CLAY")
+    if kind == "objects":
+        def export():
+            sel = mesh.exportable(bpy.context.selected_objects)
+            if not sel:
+                raise ToolError("Select the objects to send first (blender_select)")
+            out = {"path": str(mesh.mesh_pass(sel)), "objects": [o.name for o in sel],
+                   "size_m": round(mesh.size(sel), 3)}
+            warn = mesh.size_warning(sel)
+            return {**out, "warning": warn} if warn else out
+        return on_main(export)
     styles = render.STILL_STYLES if kind == "still" else render.STYLES
     if style not in {s[0] for s in styles}:
         raise ToolError(f"style for a {kind} must be one of {[s[0] for s in styles]}")
@@ -781,6 +793,9 @@ def blender_graph_set(args: dict) -> dict:
                 it.f = float(value)
             elif it.kind == "bool":
                 it.b = bool(value)
+            elif it.kind == "camera":
+                from ..ops.workflow import set_camera
+                set_camera(it, value, next((s for s in specs if s.key == key), None))
             else:
                 it.text = None
                 it.s = str(value)
@@ -906,8 +921,9 @@ TOOLS = [
          obj({"names": {"type": "array", "items": _S}}, ("names",)), blender_select),
     Tool("blender_render", "Render a pass through the scene camera: `still` (clay/matcap/material image), "
          "`mask` (still with the selected objects transparent = area to repaint) or `animation` (the frame "
-         "range as an MP4, what video-to-video workflows restyle). Returns the file path.",
-         obj({"kind": {"type": "string", "enum": ["still", "mask", "animation"]},
+         "range as an MP4, what video-to-video workflows restyle); or `objects`: the selected objects as a GLB "
+         "file (modifiers applied), what 3D-model inputs (remesh, UV unwrap) take. Returns the file path.",
+         obj({"kind": {"type": "string", "enum": ["still", "mask", "animation", "objects"]},
               "style": {"type": "string", "enum": ["CLAY", "MATCAP", "MATERIAL", "CYCLES"],
                         "description": "CYCLES (stills only) = a real Cycles render (materials, lights, HDRI, "
                                        "shadow catchers) in a separate Blender: the GPU is free again after it"},

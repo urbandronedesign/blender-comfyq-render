@@ -216,12 +216,22 @@ Measured: 4 pictures ≈ 100 s with Klein edit; 2 clips ≈ 60 s with FILM inter
 
 ### 7.1 For ComfyQ (b2renger), most important first
 1. **Security for class:**
-   - there is no admin password (`config.json` `auth.adminPasswordHash` is empty), so any PC on the LAN
-     can open lanes or calibrate;
+   - ~~there is no admin password~~ an admin password is set since 2026-10-21 (admin page); the bridge's teacher
+     profile holds the same one. Lanes, calibration and model downloads now need it;
    - `POST /admin/activate-workflow` has **no admin gate at all**;
    - ComfyUI listens on 0.0.0.0:8188, so students can skip the queue.
 
    This is P1.0 of the plan, postponed until now.
+1b. **Lane-port race after a restart** (reproduced 2026-10-21, `tools/lane_race_check.py`,
+   `live_check/lane_race/report.json`): `restoreRemembered()` reopens the remembered lanes in the background (not
+   awaited) and `LaneManager._nextPort()` only counts lanes already in `this.lanes`, which a lane joins only after its
+   ComfyUI has started. A lane opened during the restore (Load Model / Solo right after a main switch) gets the
+   SAME port as the lane being restored: both report 8189, one ComfyUI process serves them, and the next job on the
+   new lane fails `comfyui-process-exited` (7 s). Opened after the restore, the same lane gets 8190 and works (31 s).
+   Fix: reserve the port before `await worker.start()` (e.g. a `pendingPorts` set), or await the restore before
+   accepting `POST /admin/lanes`. The bridge works around it (Solo, Load Model..., `comfyq_serve` wait until the
+   remembered lanes are back: `runtime/serving.wait_restored`), but other clients (ComfyQ's own admin page) still
+   hit it.
 2. **The job prompt lands in the negative prompt** (`realtime/realtimeBus.js` `book_job`, ~line 206): ComfyQ copies the
    job's top-level `prompt` into the first *unset* textarea whose field is `text`. When a workflow's real prompt is a
    Primitive (field `value`), as in Flux2 Klein t2i, that is the **Negative prompt**: every Klein t2i job from Blender ran

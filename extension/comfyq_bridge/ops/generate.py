@@ -18,7 +18,7 @@ from bpy.props import StringProperty
 from .. import match as scene_match
 from ..client.params import ParamSpec, is_disabled
 from ..importers.media import IMAGE_EXTS, import_files, import_image
-from ..passes import animation, render
+from ..passes import animation, mesh, render
 from ..props import INT_MAX, param_item, workflow_items
 from ..runtime.session import SESSION, JobView, cache_dir
 from .workflow import open_file, scene_facts
@@ -63,6 +63,10 @@ def _media(scene, selected, it, spec, rendered, style, frame, keyframe_ok) -> Pa
     src = it.source
     if src == "NONE":
         return None
+    if src == "SELECTION":
+        if "SELECTION" not in rendered:            # one export per job, whatever number of inputs take it
+            rendered["SELECTION"] = mesh.mesh_pass(selected)
+        return rendered["SELECTION"]
     if src == "ANIMATION":
         # Always a fresh render at Generate: the job must use the animation as it is now
         # (a few seconds of Workbench), whatever edit the change detection might miss.

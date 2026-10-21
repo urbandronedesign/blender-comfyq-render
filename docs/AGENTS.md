@@ -43,7 +43,7 @@ args = ["C:/Users/<you>/AppData/Roaming/Blender Foundation/Blender/5.2/extension
 |---|---|
 | `blender_scene_info` | File, frame range, fps, duration, resolution, camera, objects (animated?), selection |
 | `blender_select` | Select objects (what a mask repaints) |
-| `blender_render` | `still` / `mask` / `animation` pass through the camera (clay, matcap, material) → file. `style: "CYCLES"` (stills only, `samples` 64): a real Cycles render in a separate Blender — the GPU is free again when it returns, ready for the ComfyQ job |
+| `blender_render` | `still` / `mask` / `animation` pass through the camera (clay, matcap, material) → file. `style: "CYCLES"` (stills only, `samples` 64): a real Cycles render in a separate Blender — the GPU is free again when it returns, ready for the ComfyQ job. `objects`: the selected objects as one GLB (modifiers applied) for 3D-model inputs (remesh, UV unwrap), with `size_m` and a `warning` when the model is too large for ComfyQ's remesh |
 | `blender_import` | A result into Blender (image → Image Editor, video/audio → *ComfyQ Results*, GLB/PLY → collection placed `place` BESIDE the scene (default) / CURSOR / ORIGIN / ASIS, `on_ground`, `size` = longest side in m) |
 | `blender_world` | Light the scene with an HDRI: a local .hdr/.exr or `builtin:forest` (city, courtyard, forest, interior, night, studio, sunrise, sunset), `strength`, `rotation_deg`, `background` (seen behind the scene in renders), `clear`. Not used by the clay/matcap passes ComfyQ gets |
 | `blender_shadow_catcher` | Objects (`names`), a `collection`'s meshes, or a new ground `plane` catch shadows only. **Cycles**: Blender's Shadow Catcher flag (exact). **EEVEE**: an approximating material (transparent where lit, dark in shadow); `eevee_lit` = brightness of the lit ground (1; ~1.5 under a bright HDRI + sun), `strength` = darkness; `remove` undoes it. Verified by renders (sandbox, forest HDRI + sun) |
@@ -53,7 +53,7 @@ args = ["C:/Users/<you>/AppData/Roaming/Blender Foundation/Blender/5.2/extension
 | `blender_graph_set` | Change a node: a setting or `prompt`, a source's style/frame/file, an output's options |
 | `blender_graph_run` / `blender_graph_status` | Run the graph (or one node) and follow it |
 | `comfyq_list_workflows` | Served workflows (or all): what they make, VRAM badge, description |
-| `comfyq_describe_workflow` | A workflow's parameters |
+| `comfyq_describe_workflow` | A workflow's parameters. A `camera` parameter (e.g. Qwen 2511 reshoot from another angle) takes JSON `{"horizontal": 0-360 (0 front, 90 right side, 180 back), "vertical": degrees, "zoom": 0 wide-10 close-up}` and lists its `camera` block (ranges + the shot words the model gets); a `model` parameter takes a mesh file (`files`, e.g. from `blender_render kind=objects`) |
 | `comfyq_submit` | Book a job: settings, local files for media inputs, prompt → job id |
 | `comfyq_job_status` / `comfyq_wait` / `comfyq_cancel` / `comfyq_outputs` | Follow, wait (≤ 120 s per call), cancel, download results |
 | `blender_graph_set` on an Image node | `key: "image"` + a local file path loads the picture into it (references, characters, styles) |

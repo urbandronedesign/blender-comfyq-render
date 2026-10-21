@@ -99,7 +99,7 @@ def linked(node) -> Media | None:
         m.path = animation_path()
     elif idn == "ComfyQImageNode":
         m.path = bpy.path.abspath(src.image.filepath) if src.image is not None and src.image.filepath else ""
-    elif idn in ("ComfyQVideoFileNode", "ComfyQAudioFileNode"):
+    elif idn in ("ComfyQVideoFileNode", "ComfyQAudioFileNode", "ComfyQModelFileNode"):
         m.path = bpy.path.abspath(src.filepath) if src.filepath else ""
     if m.path and not Path(m.path).is_file():
         m.path = ""

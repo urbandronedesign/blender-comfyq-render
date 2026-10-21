@@ -1097,6 +1097,93 @@ def step_media_folder():
     area.spaces.active.node_tree = before
 
 
+def step_new_inputs():
+    """ComfyQ's `camera` and `model3d` params: the bar's camera block (sliders, the shot the model is told, From 3D
+    View pressed with the 3D Viewport orbited to the right of the subject), the mesh input (Selected Objects) and
+    both workflows as graph nodes (Scene Objects → 3D Model socket). Drawn and pressed only (no job)."""
+    from mathutils import Vector
+    sc = bpy.context.scene
+    props, cam_mod = ext("props"), ext("client.camera")
+    cam_wf = next((w.id for w in S().workflows if any(s.kind == "camera" for s in S().client.params(w.id))), None)
+    mesh_wf = next((w.id for w in S().workflows if any(s.kind == "model" for s in S().client.params(w.id))), None)
+    saved_wf = sc.comfyq.workflow_id
+    mesh = ext("passes.mesh")
+    subject = next((o for o in sc.objects if o.type == "MESH" and o.visible_get()), None)
+    if subject is not None:
+        bpy.ops.object.select_all(action="DESELECT")
+        subject.select_set(True)
+        sc.view_layers[0].objects.active = subject
+    if cam_wf:
+        click("set_workflow", v3d, workflow_id=cam_wf)
+        yield (lambda: specs_ready(cam_wf)), 15
+        spec = next(s for s in S().specs[cam_wf] if s.kind == "camera")
+        it = props.param_item(sc, spec.key, cam_wf)
+        _w, area = v3d()
+        r3d = area.spaces.active.region_3d
+        old_view = (r3d.view_location.copy(), r3d.view_rotation.copy(), r3d.view_distance, r3d.view_perspective)
+        centre, radius = mesh.bounds([subject]) if subject is not None else (Vector(), 1.0)
+        front = sc.camera.matrix_world.translation if sc.camera else Vector((0, -1, 0))
+        flat = Vector((front.x - centre.x, front.y - centre.y, 0)).normalized()
+        right = Vector((-flat.y, flat.x, 0))            # 90 degrees to the picture's right, seen from the camera
+        eye = centre + right * radius * 8
+        r3d.view_perspective = "PERSP"
+        r3d.view_location = centre
+        r3d.view_rotation = (eye - centre).to_track_quat("Z", "Y")
+        r3d.view_distance = (eye - centre).length
+        yield 0.3
+        res = click("camera_from_view", v3d, "EXEC_DEFAULT", key=spec.key, workflow_id=cam_wf)
+        shot_now = cam_mod.describe(spec.extra.get("camera"), cam_mod.parse(it.value(), spec.extra.get("camera")))
+        check("camera: From 3D View sets the shot from the orbited 3D Viewport (subject seen from its right)",
+              res == {"FINISHED"} and abs(((it.cam_h - 90 + 180) % 360) - 180) <= 2 and "right side" in shot_now,
+              f"{res} {it.value()} → {shot_now}")
+        yield 0.5
+        shot("09m_camera_bar")
+        check("camera block draws (sliders, shot, From 3D View)", not any("draw_camera" in e for e in draw_errors))
+        r3d.view_location, r3d.view_rotation, r3d.view_distance, r3d.view_perspective = old_view
+    else:
+        check("camera: ComfyQ has a workflow with a camera setting", False, "none listed")
+    if mesh_wf:
+        click("set_workflow", v3d, workflow_id=mesh_wf)
+        yield (lambda: specs_ready(mesh_wf)), 15
+        spec = next(s for s in S().specs[mesh_wf] if s.kind == "model")
+        it = props.param_item(sc, spec.key, mesh_wf)
+        check("3D model input defaults to Selected Objects", it.source == "SELECTION", it.source)
+        yield 0.5
+        shot("09n_mesh_bar")
+        check("3D model input draws", not any("draw_selection" in e for e in draw_errors))
+    if cam_wf or mesh_wf:
+        _w, area = graph_area()
+        before = area.spaces.active.node_tree
+        tree = bpy.data.node_groups.new("UI check new inputs", "ComfyQGraphTree")
+        area.spaces.active.node_tree = tree
+        x = 0
+        for wf_id in (w for w in (mesh_wf, cam_wf) if w):
+            n = tree.nodes.new("ComfyQWorkflowNode")
+            n.workflow_id, n.location = wf_id, (x, 0)
+            n.build(S().specs[wf_id])
+            x += 600
+        mesh_node = next((n for n in tree.nodes if n.workflow_id == mesh_wf), None) if mesh_wf else None
+        if mesh_node is not None:
+            key = next(s.key for s in S().specs[mesh_wf] if s.kind == "model")
+            with bpy.context.temp_override(window=_w, area=area):
+                bpy.ops.comfyq.graph_add_source(tree=tree.name, node=mesh_node.name, key=key)
+            sock = next(i for i in mesh_node.inputs if i.identifier == key)
+            check("graph: a 3D model input adds a Scene Objects node",
+                  sock.is_linked and sock.links[0].from_node.bl_idname == "ComfyQSceneObjectsNode")
+        yield 0.3
+        region = next(r for r in area.regions if r.type == "WINDOW")
+        with bpy.context.temp_override(window=_w, area=area, region=region):
+            bpy.ops.node.view_all()
+        yield 0.8
+        shot("09o_new_inputs_graph")
+        check("graph: camera chip and Scene Objects node draw", not any("tree.py" in e for e in draw_errors))
+        area.spaces.active.node_tree = before
+        bpy.data.node_groups.remove(tree)
+    if saved_wf:
+        click("set_workflow", v3d, workflow_id=saved_wf)
+        yield (lambda: specs_ready(saved_wf)), 15
+
+
 def step_server_panel():
     """F2: the teacher's Server panel (served models, GPU memory, queue, connected people). This sandbox reads
     the real profiles file (gotcha 37): on the teacher's PC it is unlocked, on a student PC it is hidden."""
@@ -1131,7 +1218,7 @@ def step_presets_menu():
 STEPS = [step_start, step_connect, step_refresh, step_tabs_and_menu, step_chips, step_prompt, step_match,
          step_render_scene, step_animation, step_player, step_library, step_cleanup, step_finished_job_card,
          step_failed_job_card,
-         step_keyframe, step_graph, step_cycles_render, step_graph_run, step_generate, step_disconnect_reconnect, step_reload_file, step_extras, step_preferences, step_media_folder, step_server_panel, step_presets_menu]
+         step_keyframe, step_graph, step_cycles_render, step_graph_run, step_generate, step_disconnect_reconnect, step_reload_file, step_new_inputs, step_extras, step_preferences, step_media_folder, step_server_panel, step_presets_menu]
 
 
 class Runner:

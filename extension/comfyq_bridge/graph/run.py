@@ -17,7 +17,7 @@ import bpy
 
 from ..client.params import is_disabled
 from ..importers.media import IMAGE_EXTS
-from ..passes import animation, render
+from ..passes import animation, mesh, render
 from ..props import INT_MAX
 from ..runtime import serving
 from ..runtime.session import SESSION
@@ -36,6 +36,8 @@ from .tree import (
 
 SCENE_SOURCES = {"ComfyQSceneRenderNode", "ComfyQMaskNode", "ComfyQSceneAnimationNode"}
 FOLDER_NODE = "ComfyQFolderNode"
+OBJECTS_NODE = "ComfyQSceneObjectsNode"
+FILE_NODES = ("ComfyQVideoFileNode", "ComfyQAudioFileNode", "ComfyQModelFileNode")
 RUNS: dict[str, Run | BatchRun] = {}   # tree name -> the run in progress
 SWITCH_TIMEOUT_S = 900               # solo mode: a model switch restarts ComfyQ (1–3 min); give up after this
 
@@ -74,9 +76,11 @@ def _own_hash(node, scene) -> str:
     if idn == FOLDER_NODE:
         p = Path(node.current) if node.current else None
         return engine.settings_hash(idn, str(p), p.stat().st_mtime if p and p.is_file() else 0)
-    if idn in ("ComfyQVideoFileNode", "ComfyQAudioFileNode"):
+    if idn in FILE_NODES:
         p = Path(bpy.path.abspath(node.filepath)) if node.filepath else None
         return engine.settings_hash(idn, str(p), p.stat().st_mtime if p and p.is_file() else 0)
+    if idn == OBJECTS_NODE:           # the objects sent and their shape, placement, modifiers
+        return engine.settings_hash(idn, mesh.fingerprint(node.objects(scene)))
     if idn == "ComfyQPromptNode":
         return engine.settings_hash(idn, node.value())
     if idn == SURFACES_NODE:          # the list (labels + materials), the text around it, the threshold
@@ -463,7 +467,10 @@ class Run:
                     p = render.image_pass(img, edge)
                 finally:
                     bpy.data.images.remove(img)            # a batch of hundreds must not fill the file
-        elif idn in ("ComfyQVideoFileNode", "ComfyQAudioFileNode"):
+        elif idn == OBJECTS_NODE:           # its collection, else what was selected when the run started
+            objs = src.objects(scene) if src.collection is not None else                 [o for o in scene.objects if o.name in self.selected]
+            p = mesh.mesh_pass(objs)
+        elif idn in FILE_NODES:
             p = Path(bpy.path.abspath(src.filepath)) if src.filepath else None
             if p is None or not p.is_file():
                 raise RuntimeError(f"“{src.name}”: choose a file")

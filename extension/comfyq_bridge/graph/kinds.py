@@ -35,7 +35,7 @@ ACCEPTS: dict[str, set[str]] = {
 
 def input_kind(param_kind: str) -> str | None:
     """Socket kind of a workflow parameter; None = a setting drawn as a chip, not a socket."""
-    if param_kind in ("image", "mask", "video", "audio"):
+    if param_kind in ("image", "mask", "video", "audio", "model"):
         return param_kind
     if param_kind in ("prompt", "text"):
         return "text"
