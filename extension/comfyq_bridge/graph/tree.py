@@ -239,6 +239,33 @@ def frame_number(scene, which: str) -> int:
     return {"START": scene.frame_start, "END": scene.frame_end}.get(which, scene.frame_current)
 
 
+SHOT_TIP = ("Render a shot: a timeline marker bound to a camera (Ctrl+B in the Timeline) gives the camera and the "
+            "frames up to the next one. Empty uses the scene camera and frame range")
+
+
+def shot_frame(scene, node, which: str) -> int:
+    """The first / last / current frame of the node's shot (of the scene when it has none)."""
+    from ..passes import shots
+    try:
+        s = shots.resolve(scene, getattr(node, "shot", ""))
+    except RuntimeError:
+        s = None
+    if s is None:
+        return frame_number(scene, which)
+    return {"START": s.start, "END": s.end}.get(which, scene.frame_current)
+
+
+def draw_shot(layout, node, scene) -> None:
+    """The Shot field (timeline markers) and what it resolves to: camera, frames, seconds, or why not."""
+    from ..passes import shots
+    layout.prop_search(node, "shot", scene, "timeline_markers", text="Shot", icon="MARKER_HLT")
+    if node.shot:
+        sig = shots.signature(scene, node.shot)
+        row = layout.row()
+        row.alert = not sig or sig[0] == "invalid"
+        row.label(text=shots.describe(scene, node.shot), icon="ERROR" if row.alert else "CAMERA_DATA")
+
+
 class ComfyQSceneRenderNode(_Node, bpy.types.Node):
     """A still of the scene camera (clay, matcap, material colors, or a real Cycles render)"""
     bl_idname = "ComfyQSceneRenderNode"
@@ -248,6 +275,7 @@ class ComfyQSceneRenderNode(_Node, bpy.types.Node):
 
     style: EnumProperty(name="Style", items=STILL_STYLES, default="CLAY")
     frame: EnumProperty(name="Frame", items=FRAMES, default="START")
+    shot: StringProperty(name="Shot", description=SHOT_TIP)
     cycles_samples: IntProperty(name="Samples", default=64, min=1, soft_max=1024,
                                 description="Set the Cycles samples (denoised). Higher is cleaner and slower; the render runs "
                                             "in a separate Blender so the GPU is free for ComfyQ")
@@ -259,6 +287,7 @@ class ComfyQSceneRenderNode(_Node, bpy.types.Node):
         row = layout.row(align=True)
         row.prop(self, "style", text="")
         row.prop(self, "frame", text="")
+        draw_shot(layout, self, context.scene)
         if self.style == "CYCLES":
             layout.prop(self, "cycles_samples")
         from ..passes.render import ACTIVE
@@ -269,9 +298,9 @@ class ComfyQSceneRenderNode(_Node, bpy.types.Node):
             row.progress(factor=job.progress(), type="BAR", text=job.text())
             row.operator("comfyq.cancel_cycles", text="", icon="CANCEL")
         else:
-            op = layout.operator("comfyq.preview_pass", text=f"Render Frame {frame_number(context.scene, self.frame)}",
-                                 icon="RENDER_STILL")
-            op.mask, op.style, op.frame = False, self.style, frame_number(context.scene, self.frame)
+            f = shot_frame(context.scene, self, self.frame)
+            op = layout.operator("comfyq.preview_pass", text=f"Render Frame {f}", icon="RENDER_STILL")
+            op.mask, op.style, op.frame, op.shot = False, self.style, f, self.shot
             op.tag = tag
         _thumbnail(layout, bpy.data.images.get("ComfyQ render preview"))
 
@@ -285,6 +314,7 @@ class ComfyQMaskNode(_Node, bpy.types.Node):
 
     style: EnumProperty(name="Style", items=STYLES, default="CLAY")
     frame: EnumProperty(name="Frame", items=FRAMES, default="CURRENT")
+    shot: StringProperty(name="Shot", description=SHOT_TIP)
 
     def init(self, context):
         self.outputs.new(SOCKET_IDNAME["mask"], "Mask")
@@ -296,8 +326,10 @@ class ComfyQMaskNode(_Node, bpy.types.Node):
         row = layout.row(align=True)
         row.prop(self, "style", text="")
         row.prop(self, "frame", text="")
+        draw_shot(layout, self, context.scene)
         op = layout.operator("comfyq.preview_pass", text="Render Mask", icon="SELECT_SET")
-        op.mask, op.style, op.frame = True, self.style, frame_number(context.scene, self.frame)
+        op.mask, op.style, op.frame = True, self.style, shot_frame(context.scene, self, self.frame)
+        op.shot = self.shot
         _thumbnail(layout, bpy.data.images.get("ComfyQ mask preview"))
 
 
@@ -309,6 +341,7 @@ class ComfyQSceneAnimationNode(_Node, bpy.types.Node):
     bl_width_default = 300
 
     style: EnumProperty(name="Style", items=STYLES, default="CLAY")
+    shot: StringProperty(name="Shot", description=SHOT_TIP)
 
     def init(self, context):
         self.outputs.new(SOCKET_IDNAME["video"], "Video")
@@ -316,12 +349,14 @@ class ComfyQSceneAnimationNode(_Node, bpy.types.Node):
     def draw_buttons(self, context, layout):
         from ..ops.workflow import scene_facts
         sc = context.scene
-        f = scene_facts(sc)
-        layout.label(text=f"{f.frame_start}–{f.frame_end} · {f.fps:g} fps · {f.seconds:.1f} s · "
-                          f"{sc.camera.name if sc.camera else 'NO CAMERA'}", icon="CAMERA_DATA")
+        if not self.shot:
+            f = scene_facts(sc)
+            layout.label(text=f"{f.frame_start}–{f.frame_end} · {f.fps:g} fps · {f.seconds:.1f} s · "
+                              f"{sc.camera.name if sc.camera else 'NO CAMERA'}", icon="CAMERA_DATA")
+        draw_shot(layout, self, sc)
         layout.prop(self, "style", text="")
         op = layout.operator("comfyq.preview_animation", text="Render & Play Clay Animation", icon="RENDER_ANIMATION")
-        op.force, op.play, op.style = True, True, self.style
+        op.force, op.play, op.style, op.shot = True, True, self.style, self.shot
         _movie(layout, animation_path())
 
 

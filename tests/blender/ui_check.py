@@ -1170,12 +1170,33 @@ def step_new_inputs():
             sock = next(i for i in mesh_node.inputs if i.identifier == key)
             check("graph: a 3D model input adds a Scene Objects node",
                   sock.is_linked and sock.links[0].from_node.bl_idname == "ComfyQSceneObjectsNode")
+        # shots: two camera-bound markers; a Scene Animation node on shot 2, a Scene Render on a marker without one
+        sc_ = bpy.context.scene
+        cam2 = bpy.data.objects.new("UI shot cam", bpy.data.cameras.new("UI shot cam"))
+        sc_.collection.objects.link(cam2)
+        m1 = sc_.timeline_markers.new("Shot 1", frame=sc_.frame_start)
+        m1.camera = sc_.camera
+        m2 = sc_.timeline_markers.new("Shot 2", frame=sc_.frame_start + 24)
+        m2.camera = cam2
+        sc_.timeline_markers.new("Note", frame=sc_.frame_start + 10)
+        an = tree.nodes.new("ComfyQSceneAnimationNode")
+        an.location, an.shot = (x, 300), "Shot 2"
+        rn = tree.nodes.new("ComfyQSceneRenderNode")
+        rn.location, rn.shot = (x, -200), "Note"
         yield 0.3
         region = next(r for r in area.regions if r.type == "WINDOW")
         with bpy.context.temp_override(window=_w, area=area, region=region):
             bpy.ops.node.view_all()
         yield 0.8
         shot("09o_new_inputs_graph")
+        sh = ext("passes.shots")
+        check("shots: Scene Animation on a camera-bound marker shows its camera and frames; a marker without a camera "
+              "is explained", sh.describe(sc_, "Shot 2").startswith("UI shot cam")
+              and "No camera" in sh.describe(sc_, "Note") and not any("draw_shot" in e for e in draw_errors),
+              f"{sh.describe(sc_, 'Shot 2')} | {sh.describe(sc_, 'Note')[:40]}")
+        for name in ("Shot 1", "Shot 2", "Note"):
+            sc_.timeline_markers.remove(sc_.timeline_markers[name])
+        bpy.data.objects.remove(cam2)
         check("graph: camera chip and Scene Objects node draw", not any("tree.py" in e for e in draw_errors))
         area.spaces.active.node_tree = before
         bpy.data.node_groups.remove(tree)

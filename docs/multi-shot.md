@@ -40,6 +40,11 @@ the sky (flat grey): put the light in the shared look sentence ("soft warm overc
 5. Assemble the clips in the ComfyQ Results scene's sequencer; one soundtrack for the whole film (each clip's own
    generated sound jumps at the cuts).
 
+## Done (2026-10-22)
+
+- **Shots**: a *Shot* field on Scene Render / Scene Animation / Selection Mask = a timeline marker bound to a camera (`passes/shots.py`); `blender_camera_shot shot=` creates it, `blender_render shot=` previews it.
+- **Serving**: `serving.make_room_for_main` closes extra lanes that would not fit beside a new main model (card − 2 GB), largest first, unknown size = all; Solo, Load Model and `comfyq_serve` report what they closed.
+
 ## What the plugin needs
 
 - **Shots**: Scene Render / Scene Animation nodes always use the scene camera and the whole frame range. Add a Shot

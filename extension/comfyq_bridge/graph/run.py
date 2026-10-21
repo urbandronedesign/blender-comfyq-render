@@ -17,7 +17,7 @@ import bpy
 
 from ..client.params import is_disabled
 from ..importers.media import IMAGE_EXTS
-from ..passes import animation, mesh, render
+from ..passes import animation, mesh, render, shots
 from ..props import INT_MAX
 from ..runtime import serving
 from ..runtime.session import SESSION
@@ -68,7 +68,8 @@ def _own_hash(node, scene) -> str:
         frame = frame_number(scene, node.frame) if hasattr(node, "frame") else (scene.frame_start, scene.frame_end)
         sel = sorted(o.name for o in scene.objects if o.select_get()) if idn == "ComfyQMaskNode" else []
         samples = node.cycles_samples if getattr(node, "style", "") == "CYCLES" else None
-        return engine.settings_hash(idn, node.style, frame, render.scene_fingerprint(scene, node.style), sel, samples)
+        return engine.settings_hash(idn, node.style, frame, render.scene_fingerprint(scene, node.style), sel, samples,
+                                    shots.signature(scene, getattr(node, "shot", "")))
     if idn == "ComfyQImageNode":
         img = node.image
         return engine.settings_hash(idn, img.name if img else "", img.filepath if img else "",
@@ -197,11 +198,13 @@ class Run:
 
         def work():
             how = serving.choose(client, wf_id, "auto")
-            serving.serve(client, wf_id, how)
-            return how
+            return how, serving.serve(client, wf_id, how)
 
-        def done(how):
+        def done(res):
+            how, closed = res
             sw.update(state="loading", how=how)
+            if closed:                           # said, not silent: the served set changed for everyone
+                SESSION.status_note += f" Closed to make room: {', '.join(_wf_name(w) for w in closed)}"
 
         def failed(msg):
             sw.update(state="failed", error=msg)
@@ -435,8 +438,9 @@ class Run:
             # its own Blender process: the run goes on ticking (Blender stays responsive) until the file exists
             job = self.cycles.get(key)
             if job is None:
-                job = self.cycles[key] = render.CyclesRender(scene, edge, frame_number(scene, src.frame),
-                                                             src.cycles_samples, tag=f"{self.tree_name}/{src.name}")
+                with shots.apply(scene, src.shot):     # the copy of the file is saved here, with the shot's camera
+                    job = self.cycles[key] = render.CyclesRender(scene, edge, frame_number(scene, src.frame),
+                                                                 src.cycles_samples, tag=f"{self.tree_name}/{src.name}")
             try:
                 p = job.poll()
             except RuntimeError:
@@ -446,12 +450,15 @@ class Run:
                 raise Rendering(job.text())
             self.cycles.pop(key, None)
         elif idn == "ComfyQSceneRenderNode":
-            p = render.structure_pass(scene, src.style, edge, frame_number(scene, src.frame), src.cycles_samples)
+            with shots.apply(scene, src.shot):
+                p = render.structure_pass(scene, src.style, edge, frame_number(scene, src.frame), src.cycles_samples)
         elif idn == "ComfyQMaskNode":
             sel = [o for o in scene.objects if o.name in self.selected]
-            p = render.mask_pass(scene, sel, src.style, edge, frame_number(scene, src.frame))
+            with shots.apply(scene, src.shot):
+                p = render.mask_pass(scene, sel, src.style, edge, frame_number(scene, src.frame))
         elif idn == "ComfyQSceneAnimationNode":
-            p = animation.animation_pass(scene, src.style, edge, force=True).path
+            with shots.apply(scene, src.shot):
+                p = animation.animation_pass(scene, src.style, edge, force=True).path
         elif idn == "ComfyQImageNode":
             if src.image is None:
                 raise RuntimeError(f"“{src.name}”: choose an image")

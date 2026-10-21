@@ -160,6 +160,40 @@ bpy.context.view_layer.update()
 bpy.ops.object.select_all(action="DESELECT")
 cube.select_set(True)
 
+# shots: timeline markers bound to cameras; a pass in a shot uses its camera and frames, then restores the scene
+from bl_ext.user_default.comfyq_bridge.passes import shots as shots_mod
+
+_cam1 = scene.camera
+_cam2 = bpy.data.objects.new("Smoke shot cam", bpy.data.cameras.new("Smoke shot cam"))
+scene.collection.objects.link(_cam2)
+_cam2.location, _cam2.rotation_euler = (6, -6, 3), (1.2, 0, 0.8)
+_keep = (scene.frame_start, scene.frame_end, scene.frame_current, scene.camera)
+_m1 = scene.timeline_markers.new("smoke A", frame=scene.frame_start)
+_m1.camera = _cam1
+_m2 = scene.timeline_markers.new("smoke B", frame=scene.frame_end - 9)
+_m2.camera = _cam2
+_mx = scene.timeline_markers.new("smoke no cam", frame=scene.frame_start + 2)
+_sa, _sb = shots_mod.resolve(scene, "smoke A"), shots_mod.resolve(scene, "smoke B")
+check(_sa.camera == _cam1 and (_sa.start, _sa.end) == (scene.frame_start, scene.frame_end - 10)
+      and _sb.camera == _cam2 and (_sb.start, _sb.end) == (scene.frame_end - 9, scene.frame_end),
+      f"shots: markers bound to cameras give camera + frames ({_sa.start}-{_sa.end}, {_sb.start}-{_sb.end})")
+with shots_mod.apply(scene, "smoke B") as _s:
+    _inside = (scene.camera, scene.frame_start, scene.frame_end)
+    _ap = animation.animation_pass(scene, "CLAY", 640, force=True)
+check(_inside == (_cam2, _sb.start, _sb.end) and _ap.frames == 10
+      and (scene.frame_start, scene.frame_end, scene.frame_current, scene.camera) == _keep,
+      f"shots: the animation pass of shot B is its 10 frames through its camera; the scene is restored ({_ap.frames})")
+try:
+    shots_mod.resolve(scene, "smoke no cam")
+    _err = ""
+except RuntimeError as e:
+    _err = str(e)
+check("no camera" in _err and shots_mod.signature(scene, "smoke no cam")[0] == "invalid",
+      f"shots: a marker without a camera says how to bind one ({_err[:60]})")
+for _m in (_m1, _m2, _mx):
+    scene.timeline_markers.remove(_m)
+bpy.data.objects.remove(_cam2)
+
 # -- importers (no network) -------------------------------------------------------------
 tmp = cache_dir() / "smoke"
 tmp.mkdir(parents=True, exist_ok=True)
@@ -406,6 +440,29 @@ _fake = _FakeLanes(10**9, ["klein_lane", "never_back"])
 _left = _srv.wait_restored(_fake, timeout=10, sleep=lambda s: _clock.__setitem__(0, _clock[0] + s),
                            clock=lambda: _clock[0])
 check(_left == ["klein_lane", "never_back"] and _clock[0] >= 10, f"serving: gives up after the timeout ({_left})")
+
+
+class _FakeRoom:
+    def __init__(self, need):
+        self.need, self.closed = need, []
+
+    def server_lanes(self):
+        lanes = [{"workflowId": "ltx", "vramGb": 29.9, "primary": True}]
+        lanes += [{"workflowId": w, "vramGb": v} for w, v in (("klein", 10.3), ("uv", 1.9)) if w not in self.closed]
+        return {"card": {"vramGb": 32}, "lanes": lanes, "fit": {"qwen": {"needGb": self.need}}}
+
+    def close_lane(self, wf):
+        self.closed.append(wf)
+
+
+_fr = _FakeRoom(18.8)
+_c1 = _srv.make_room_for_main(_fr, "qwen")
+_fr2 = _FakeRoom(None)
+_c2 = _srv.make_room_for_main(_fr2, "qwen")
+_fr3 = _FakeRoom(5.0)
+_c3 = _srv.make_room_for_main(_fr3, "qwen")
+check(_c1 == ["klein"] and _c2 == ["klein", "uv"] and _c3 == [],
+      f"serving: lanes that would not fit beside a new main model are closed, largest first ({_c1}, {_c2}, {_c3})")
 _live_left = _srv.restoring(SESSION.client)
 check(isinstance(_live_left, list), f"serving: live ComfyQ answers what it is restoring ({_live_left})")
 
@@ -923,6 +980,18 @@ err, bad = mcp_tool("blender_camera_shot", keys=[{"frame": 1, "location": [0, 0,
                                                  {"frame": 9, "location": [0, 0, 1], "look_at": [0, 0, 0]}])
 check(err and "No such" in str(bad) and bpy.data.objects.get("ComfyQ Shot") is None,
       f"MCP blender_camera_shot refuses an unknown object, nothing created ({bad})")
+_res = mcp_rpc("tools/call", {"name": "blender_camera_shot", "arguments": {
+    "name": "Smoke shot", "shot": "smoke shot 2", "keys": [
+        {"frame": 5, "location": [0, -10, 1], "look_at": "Cube"},
+        {"frame": 9, "location": [0, -10, 9], "look_at": [0, 0, 3]}]}})["result"]
+_mk = scene.timeline_markers.get("smoke shot 2")
+check(not _res["isError"] and _mk is not None and _mk.frame == 5 and _mk.camera == bpy.data.objects.get("Smoke shot")
+      and (scene.frame_start, scene.frame_end) == _range0,          # (Blender's binding then drives scene.camera)
+      f"MCP blender_camera_shot shot=: a marker bound to the camera at the first key; frame range kept "
+      f"({_res['content'][0]['text'][:160]}; marker {_mk and (_mk.frame, _mk.camera and _mk.camera.name)}; "
+      f"camera {scene.camera.name}; range {(scene.frame_start, scene.frame_end)} vs {_range0})")
+if _mk is not None:
+    scene.timeline_markers.remove(_mk)
 for _n in ("Smoke shot", "Smoke shot target"):
     if bpy.data.objects.get(_n):
         bpy.data.objects.remove(bpy.data.objects[_n])

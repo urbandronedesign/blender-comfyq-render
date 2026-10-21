@@ -1053,12 +1053,14 @@ class COMFYQ_OT_graph_load_model(bpy.types.Operator):
 
         def work():
             how = serving.choose(client, wf_id, "auto")
-            serving.serve(client, wf_id, how)
-            return how
+            return how, serving.serve(client, wf_id, how)
 
-        def done(how):
+        def done(res):
+            how, closed = res
             SESSION.status_note = (f"“{name}” loading alongside" if how == "alongside" else
                                    f"ComfyQ restarts with “{name}” (1 to 2 minutes)")
+            if closed:
+                SESSION.status_note += f"; closed to make room: {', '.join(_wf_name(w) for w in closed)}"
         SESSION.status_note = f"Asking ComfyQ to load “{name}”…"
         SESSION.run(work, done, on_error=lambda msg: setattr(SESSION, "status_note", f"Load Model: {msg}"))
         self.report({"INFO"}, SESSION.status_note)

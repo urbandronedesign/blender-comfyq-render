@@ -64,13 +64,37 @@ def choose(client: ComfyQClient, wf_id: str, how: str = "auto", force: bool = Fa
     return how
 
 
-def serve(client: ComfyQClient, wf_id: str, how: str, force: bool = False) -> None:
-    """Ask ComfyQ to serve it (blocking HTTP: opening a lane waits for the model to load)."""
+HEADROOM_GB = 2.0                                 # ComfyQ's own margin: free = card − used − 2
+
+
+def make_room_for_main(client: ComfyQClient, wf_id: str) -> list[str]:
+    """Close extra lanes that would not fit beside `wf_id` as the main model (largest first). ComfyQ restores its
+    remembered lanes after the restart with `force`, so a lane left open beside a big model (a 19 GB Qwen lane next to
+    a 30 GB LTX) puts the main one in low-VRAM mode: 10–12 min per clip instead of 2.5–4 (2026-10-22). Unknown size:
+    close them all. Returns the lanes closed."""
+    info = client.server_lanes()
+    card = float((info.get("card") or {}).get("vramGb") or 0)
+    need = ((info.get("fit") or {}).get(wf_id) or {}).get("needGb")
+    extras = sorted(((ln["workflowId"], float(ln.get("vramGb") or 0)) for ln in info.get("lanes") or []
+                     if not ln.get("primary") and ln.get("workflowId") != wf_id), key=lambda x: -x[1])
+    closed = []
+    while extras and (need is None or not card or float(need) + sum(v for _w, v in extras) > card - HEADROOM_GB):
+        wf, _v = extras.pop(0)
+        client.close_lane(wf)
+        closed.append(wf)
+    return closed
+
+
+def serve(client: ComfyQClient, wf_id: str, how: str, force: bool = False) -> list[str]:
+    """Ask ComfyQ to serve it (blocking HTTP: opening a lane waits for the model to load). Returns the extra lanes
+    closed to make room for a new main model."""
     if how == "alongside":
         wait_restored(client)                      # a lane opened during the restore takes a restoring lane's port
         client.open_lane(wf_id, force=force)
-    else:
-        client.activate(wf_id)
+        return []
+    closed = make_room_for_main(client, wf_id)
+    client.activate(wf_id)
+    return closed
 
 
 def blockers(client: ComfyQClient) -> list[str]:

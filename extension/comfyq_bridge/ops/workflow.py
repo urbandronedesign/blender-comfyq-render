@@ -296,9 +296,19 @@ class COMFYQ_OT_preview_pass(bpy.types.Operator):
     style: StringProperty(default="", options={"SKIP_SAVE"})     # "" = the bar's style
     frame: IntProperty(default=-1, options={"SKIP_SAVE"})        # -1 = the current frame
     tag: StringProperty(default="", options={"HIDDEN", "SKIP_SAVE"})   # "<tree>/<node>" that shows a Cycles render
+    shot: StringProperty(default="", options={"HIDDEN", "SKIP_SAVE"})  # a camera-bound marker (passes/shots.py)
 
     def execute(self, context):
+        from ..passes import shots
         scene = context.scene
+        try:
+            with shots.apply(scene, self.shot):
+                return self._render(context, scene)
+        except RuntimeError as e:
+            self.report({"ERROR"}, str(e))
+            return {"CANCELLED"}
+
+    def _render(self, context, scene):
         style = self.style or scene.comfyq.style
         frame = self.frame if self.frame >= 0 else None
         try:
@@ -409,12 +419,15 @@ class COMFYQ_OT_preview_animation(bpy.types.Operator):
     force: BoolProperty(default=False, options={"SKIP_SAVE"})
     play: BoolProperty(default=True, options={"SKIP_SAVE"})
     style: StringProperty(default="", options={"SKIP_SAVE"})     # "" = the bar's style
+    shot: StringProperty(default="", options={"HIDDEN", "SKIP_SAVE"})  # a camera-bound marker (passes/shots.py)
 
     def execute(self, context):
+        from ..passes import shots
         scene = context.scene
         edge = max((s.max_input_edge or 0 for s in current_specs(context) if s.kind == "video"), default=0) or None
         try:
-            p = animation.animation_pass(scene, self.style or scene.comfyq.style, edge, force=self.force)
+            with shots.apply(scene, self.shot):
+                p = animation.animation_pass(scene, self.style or scene.comfyq.style, edge, force=self.force)
         except RuntimeError as e:
             self.report({"ERROR"}, str(e))
             return {"CANCELLED"}

@@ -275,7 +275,9 @@ def comfyq_serve(args: dict) -> dict:
         raise ToolError(f"{e} (pass force=true to overrule)") from e
 
     def work():
-        serving.serve(client, wf_id, how, force)
+        closed = serving.serve(client, wf_id, how, force)
+        if closed:
+            SESSION.status_note = f"Closed to make room for {wf_id}: {', '.join(closed)}"
         if how == "main":
             time.sleep(5)                                  # ComfyQ goes down; don't read the old lanes
         deadline = time.monotonic() + SERVE_TIMEOUT_S
@@ -386,9 +388,11 @@ def blender_render(args: dict) -> dict:
         except RuntimeError as e:
             raise ToolError(str(e)) from e
 
-    def go():
+    def passes():
         sc = bpy.context.scene
         frame = args.get("frame")
+        if frame is None and args.get("shot") and kind != "animation":
+            frame = sc.frame_start                       # a shot's still: its first frame
         if kind == "animation":
             keep = sc.frame_end
             if args.get("max_seconds"):                  # a short test: only the first seconds
@@ -405,6 +409,14 @@ def blender_render(args: dict) -> dict:
                 raise ToolError("Select the object(s) to repaint first (blender_select)")
             return {"path": str(render.mask_pass(sc, sel, style, edge, frame))}
         return {"path": str(render.structure_pass(sc, style, edge, frame, int(args.get("samples", 64))))}
+
+    def go():
+        from ..passes import shots
+        try:
+            with shots.apply(bpy.context.scene, args.get("shot") or ""):   # a shot: its camera and frames
+                return passes()
+        except RuntimeError as e:
+            raise ToolError(str(e)) from e
     return on_main(go, timeout=1900)
 
 
@@ -694,14 +706,20 @@ def blender_camera_shot(args: dict) -> dict:
             for fc in curves:
                 for kp in fc.keyframe_points:
                     kp.interpolation = interp
-        if args.get("active", True):
+        shot = args.get("shot") or ""
+        if shot:                                             # a timeline marker bound to this camera = a shot
+            marker = sc.timeline_markers.get(shot) or sc.timeline_markers.new(shot, frame=points[0][0])
+            marker.frame, marker.camera = points[0][0], cam
+        if args.get("active", not shot):
             sc.camera = cam
-        if args.get("set_range", True):
+        if args.get("set_range", not shot):
             sc.frame_start, sc.frame_end = points[0][0], points[-1][0]
+        elif shot and sc.frame_end < points[-1][0]:          # the scene must reach the shot's last frame
+            sc.frame_end = points[-1][0]
         sc.frame_set(sc.frame_start)
         fps = sc.render.fps / (sc.render.fps_base or 1.0)
         return {"camera": cam.name, "target": target.name, "active": sc.camera == cam, "lens_mm": cam.data.lens,
-                "frames": [sc.frame_start, sc.frame_end],
+                "frames": [sc.frame_start, sc.frame_end], "shot": shot or None,
                 "seconds": round((points[-1][0] - points[0][0] + 1) / fps, 2),
                 "keys": [{"frame": f, "location": [round(v, 2) for v in loc], "look_at": [round(v, 2) for v in look]}
                          for f, loc, look in points],
@@ -1023,7 +1041,10 @@ TOOLS = [
               "samples": {"type": "integer", "minimum": 1, "description": "Cycles samples (64)"},
               "frame": {"type": "integer"}, "max_edge": {"type": "integer", "default": 1280},
               "max_seconds": {"type": "number", "description": "animation: render only the first seconds "
-                                                                  "(short tests; the scene is not changed)"}}),
+                                                                  "(short tests; the scene is not changed)"},
+              "shot": {"type": "string", "description": "a timeline marker bound to a camera (see "
+                                                         "blender_camera_shot): render that camera over the marker's "
+                                                         "frames (clay / matcap / material, not Cycles)"}}),
          blender_render),
     Tool("blender_import", "Bring a result file into Blender: image → Image Editor, video/audio → the "
          "“ComfyQ Results” scene, GLB/PLY → a collection, placed `place` = BESIDE the scene (default) / CURSOR "
@@ -1051,11 +1072,14 @@ TOOLS = [
          "the scene camera: `keys` = [{frame, location, look_at}, …] (at least 2); `location` and `look_at` are "
          "[x,y,z] m or an object name / list of names (their bounding-box centre), e.g. start low facing the cliff "
          "and rise to reveal the house. Eased in/out (`ease`), `lens` mm (24), sets the frame range to the keys "
-         "(`set_range`). Then blender_render kind=animation previews the clay video.",
+         "(`set_range`). `shot` = a timeline marker name: the camera is bound to a marker at the first key's frame "
+         "(a shot of a multi-shot film; the frame range is left alone and Blender's camera binding switches the scene "
+         "camera at each marker); graph source nodes take "
+         "that name as their Shot. Then blender_render kind=animation previews the clay video.",
          obj({"keys": {"type": "array", "items": {"type": "object", "properties": {
                   "frame": {"type": "integer"}, "location": {}, "look_at": {}},
                   "required": ["frame", "location", "look_at"]}},
-              "name": _S, "lens": {"type": "number", "minimum": 8}, "ease": {"type": "boolean"},
+              "name": _S, "shot": _S, "lens": {"type": "number", "minimum": 8}, "ease": {"type": "boolean"},
               "active": {"type": "boolean"}, "set_range": {"type": "boolean"}}, ("keys",)), blender_camera_shot),
     Tool("blender_transform", "Move / rotate / scale / hide objects by name (e.g. an imported model's parent "
          "empty, or the object hiding it). `location` [x,y,z] m, `rotation_deg` [x,y,z], `scale` number or "

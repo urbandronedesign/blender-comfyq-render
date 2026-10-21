@@ -491,9 +491,10 @@ change that session: the user must reinstall from the UI or restart Blender.
   A remembered Qwen lane restored beside LTX made LTX run low-VRAM (10–12 min/clip): Solo must close lanes first.
 
 ## Next steps
-1. Multi-shot (user's goal: long films of several shots): Shot setting from camera-bound timeline markers on the
-   source nodes; material-board step; multi-shot preset; assembly in the sequencer; Solo closes remembered lanes
-   before a big main model. Plan in docs/multi-shot.md, waiting for the user's go.
+1. Multi-shot (user's goal: long films of several shots), docs/multi-shot.md. DONE 2026-10-22: Shot field from
+   camera-bound timeline markers (`passes/shots.py`; Blender's binding then drives scene.camera by itself), Solo /
+   Load Model close lanes that would not fit (`serving.make_room_for_main`). NEXT: material-board step,
+   multi-shot preset, assembly in the sequencer.
 1b. Wait for the user's feedback on the **Blockout animation → photoreal video** preset (their Blender is open on the
    cliff scene with its graph) and on the 4 mesh / camera presets; earlier: Batch and Four views.
 2. **Library sync with ComfyQ HEAD** (offered, not chosen yet): `make_preset_library.py` per category for the new
