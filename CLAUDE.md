@@ -103,6 +103,13 @@ tools/make_new_inputs_presets.py  headless: the 4 class presets for 3D-model / c
                          Clean up = both chained, Reshoot from another angle (Qwen 2511, Around 90, seed 7))
 tools/new_inputs_check.py  GPU: Scene Objects → Remesh → UV unwrap, and Qwen 2511 at 90 / 180, through the graph
 tools/lane_race_check.py / lane_race_fix_check.py  reproduce ComfyQ's lane-port race / prove the bridge's wait
+tools/mcp_call.py        call one MCP tool of the user's OPEN Blender over HTTP (gotcha 49)
+tools/make_demo_scene.py / make_cliff_house_scene.py  test scenes: Suzanne on a floor / cliff-edge house blockout
+                         (terrace, glass pool, 5 s camera move) → E:\zaki\new_inputs_demo.blend, E:\zaki\cliff_house.blend
+tools/cliff_video_check.py  GPU: keyframe (FLUX.3 Klein, clay vs material) / video candidates (LTX canny, depth, 3DReal)
+tools/make_blockout_video_preset.py  the Blockout animation → photoreal video class preset
+tools/preset_e2e.py      run any saved preset end to end, headless sandbox, Solo: build_saved + Run Graph + report
+tools/video_compare_sheet.py  one sheet: a row per video at 0, 1/3, 2/3, end (+ frames, fps, size, sound)
 tools/splat_render.py    load a 3DGS .ply (no splat support in Blender 5.2) as a coloured point cloud and render it
                          with Cycles (colour = 0.5 + 0.2821·f_dc, radius = exp(scale), opacity = sigmoid, emission)
 tools/preset_report.py   HTML report of a run (description, graph shot, inputs, prompt/settings sent, output,
@@ -267,16 +274,39 @@ change that session: the user must reinstall from the UI or restart Blender.
 46. **Pass file names were the time to the second + kind**: a graph that prepares several inputs in one tick (four
     Image nodes, two references) wrote them to ONE file, so a job got another view's picture (the Four views preset
     rendered the left view as the front, 2026-10-06). `render._out_path` adds a counter; smoke checks two passes.
+47. **Timers registered at add-on registration must be `persistent=True`.** Blender opened WITH a .blend registers
+    add-ons, then loads the file, which drops non-persistent timers: auto-connect and the MCP server never started
+    (fixed 2026-10-21). Any new startup timer: persistent.
+48. **ComfyQ's lane-port race** (RUNBOOK §7.1 1b): a lane opened while ComfyQ restores its remembered lanes after a
+    restart gets the same port and its first job fails `comfyui-process-exited`. `runtime/serving.choose()` waits for
+    `restoring()` to be empty; keep every lane-opening path going through `serving`. Before switching the main model to
+    a 30 GB one, close the extra lanes, or the restart restores them beside it (`force`).
+49. **An agent session's MCP tool list is fixed when the session starts.** If Blender was not running then, only
+    `blender_status` exists: drive the open Blender with `tools/mcp_call.py <tool> '<json>'` (token from
+    `%APPDATA%\comfyq-bridge\mcp.json`; forward slashes in paths). The agent tools build the graph in the file; since
+    2026-10-21 add_preset / graph_run also open it (`mcp/tools._show_graph`), else the user sees nothing.
+50. **Keyframes from clay mislead image models**: grey cones became black zinc sculptures. Render the first frame in the
+    MATERIAL style with viewport colours for trees, water, glass (the video model still follows the clay animation).
+    3DReal copies the clay render's empty background (black sky, white cones): not for clay sources.
+51. **The first LTX job after a model switch can be ~5× slower** (its upscale stage at 88.7 s/step vs 9.8 s/step on the
+    next run; 765 s vs 157 s). Do not judge a workflow's speed on one cold run.
+52. **UV unwrap replaces a model's own UVs and textures** (only a new AO bake comes back): right for raw scans / AI
+    meshes, destructive for textured assets. Remesh returns an EMPTY mesh above ~80 units (warned in the bar).
+53. `subprocess` output of Windows tools (netstat) is in the OEM code page: decode bytes with `errors="replace"`;
+    under `PYTHONUTF8=1` `text=True` gives None from a crashed reader thread.
 
 
-## Status (2026-10-06, last commit `f5b79ae`, installed build `5c70c06`; ComfyQ pulled to `be109b3`) — **hand-over for b2renger / the teacher: docs/RUNBOOK.md**
-- **Host:** Blender 5.2.2 LTS; the user's profile has build `5c70c06` (MCP ON, Teacher tools ON, **Solo ON**).
+## Status (2026-10-22, last commit see `git log`, installed build `468d184` code = HEAD code; ComfyQ at its HEAD, 65 workflows) — **hand-over for b2renger / the teacher: docs/RUNBOOK.md**
+- **Host:** Blender 5.2.2 LTS; the user's profile has the build of `468d184` (later commits changed only presets, tools,
+  docs) (MCP ON port 8790, Teacher tools ON, **Solo ON**, student name `b2renger`). Your Blender was left open on
+  `E:\zaki\cliff_house.blend` with the blockout-video preset's graph and results (unsaved).
   **This PC is the teacher PC**: `%APPDATA%\comfyq-bridge\profiles.toml` = profile `teacher` (default,
-  127.0.0.1:3000, random `admin_password`; ComfyQ itself has no admin password yet, so any value works). Without it
-  Solo / Load Model / the agents' teacher tools are locked (UX phase A). Never copy that file to student PCs.
-  **ComfyQ serves whatever solo mode / the last preset loaded** (at stop 2026-10-06: main
-  `utility_video_frame_interpolation`, lanes `image_edit_flux2_klein_9b_image_edit` + `utility_video_segment_sam3`)
-  — no fixed "state to restore" (user's choice: the next preset decides; before class, serve the lesson's model).
+  127.0.0.1:3000). **ComfyQ now HAS an admin password** (the user set it in ComfyQ's admin page on 2026-10-21 and put
+  the same one in the profile; check with `POST /admin/verify-password`, never print it). Without it Solo / Load Model
+  / the agents' teacher tools are refused (lanes, downloads); `activate-workflow` is still ungated. Never copy that
+  file to student PCs. **ComfyQ serves whatever solo mode / the last preset loaded** (at stop 2026-10-22: main
+  `video_edit_ltx2_5_iclora_canny_control`, no lanes) — no fixed "state to restore" (user's choice: the next preset
+  decides; before class, serve the lesson's model).
   **Never touch the ComfyQ repo** (F:\ComfyQ; its `git stash` from before the pull stays). We may download model
   files into ComfyUI's `models\` when the user agrees (done once for 5 LoRAs, 2026-10-05).
 - **Bar & tools (P1.1–P1.3):** client + Socket.IO transport + CLI; extension (bar: sidebar / Ctrl+Shift+Q dialog /
@@ -407,7 +437,7 @@ change that session: the user must reinstall from the UI or restart Blender.
   square). Gaussian splats render in Cycles (`tools/splat_render.py`). Four views preset; pass-name bug fixed
   (gotcha 46); batch renders from a folder.
 
-## Work of 2026-10-21 (commit `cb6571b`, pushed, installed in the user's Blender 5.2)
+## Work of 2026-10-21 / 22 (commits `685d4cf` → `aa0e659` + docs, all pushed; build `468d184` installed)
 - Folder renamed MixarAI → ComfyQRender: `.venv` rebuilt (it pointed at the old path), `requirements-dev.txt` added (`685d4cf`).
 - ComfyQ is now 68 commits past `be109b3` (65 workflows). New param types supported: **`model3d`** (Remesh & decimate,
   UV unwrap: input source *Selected Objects* / *File*; graph nodes **Scene Objects** (collection or selection) and
@@ -448,19 +478,25 @@ change that session: the user must reinstall from the UI or restart Blender.
   zinc sculptures); video LTX 2.5 canny > depth (crisper) >> 3DReal (black sky, white cones). New class preset
   *Blockout animation → photoreal video (FLUX.3 keyframe + LTX canny)* (`tools/make_blockout_video_preset.py`),
   run end to end (`tools/preset_e2e.py`); built-in *AI keyframe → video* unchanged. Sheets
-  `tools/video_compare_sheet.py`.
+  `tools/video_compare_sheet.py`. Then run in the user's own Blender on the cliff scene through its MCP server
+  (`tools/mcp_call.py`): graph opened by itself, keyframe + video in ~3 min, same result
+  (`live_check/cliff_house/in_blender/`). Copied to the user's `presets\Class`.
 - Library still lacks the other new ComfyQ workflows (FLUX.3 Klein edit ×2, Qwen 2.1 relight, …): run
   `make_preset_library.py` per category when the user asks for the sync.
 
 ## Next steps
-1. Wait for the user's feedback on the **Batch** and **Four views** presets in their Blender (installed `5c70c06`).
-2. Candidates the user has not chosen yet: a plugin splat importer (coloured point cloud, as `tools/splat_render.py`);
-   "jobs at once" for batches (needs per-file results, not node results); scale a 3D result back to the blockout's
-   size; run the Text → 3D preset from the graph UI; the 3 never-run workflows (SeedVR2 3B int8 video, Gemma ×2);
-   re-run the library on an animated character scene; `blender_graph_describe` filtering.
-3. For b2renger (RUNBOOK §7.1): admin password; job prompt → negative prompt; Wan ID-V2V broken; missing-LoRA check;
-   SeedVR2 HD size label; meta.json size/duration params.
-4. Rules: follow `.claude/skills/comfyq-workflow-build` for new workflows and `.claude/skills/blender-ui-audit` for UI
+1. Wait for the user's feedback on the **Blockout animation → photoreal video** preset (their Blender is open on the
+   cliff scene with its graph) and on the 4 mesh / camera presets; earlier: Batch and Four views.
+2. **Library sync with ComfyQ HEAD** (offered, not chosen yet): `make_preset_library.py` per category for the new
+   workflows (FLUX.3 Klein t2i ×2 and edit ×2, Qwen 2.1 relight, YuE2 music cover…); the shipped-preset smoke check
+   only catches removed workflows, not missing ones.
+3. Candidates the user has not chosen yet: blockout video variants (longer than 5 s: chain clips; Cycles first frame;
+   3DReal on a real render); a plugin splat importer (coloured point cloud, as `tools/splat_render.py`); "jobs at once"
+   for batches; scale a 3D result back to the blockout's size; the 3 never-run workflows (SeedVR2 3B int8 video,
+   Gemma ×2); `blender_graph_describe` filtering; an MCP tool to open a .blend / save the file.
+4. For b2renger (RUNBOOK §7.1): **lane-port race** (1b, with the fix); `activate-workflow` ungated; job prompt →
+   negative prompt; Wan ID-V2V broken; missing-LoRA check; SeedVR2 HD size label; meta.json size/duration params.
+5. Rules: follow `.claude/skills/comfyq-workflow-build` for new workflows and `.claude/skills/blender-ui-audit` for UI
    changes; after UI changes `smoke_test.ps1 -Ui` + docs/UI.md, and **look at the screenshots** (gotcha 43); install
    into the user's profile only when asked (not `--factory-startup`); ask before committing; never tick the user's
    prefs by script; tell the user before GPU runs / visible windows; smoke tests must not change what ComfyQ serves

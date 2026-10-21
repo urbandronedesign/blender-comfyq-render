@@ -160,6 +160,17 @@ A failed file is noted and the batch goes on. After a Stop or a crash, Run Graph
 result yet. Ready-made: the class preset *Batch: folder → rendering (Flux2 Klein edit)* (fixed seed: a matching series).
 Measured: 4 pictures ≈ 100 s with Klein edit; 2 clips ≈ 60 s with FILM interpolation.
 
+### 3.7 New on 2026-10-21 (ComfyQ's new parameter types, blockout video)
+- **3D model inputs** (ComfyQ `model3d`: Remesh & decimate, UV unwrap): source *Selected Objects* (one GLB, modifiers
+  applied) or *File*; graph nodes **Scene Objects** and **3D Model File**; a mesh result chains into another mesh input.
+  Remesh returns an empty mesh for models ~80 units across (warned); UV unwrap replaces the model's own UVs/textures.
+- **Camera position** (ComfyQ `camera`: Qwen 2511 reshoot from another angle): Around / Height / Zoom, the shot words
+  the model gets, **From 3D View** (orbit the viewport around the subject, measured from the scene camera).
+- **Class presets** (10 now): Remesh, UV unwrap, Clean up a model (both), Reshoot from another angle (Qwen 2511), and
+  **Blockout animation → photoreal video (FLUX.3 keyframe + LTX canny)** ([blockout-video.md](blockout-video.md)).
+- **Fixes:** the bridge waits for ComfyQ's restoring lanes before loading a model alongside (§7.1 1b); auto-connect
+  and the AI-agents server start when Blender is opened with a .blend; agents open the graph so the user sees it.
+
 ## 4. Demo (about 10 min, one PC, ComfyQ serving LTX 2.5 IC-LoRA canny)
 
 1. Open a scene with a camera and some animation. Ctrl+Shift+Q opens the bar.
