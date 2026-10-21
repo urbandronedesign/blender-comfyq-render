@@ -335,7 +335,7 @@ change that session: the user must reinstall from the UI or restart Blender.
   (`render.CyclesRender`: Popen + reader thread; the child prints "Sample n/m" from a `render_stats` handler because a
   render started from Python logs no progress; graph runs poll it via `run.Rendering`, MCP waits off the main thread,
   ✕ = `comfyq.cancel_cycles`; `cycles_pass` = the blocking wrapper). Stills only. Fingerprint adds materials, lights, shadow catchers, world/HDRI.
-- **MCP (P1.4, docs/AGENTS.md): 23 tools + 3 teacher tools** (new: blender_segment / task_status / mask_image). blender_scene_info/select/render (style CYCLES +
+- **MCP (P1.4, docs/AGENTS.md): 24 tools + 3 teacher tools** (new: blender_camera_shot, 2026-10-22; blender_segment / task_status / mask_image). blender_scene_info/select/render (style CYCLES +
   samples)/import (place/on_ground/size)/transform/world (HDRI file or builtin:<name>)/shadow_catcher (Cycles flag
   + EEVEE material, `eevee_lit`)/graph_describe/add_preset/set (incl. Image node `image`)/run/status;
   comfyq_list/describe/submit/job_status/wait/cancel/outputs/server_status; teacher: comfyq_serve/unserve/
@@ -484,8 +484,17 @@ change that session: the user must reinstall from the UI or restart Blender.
 - Library still lacks the other new ComfyQ workflows (FLUX.3 Klein edit ×2, Qwen 2.1 relight, …): run
   `make_preset_library.py` per category when the user asks for the sync.
 
+- **Multi-shot consistency (2026-10-22, docs/multi-shot.md):** same seed is not enough; a whole hero image as a
+  reference gets its LAYOUT copied (Qwen 2.1, Flux2 Klein ref, ref+depth all failed); Qwen 2.1 edit + a MATERIAL
+  BOARD (swatches cut from the hero) keeps the shot's composition and the hero's materials. New MCP tool
+  `blender_camera_shot` (24 tools); the reveal shot taught: the keyframe prompt describes ONLY frame 1.
+  A remembered Qwen lane restored beside LTX made LTX run low-VRAM (10–12 min/clip): Solo must close lanes first.
+
 ## Next steps
-1. Wait for the user's feedback on the **Blockout animation → photoreal video** preset (their Blender is open on the
+1. Multi-shot (user's goal: long films of several shots): Shot setting from camera-bound timeline markers on the
+   source nodes; material-board step; multi-shot preset; assembly in the sequencer; Solo closes remembered lanes
+   before a big main model. Plan in docs/multi-shot.md, waiting for the user's go.
+1b. Wait for the user's feedback on the **Blockout animation → photoreal video** preset (their Blender is open on the
    cliff scene with its graph) and on the 4 mesh / camera presets; earlier: Batch and Four views.
 2. **Library sync with ComfyQ HEAD** (offered, not chosen yet): `make_preset_library.py` per category for the new
    workflows (FLUX.3 Klein t2i ×2 and edit ×2, Qwen 2.1 relight, YuE2 music cover…); the shipped-preset smoke check

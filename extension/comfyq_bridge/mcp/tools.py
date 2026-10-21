@@ -637,6 +637,78 @@ def blender_transform(args: dict) -> dict:
     return on_main(go)
 
 
+def _point(value, what: str):
+    """[x, y, z], or an object's name (its world bounding-box centre), or a list of names (their common centre)."""
+    from mathutils import Vector
+    if isinstance(value, (list, tuple)) and len(value) == 3 and all(isinstance(v, (int, float)) for v in value):
+        return Vector(value)
+    names = [value] if isinstance(value, str) else list(value or [])
+    corners = []
+    for name in names:
+        o = bpy.data.objects.get(str(name))
+        if o is None:
+            raise ToolError(f"{what}: no object {name!r} (see blender_scene_info)")
+        corners += [o.matrix_world @ Vector(c) for c in o.bound_box]
+    if not corners:
+        raise ToolError(f"{what}: give [x, y, z] or object name(s)")
+    lo = Vector([min(c[i] for c in corners) for i in range(3)])
+    hi = Vector([max(c[i] for c in corners) for i in range(3)])
+    return (lo + hi) / 2
+
+
+def blender_camera_shot(args: dict) -> dict:
+    """An animated camera from keys {frame, location, look_at}: a camera tracking an empty, both keyframed."""
+    keys = sorted(args.get("keys") or [], key=lambda k: int(k["frame"]))
+    if len(keys) < 2:
+        raise ToolError("Give at least two keys: {frame, location, look_at}")
+
+    def go():
+        sc = bpy.context.scene
+        name = args.get("name") or "ComfyQ Shot"
+        points = [(int(k["frame"]), _point(k["location"], f"key {k['frame']} location"),
+                   _point(k["look_at"], f"key {k['frame']} look_at")) for k in keys]
+        for n in (name, f"{name} target"):                  # replace an earlier shot of the same name
+            old = bpy.data.objects.get(n)
+            if old is not None:
+                bpy.data.objects.remove(old)
+        cam = bpy.data.objects.new(name, bpy.data.cameras.new(name))
+        target = bpy.data.objects.new(f"{name} target", None)
+        sc.collection.objects.link(cam)
+        sc.collection.objects.link(target)
+        target.empty_display_size = 0.5
+        cam.data.lens = float(args.get("lens", 24))
+        track = cam.constraints.new("TRACK_TO")
+        track.target, track.track_axis, track.up_axis = target, "TRACK_NEGATIVE_Z", "UP_Y"
+        for frame, loc, look in points:
+            cam.location, target.location = loc, look
+            cam.keyframe_insert("location", frame=frame)
+            target.keyframe_insert("location", frame=frame)
+        interp = "BEZIER" if args.get("ease", True) else "LINEAR"
+        for ob in (cam, target):                             # Blender 5 actions keep their curves in channelbags
+            act = ob.animation_data.action
+            curves = list(getattr(act, "fcurves", []) or [])
+            for layer in getattr(act, "layers", []):
+                for strip in layer.strips:
+                    for bag in getattr(strip, "channelbags", []):
+                        curves += list(bag.fcurves)
+            for fc in curves:
+                for kp in fc.keyframe_points:
+                    kp.interpolation = interp
+        if args.get("active", True):
+            sc.camera = cam
+        if args.get("set_range", True):
+            sc.frame_start, sc.frame_end = points[0][0], points[-1][0]
+        sc.frame_set(sc.frame_start)
+        fps = sc.render.fps / (sc.render.fps_base or 1.0)
+        return {"camera": cam.name, "target": target.name, "active": sc.camera == cam, "lens_mm": cam.data.lens,
+                "frames": [sc.frame_start, sc.frame_end],
+                "seconds": round((points[-1][0] - points[0][0] + 1) / fps, 2),
+                "keys": [{"frame": f, "location": [round(v, 2) for v in loc], "look_at": [round(v, 2) for v in look]}
+                         for f, loc, look in points],
+                "next": "Preview it with blender_render kind=animation (the clay video the graph sends)"}
+    return on_main(go)
+
+
 # -- blender_graph_* ------------------------------------------------------------------------------------
 def blender_segment(args: dict) -> dict:
     """SAM3 by name on a render of the scene (or a given picture), in the background: one job per label."""
@@ -975,6 +1047,16 @@ TOOLS = [
               "strength": {"type": "number", "minimum": 0}, "eevee_lit": {"type": "number", "minimum": 0.01},
               "remove": {"type": "boolean"}}),
          blender_shadow_catcher),
+    Tool("blender_camera_shot", "Create (or replace, by name) an animated camera shot in the open scene and make it "
+         "the scene camera: `keys` = [{frame, location, look_at}, …] (at least 2); `location` and `look_at` are "
+         "[x,y,z] m or an object name / list of names (their bounding-box centre), e.g. start low facing the cliff "
+         "and rise to reveal the house. Eased in/out (`ease`), `lens` mm (24), sets the frame range to the keys "
+         "(`set_range`). Then blender_render kind=animation previews the clay video.",
+         obj({"keys": {"type": "array", "items": {"type": "object", "properties": {
+                  "frame": {"type": "integer"}, "location": {}, "look_at": {}},
+                  "required": ["frame", "location", "look_at"]}},
+              "name": _S, "lens": {"type": "number", "minimum": 8}, "ease": {"type": "boolean"},
+              "active": {"type": "boolean"}, "set_range": {"type": "boolean"}}, ("keys",)), blender_camera_shot),
     Tool("blender_transform", "Move / rotate / scale / hide objects by name (e.g. an imported model's parent "
          "empty, or the object hiding it). `location` [x,y,z] m, `rotation_deg` [x,y,z], `scale` number or "
          "[x,y,z], `hide` true/false.",

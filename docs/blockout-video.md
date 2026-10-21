@@ -38,8 +38,13 @@ frame), keyframes `keyframe_flux3_clay.png` / `keyframe_flux3_material.png`, vid
 
 - **Give the blockout viewport colours.** The keyframe is made from the Material style: trees, water and glass need
   their own colours or FLUX invents what grey cones are. The video itself follows the clay animation's edges.
-- **Two prompts.** FLUX.3 Klein edits refer to the picture as `<ref_image_0>` and want the finished picture described
-  in full; the video prompt describes the same scene, the camera move and the sound.
+- **Two prompts, and the keyframe one describes ONLY the first frame.** FLUX.3 Klein edits refer to the picture as
+  `<ref_image_0>`. On a reveal shot (2026-10-22: start facing the rock under the house, rise to reveal it) a keyframe
+  prompt describing the whole house made FLUX **paint the house into the first frame** (rock only in the clay), and
+  LTX then ignored the clay rise. Describe what the camera sees at frame 1; the video prompt carries the whole shot
+  (the reveal, the house, the sound).
+- **Camera shots by agent:** `blender_camera_shot` (MCP) keys a camera from {frame, location, look_at (point or
+  object names)}; preview with `blender_render kind=animation` before the GPU run.
 - **Two models, both large.** In class serve FLUX.3 Klein edit (10 GB) as a lane and LTX 2.5 canny (~30 GB) as the
   main model; with Solo the graph loads them in turn (each main switch restarts ComfyQ, 1–2 min).
 - LTX uses the first 5 s of the clay animation (up to 10 s: *Clip length*); the preset matches it to the scene.

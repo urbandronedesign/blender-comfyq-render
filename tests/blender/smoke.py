@@ -897,10 +897,37 @@ def mcp_tool(name, **args):
 
 check(mcp_rpc("ping", token="wrong") == 401, "MCP: a wrong token is refused")
 names = [t["name"] for t in mcp_rpc("tools/list")["result"]["tools"]]
-check(len(names) == 23 and "blender_segment" in names and "blender_mask_image" in names and "blender_shadow_catcher" in names and "blender_world" in names and "blender_transform" in names and "comfyq_submit" in names and "blender_graph_run" in names, f"MCP: {len(names)} tools")
+check(len(names) == 24 and "blender_camera_shot" in names and "blender_segment" in names and "blender_mask_image" in names and "blender_shadow_catcher" in names and "blender_world" in names and "blender_transform" in names and "comfyq_submit" in names and "blender_graph_run" in names, f"MCP: {len(names)} tools")
 err, info = mcp_tool("blender_scene_info")
 check(not err and info["camera"] and info["frames"] == [scene.frame_start, scene.frame_end],
       f"MCP blender_scene_info: {info.get('scene')} {info.get('frames')} camera {info.get('camera')}")
+# camera shot: keys with points and an object name; eased; leaves the scene camera and range alone here
+_cam0, _range0, _f0 = scene.camera, (scene.frame_start, scene.frame_end), scene.frame_current
+_res = mcp_rpc("tools/call", {"name": "blender_camera_shot", "arguments": {        # `name` clashes with mcp_tool's
+    "name": "Smoke shot", "active": False, "set_range": False, "keys": [
+        {"frame": 1, "location": [0, -10, 1], "look_at": "Cube"},
+        {"frame": 41, "location": [0, -10, 9], "look_at": [0, 0, 3]}]}})["result"]
+err, shot = _res["isError"], json.loads(_res["content"][0]["text"])
+_c, _t = bpy.data.objects.get("Smoke shot"), bpy.data.objects.get("Smoke shot target")
+_ok = not err and _c is not None and _t is not None and scene.camera == _cam0
+if _ok:
+    scene.frame_set(21)
+    _mid = _c.matrix_world.translation.z
+    scene.frame_set(1)
+    _start_target = tuple(round(v, 2) for v in _t.matrix_world.translation)
+    _ok = 1 < _mid < 9 and abs(_mid - 5) < 0.6 and _start_target == tuple(
+        round(v, 2) for v in bpy.data.objects["Cube"].matrix_world.translation)
+check(_ok and shot.get("seconds") and (scene.frame_start, scene.frame_end) == _range0,
+      f"MCP blender_camera_shot: animated camera + target, eased, looks at an object by name ({shot})")
+err, bad = mcp_tool("blender_camera_shot", keys=[{"frame": 1, "location": [0, 0, 0], "look_at": "No such"},
+                                                 {"frame": 9, "location": [0, 0, 1], "look_at": [0, 0, 0]}])
+check(err and "No such" in str(bad) and bpy.data.objects.get("ComfyQ Shot") is None,
+      f"MCP blender_camera_shot refuses an unknown object, nothing created ({bad})")
+for _n in ("Smoke shot", "Smoke shot target"):
+    if bpy.data.objects.get(_n):
+        bpy.data.objects.remove(bpy.data.objects[_n])
+scene.camera = _cam0
+scene.frame_set(_f0)
 err, wfs = mcp_tool("comfyq_list_workflows")
 check(not err and {w["id"] for w in wfs} == SESSION.served_ids() and all(w["served"] for w in wfs),
       f"MCP comfyq_list_workflows: served {[w['id'] for w in wfs]}")

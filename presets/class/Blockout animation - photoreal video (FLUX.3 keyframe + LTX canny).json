@@ -2,7 +2,7 @@
  "format": 1,
  "label": "Blockout animation → photoreal video (FLUX.3 keyframe + LTX canny)",
  "description": "A blockout's camera animation filmed as a photoreal video. FLUX.3 Klein first turns the first frame (rendered with the materials' viewport colours, so trees, water and glass read as such) into a photoreal picture; LTX 2.5 IC-LoRA canny then follows the clay animation's edges and camera move in that look, with a sound track. Tested on a cliff-edge house (2026-10-21): the volumes, struts and glass pool hold for the whole move; about 2 min for the keyframe and 4 min for the video, two model loads. Canny beat depth (crisper edges), 3DReal failed (black sky).",
- "made": "2026-10-21 23:23",
+ "made": "2026-10-22 01:21",
  "nodes": [
   {
    "name": "Scene Render",
@@ -276,8 +276,8 @@
    "width": 560.0,
    "label": "How to use",
    "parent": "",
-   "height": 430.0,
-   "text": "1. Animate the scene camera (the blockout\n   can be plain boxes; give trees, water,\n   glass their own viewport colours)\n2. Keyframe prompt: describe the finished\n   picture (keep <ref_image_0> in it)\n3. Video prompt: the same scene, the camera\n   move and the sound\n4. Run Graph: FLUX.3 makes the first frame\n   (Keyframe viewer), then LTX films the\n   clay animation in that look (about 4 min)\n5. Keyframe wrong? Change its prompt or\n   seed and run again before the video"
+   "height": 460.0,
+   "text": "1. Animate the scene camera (the blockout\n   can be plain boxes; give trees, water,\n   glass their own viewport colours)\n2. Keyframe prompt: describe ONLY what the\n   first frame shows (keep <ref_image_0>);\n   a house not yet in view gets painted in\n3. Video prompt: the whole shot, the camera\n   move (a reveal) and the sound\n4. Run Graph: FLUX.3 makes the first frame\n   (Keyframe viewer), then LTX films the\n   clay animation in that look (about 4 min)\n5. Keyframe wrong? Change its prompt or\n   seed and run again before the video"
   }
  ],
  "links": [
