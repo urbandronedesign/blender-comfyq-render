@@ -45,13 +45,8 @@ the sky (flat grey): put the light in the shared look sentence ("soft warm overc
 - **Shots**: a *Shot* field on Scene Render / Scene Animation / Selection Mask = a timeline marker bound to a camera (`passes/shots.py`); `blender_camera_shot shot=` creates it, `blender_render shot=` previews it.
 - **Serving**: `serving.make_room_for_main` closes extra lanes that would not fit beside a new main model (card − 2 GB), largest first, unknown size = all; Solo, Load Model and `comfyq_serve` report what they closed.
 
-## What the plugin needs
+## Still to do
 
-- **Shots**: Scene Render / Scene Animation nodes always use the scene camera and the whole frame range. Add a Shot
-  setting from Blender's **timeline markers bound to cameras** (one scene, several shots); `blender_camera_shot` makes
-  the cameras.
-- **Material board** node (crops of an approved image) or an agent tool; a **multi-shot preset** (hero, board, one
-  keyframe + video per shot, run in order); an **assembly** step (clips → sequencer → one film).
-- **Serving**: before switching the main model to a big one (LTX ~30 GB), close the remembered extra lanes. ComfyQ
-  restores them with `force`, and a Qwen lane left beside LTX put it in low-VRAM mode: 10–12 min per clip instead of
-  2.5–4 (gotcha 48). Solo mode does not do this yet.
+- **Material board** node (crops of an approved image) or an agent tool.
+- A **multi-shot preset** (hero, board, one keyframe + video per shot, run in order).
+- An **assembly** step (clips → sequencer → one film, one soundtrack).
