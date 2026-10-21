@@ -1,5 +1,5 @@
-"""Live check on the scene open in Mixar — run it from Mixar's Text Editor (Open → Run Script).
-VERSION 2 (if the report has no "version": 2, Mixar ran an older copy of this text)
+"""Live check on the scene open in Blender — run it from Blender's Text Editor (Open → Run Script).
+VERSION 2 (if the report has no "version": 2, Blender ran an older copy of this text)
 
 Reinstalls the latest build from dist/, connects, selects the served workflow, matches it to this
 scene, renders the animation pass, opens the ComfyQ window and screenshots it. Books nothing.
@@ -14,7 +14,7 @@ from pathlib import Path
 
 import bpy
 
-REPO = Path(r"E:\zaki\MixarAI")
+REPO = Path(__file__).resolve().parents[1]
 OUT = REPO / "live_check"
 OUT.mkdir(exist_ok=True)
 ZIP = next(iter(sorted((REPO / "dist").glob("comfyq_bridge-*.zip"))), None)

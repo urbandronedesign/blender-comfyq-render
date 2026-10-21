@@ -1,11 +1,11 @@
 # AI agents (MCP): Claude Code, Codex
 
-The ComfyQ bridge can let an AI agent on the same PC work with the open Blender scene and the
+The ComfyQ Render can let an AI agent on the same PC work with the open Blender scene and the
 classroom's ComfyQ: render passes, book jobs, import results, build and run the ComfyQ graph.
 It is an **MCP server inside Blender**, **off by default**.
 
 ## Turning it on
-Blender › Edit › Preferences › Add-ons › **ComfyQ bridge** › tick **AI agents (MCP server)** (port 8790 by
+Blender › Edit › Preferences › Add-ons › **ComfyQ Render** › tick **AI agents (MCP server)** (port 8790 by
 default). The line below it shows the address and the connection file. Blender must also be connected
 to ComfyQ (the bar's **Connect**) for the `comfyq_*` tools.
 
@@ -65,7 +65,7 @@ args = ["C:/Users/<you>/AppData/Roaming/Blender Foundation/Blender/5.2/extension
 
 ### Teacher tools: loading models from the agent
 Off by default, and **hidden** from the agent while off. Turn them on only on the teacher's PC:
-**Preferences › Add-ons › ComfyQ Bridge › Teacher › Teacher tools: agents may load models** (the Teacher box is locked unless the profile holds ComfyQ's admin password), then reconnect the
+**Preferences › Add-ons › ComfyQ Render › Teacher › Teacher tools: agents may load models** (the Teacher box is locked unless the profile holds ComfyQ's admin password), then reconnect the
 agent (`/mcp` in Claude Code). They use ComfyQ's own admin routes, so ComfyQ's code is unchanged.
 
 | Tool | Does |

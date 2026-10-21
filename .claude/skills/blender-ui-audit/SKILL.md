@@ -1,6 +1,6 @@
 ---
 name: blender-ui-audit
-description: Audit or review the UI/UX of the Blender ComfyQ bridge (or any change to its panels, bar, node graph, preferences, operators) against Blender's Best Practice page, Blender's Human Interface Guidelines and Nielsen's heuristics for the classroom journeys. Use before and after any UI change, or when the user asks for a UX/UI review.
+description: Audit or review the UI/UX of the ComfyQ Render extension (or any change to its panels, bar, node graph, preferences, operators) against Blender's Best Practice page, Blender's Human Interface Guidelines and Nielsen's heuristics for the classroom journeys. Use before and after any UI change, or when the user asks for a UX/UI review.
 ---
 
 # Blender UI audit

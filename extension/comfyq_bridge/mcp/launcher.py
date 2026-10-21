@@ -7,7 +7,7 @@
 Ships with the extension, so student PCs need nothing else. Never imported by Blender.
 
 Blender writes its server's address and token to %APPDATA%\\comfyq-bridge\\mcp.json while
-"AI agents (MCP server)" is on in the ComfyQ bridge preferences; this reads it on every message, so
+"AI agents (MCP server)" is on in the ComfyQ Render preferences; this reads it on every message, so
 Blender can be (re)started while the agent runs. Standard library only.
 """
 from __future__ import annotations
@@ -20,7 +20,7 @@ import urllib.request
 from pathlib import Path
 
 HELP = ("Blender is not running with the ComfyQ MCP server: open Blender, then Edit › Preferences › "
-        "Add-ons › ComfyQ bridge › tick “AI agents (MCP server)”.")
+        "Add-ons › ComfyQ Render › tick “AI agents (MCP server)”.")
 
 
 def info_file() -> Path:

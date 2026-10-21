@@ -2,7 +2,7 @@ schema_version = "1.0.0"
 
 id = "comfyq_bridge"
 version = "0.1.0"
-name = "ComfyQ Bridge"
+name = "ComfyQ Render"
 tagline = "AI-render scene passes with ComfyQ workflows"
 maintainer = "Ateliernum"
 type = "add-on"
@@ -12,7 +12,7 @@ blender_version_min = "5.0.0"
 
 license = ["SPDX:GPL-3.0-or-later"]
 
-# Pure-Python; requests/urllib3/certifi are already bundled with Mixar and Blender.
+# Pure-Python; requests/urllib3/certifi are already bundled with Blender.
 wheels = [
   "./wheels/bidict-0.24.1-py3-none-any.whl",
   "./wheels/python_engineio-4.14.0-py3-none-any.whl",

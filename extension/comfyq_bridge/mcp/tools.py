@@ -177,7 +177,7 @@ def comfyq_outputs(args: dict) -> dict:
 
 
 # -- teacher: what ComfyQ serves (behind the "Teacher tools" preference) ---------------------------------
-TEACHER_OFF = ("Teacher tools are off. In Blender: Preferences › Add-ons › ComfyQ Bridge › tick "
+TEACHER_OFF = ("Teacher tools are off. In Blender: Preferences › Add-ons › ComfyQ Render › tick "
                "“Teacher tools: agents may load models”, then reconnect the agent (/mcp in Claude Code).")
 TASK: dict[str, Any] = {}          # the one serve/calibrate running in the background (one at a time)
 _TASK_LOCK = threading.Lock()

@@ -134,7 +134,7 @@ def register_extras() -> None:
     append_once(bpy.types.VIEW3D_HT_header, _header_button)
     kc = bpy.context.window_manager.keyconfigs.addon
     if kc is not None:                      # None in background mode
-        # Ctrl+Shift+Q ("Q" for ComfyQ): free in Blender and Mixar. Ctrl+Shift+G is taken by Object
+        # Ctrl+Shift+Q ("Q" for ComfyQ): free in Blender. Ctrl+Shift+G is taken by Object
         # Mode's "Add to active collection", which runs before the 3D View keymap.
         for name, space in (("3D View", "VIEW_3D"), ("Image", "IMAGE_EDITOR"), ("Node Editor", "NODE_EDITOR")):
             km = kc.keymaps.new(name=name, space_type=space)

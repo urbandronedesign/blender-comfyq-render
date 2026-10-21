@@ -183,7 +183,7 @@ def scene_fingerprint(scene: bpy.types.Scene, style: str) -> str:
     """A hash of what a camera render of the scene depends on: camera, frame range, resolution, every
     renderable object's placement (keyframes when animated), mesh shape, modifiers, materials (Material
     style). Not the current frame, selection, custom properties or UI state — so neither scrubbing the
-    timeline nor Mixar's own UI activity makes scene-fed graph results look out of date."""
+    timeline nor UI activity makes scene-fed graph results look out of date."""
     h = hashlib.sha1()
 
     def add(*v):

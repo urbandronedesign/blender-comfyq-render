@@ -1,7 +1,7 @@
 [project]
-name = "mixar-comfyq-bridge"
+name = "blender-comfyq-render"
 version = "0.1.0"
-description = "Mixar / Blender extension that sends scene passes to ComfyQ workflows and imports the results"
+description = "Blender extension that sends scene passes to ComfyQ workflows and imports the results"
 requires-python = ">=3.11"
 
 [tool.pytest.ini_options]

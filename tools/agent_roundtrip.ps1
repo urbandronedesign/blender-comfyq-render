@@ -4,7 +4,7 @@
 #   .\tools\agent_roundtrip.ps1                       # after .\tools\smoke_test.ps1 (which builds dist\*.zip)
 #   .\tools\agent_roundtrip.ps1 -Prompt my_prompt.md  # another task for the agent
 param(
-    [string] $Scene = (Join-Path $env:USERPROFILE "Desktop\testV2V_clean.mixar"),
+    [string] $Scene = (Join-Path $env:USERPROFILE "Desktop\testV2V_clean.blend"),
     [string] $Prompt = (Join-Path $PSScriptRoot "agent_round_trip.md"),
     [string] $Claude = "",
     [int] $MaxTurns = 40

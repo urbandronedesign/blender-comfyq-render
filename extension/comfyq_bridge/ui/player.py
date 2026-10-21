@@ -98,7 +98,7 @@ def set_frame(area, n: int) -> int:
     iu.frame_duration = frames
     iu.frame_start = bpy.context.scene.frame_current
     iu.frame_offset = n - 1
-    # Setting the offset alone does not make the editor recompute its frame (checked in Mixar 4.2);
+    # Setting the offset alone does not make the editor recompute its frame (checked in Blender);
     # re-assigning the image does, without touching the scene.
     sp.image = sp.image
     _PLAY["frame"] = n

@@ -8,7 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 
-# kind -> (label, RGBA). Colours follow Mixar's Moodboard where it has one (image = cyan, audio = purple).
+# kind -> (label, RGBA). Colours follow a moodboard convention (image = cyan, audio = purple).
 SOCKETS: dict[str, tuple[str, tuple[float, float, float, float]]] = {
     "image": ("Image", (0.30, 0.80, 0.95, 1.0)),
     "mask": ("Mask", (0.70, 0.70, 0.70, 1.0)),

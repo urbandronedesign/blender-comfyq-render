@@ -20,7 +20,7 @@ def _reachable(url: str, timeout: float = 2.0) -> bool:
         return False
 
 
-def run(client: ComfyQClient, mixar_reserve_gb: float | None = None) -> list[tuple[str, str]]:
+def run(client: ComfyQClient, reserve_gb: float | None = None) -> list[tuple[str, str]]:
     out: list[tuple[str, str]] = []
     p = client.profile
     try:
@@ -64,8 +64,8 @@ def run(client: ComfyQClient, mixar_reserve_gb: float | None = None) -> list[tup
     if _reachable(f"http://{host}:5173/"):
         out.append((WARN, "ComfyQ web client is the Vite dev server (:5173); use a production build for class"))
 
-    if mixar_reserve_gb is not None and gpu.get("vramGb"):
-        budget = float(gpu["vramGb"]) - mixar_reserve_gb
+    if reserve_gb is not None and gpu.get("vramGb"):
+        budget = float(gpu["vramGb"]) - reserve_gb
         over = [w.id for w in wfs if w.vram_peak_gb and w.vram_peak_gb > budget]
         out.append((OK, f"shared-GPU budget {budget:.0f} GB; {len(over)} calibrated workflows exceed it"))
     return out

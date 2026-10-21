@@ -48,14 +48,14 @@ default = "class"
 comfyq = {{ url = "http://192.168.1.10:3000/", user = "ana", password_file = "{(tmp_path / 'pw.txt').as_posix()}" }}
 [profiles.solo]
 comfyq = {{ url = "http://127.0.0.1:3000", token_env = "MY_TOKEN" }}
-gpu = {{ policy = "shared", mixar_reserve_gb = 8 }}
+gpu = {{ policy = "shared", reserve_gb = 8 }}
 ''')
     p = load_profile(path=cfg)
     assert (p.name, p.url, p.user, p.password) == ("class", "http://192.168.1.10:3000", "ana", "s3cret")
     assert p.admin_password == ""                     # students: no admin password unless given one
     monkeypatch.setenv("MY_TOKEN", "abc")
     s = load_profile("solo", path=cfg)
-    assert s.token == "abc" and s.gpu_policy == "shared" and s.mixar_reserve_gb == 8
+    assert s.token == "abc" and s.gpu_policy == "shared" and s.reserve_gb == 8
     monkeypatch.setenv("COMFYQ_URL", "http://10.0.0.5:3000")
     assert load_profile("solo", path=cfg).url == "http://10.0.0.5:3000"
     monkeypatch.setenv("COMFYQ_ADMIN_PASSWORD", "teach")

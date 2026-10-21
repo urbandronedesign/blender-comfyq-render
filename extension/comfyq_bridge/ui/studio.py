@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""The generation bar, laid out like Mixar's own (tabs · chips · prompt · references · Generate).
+"""The generation bar, (tabs · chips · prompt · references · Generate).
 
 Drawn in the View3D sidebar, the Image Editor sidebar (the detached ComfyQ
 window) and a floating dialog — all from this code. Drawing only reads data.

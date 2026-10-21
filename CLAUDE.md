@@ -1,17 +1,17 @@
-# CLAUDE.md — Mixar ↔ ComfyQ Bridge
+# CLAUDE.md — ComfyQ Render (Blender ↔ ComfyQ)
 
-A Blender extension (`comfyq_bridge`) that runs inside **Mixar** (a Blender 5.2 fork) and plain
-**Blender 5.x**. It renders scene passes (clay stills, masks, the clay *animation*), sends them to
+**ComfyQ Render** is a Blender 5.x extension (id `comfyq_bridge`, kept on purpose: renaming it resets the users'
+add-on preferences). It renders scene passes (clay stills, masks, the clay *animation*), sends them to
 **ComfyQ** workflows (a multi-user ComfyUI scheduler), and brings results back into the scene.
-Main use: **AI rendering** of a Mixar layout/animation (ControlNet, image edit, video-to-video), not Cycles.
+Main use: **AI rendering** of a Blender layout/animation (ControlNet, image edit, video-to-video), not Cycles.
 Used in a **class on a local network**.
 
-**Since 2026-10-03 the user works in Blender 5.2 LTS only: Mixar was uninstalled** (MSI + leftover
-program folder removed; its user data in `%APPDATA%\Mixar` / `%LOCALAPPDATA%\Mixar` was left). The code
-stays Mixar-compatible (`smoke_test.ps1 -App mixar` if Mixar is reinstalled); Mixar-only gotchas below are history.
+**History:** the project started inside Mixar (a Blender fork). Since 2026-10-03 it targets Blender 5.2 LTS only;
+renamed from "Mixar ↔ ComfyQ bridge" to **ComfyQ Render** on 2026-10-21 (Mixar tools and `-App mixar` removed).
+Gotchas 2, 3, 4, 11, 12 below were Mixar-only (kept for the numbering).
 
 Approved plan: `C:\Users\Ateliernum\.claude\plans\we-are-planning-a-effervescent-widget.md`.
-Git: local repo, branch `main`, no remote. Commit author = repo-local `urbandronedesign <urbandronedesign@users.noreply.github.com>`
+Git: branch `main`, remote `origin` = public GitHub `urbandronedesign/blender-comfyq-render`. Commit author = repo-local `urbandronedesign <urbandronedesign@users.noreply.github.com>`
 (never the global identity). Ask the user before committing. **UI reference: `docs/UI.md`** (every button + its check).
 **Building a new workflow / pipeline: follow `.claude/skills/comfyq-workflow-build/SKILL.md`** (the user's standing protocol).
 
@@ -19,12 +19,11 @@ Git: local repo, branch `main`, no remote. Commit author = repo-local `urbandron
 | Thing | Where |
 |---|---|
 | **Blender 5.2.2 LTS** (Python 3.13.13) — the host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (build of commit `5c70c06`: + batch renders from a folder), Allow Online Access on, **AI agents (MCP server) ON** (port 8790), **Teacher tools ON** (agents may load models; set 2026-10-04 by a startup script + `save_userpref`). Theme = Mixar's **"Mixar Forest"** with Input node colour changed from #ff284d to #3d4640 (calmer graph headers) (exported from `%APPDATA%\Mixar\Mixar\5.2\config\mixar_userpref.blend`, preset `scripts\presets\interface_theme\mixar_forest.xml`; previous prefs backed up as `config\userpref.before_mixar_theme.blend`) Default of `smoke_test.ps1` and `comfyq.ps1` |
-| Mixar 4.2.0 | **uninstalled 2026-10-03** (was `C:\Program Files\Mixar\mixar.exe`, profile `%APPDATA%\Mixar\Mixar\5.2`) |
 | ComfyQ server (Node, Socket.IO, SQLite) | `F:\ComfyQ`, http://127.0.0.1:3000 — user works with b2renger, full control of its code |
 | ComfyUI 0.37, torch 2.8 cu128, RTX 5090 32 GB | `F:\ComfyUI_windows_portable_nvidia\…`, :8188 (listens on 0.0.0.0 — P1.0 issue) |
 | Ollama | 127.0.0.1:11434 |
 | Bridge cache | `%LOCALAPPDATA%\comfyq-bridge\cache\` — `passes\` (temporary renders), `<job8>\` (downloaded results) |
-| User's test project | `Desktop\testV2V_clean.mixar` (cleaned copy, use this). `.mixar` = zstd-compressed .blend: **Blender 5.2 opens it** (scene 0–120 @ 24 fps, camera, ComfyQ settings intact) |
+| User's test project | `Desktop\testV2V_clean.blend` (cleaned copy, use this; same file as the older `testV2V_clean.mixar`, a zstd .blend) (scene 0–120 @ 24 fps, camera, ComfyQ settings intact) |
 
 **User constraints:** do not change the live ComfyQ/ComfyUI server behaviour (P1.0 hardening is postponed).
 Every workflow stays visible (never hide uncalibrated ones). Update check = manual smoke script.
@@ -52,7 +51,7 @@ extension/comfyq_bridge/
   ops/results.py         job-card buttons (save copy, import file, download) + Clean up
   ops/connection.py      connect / disconnect / refresh
   importers/media.py     image -> Image Editor; video/audio -> separate "ComfyQ Results" scene; GLB/PLY -> collection
-  ui/studio.py           the Mixar-style bar (tabs, chips, prompt, scene strip, references, job cards with "Sent" rows)
+  ui/studio.py           the generation bar (tabs, chips, prompt, scene strip, references, job cards with "Sent" rows)
   ui/panel.py            panels: View3D sidebar, Image Editor sidebar, Queue popover, dialog (Ctrl+Shift+Q), header buttons
   ui/player.py           video player for the ComfyQ window (independent of the scene timeline)
   ui/server.py           teacher's Server panel (lanes/VRAM via a thread every 5 s while open, queue, people, Load Model...)
@@ -69,18 +68,16 @@ extension/comfyq_bridge/
                          (stdio launcher agents run; ships with the extension)
 tests/unit/              pytest, no bpy (params, match, models/profile, submit)
 tests/contract/          against the live ComfyQ (read-only + a no-GPU booking 1 day ahead, then deleted)
-tests/blender/smoke.py   headless inside Mixar/Blender (run via tools/smoke_test.ps1)
-tests/blender/ui_check.py VISIBLE Blender (or Mixar): presses every button in its real window/area/region,
+tests/blender/smoke.py   headless inside Blender (run via tools/smoke_test.ps1)
+tests/blender/ui_check.py VISIBLE Blender: presses every button in its real window/area/region,
                          graph steps, live chain with -Book (smoke_test.ps1 -Ui [-Book])
 docs/UI.md               user-facing reference of every control, mapped to the ui_check checks
 docs/CLASS.md            teacher guide: class setup, presets, sharing presets
 docs/AGENTS.md           AI agents: turning the MCP server on, Claude Code / Codex config, the tools
-tests/fixtures/cube.glb  committed fixture (Mixar's glTF exporter crashes at exit in -b)
+tests/fixtures/cube.glb  committed fixture (no glTF export at test time)
 tools/smoke_test.ps1     build zip -> install into an ISOLATED profile -> run smoke (-Book: one real GPU job)
-tools/comfyq.ps1         client CLI with Mixar's Python: doctor | workflows | params | submit | fetch
-tools/live_check.py      run from Mixar's Text Editor on the user's open scene; writes live_check/report.json + window.png
-tools/open_and_send.py   `mixar <file> --python tools/open_and_send.py -- [--no-send] [--cleanup]`
-tools/late_open.py       start Mixar THEN open a file (workaround for the launch crash), then runs open_and_send
+tools/comfyq.ps1         client CLI with Blender's Python: doctor | workflows | params | submit | fetch
+tools/live_check.py      run from Blender's Text Editor on the user's open scene; writes live_check/report.json + window.png
 tools/blender_mcp.py     repo wrapper of mcp/launcher.py (used by .mcp.json)
 tools/agent_roundtrip.ps1  sandbox Blender + MCP on + `claude -p` doing render → submit → wait → import
 tools/graph_send.py      build Scene Animation → served V2V node on a real file, Generate on the node, trace it
@@ -109,9 +106,9 @@ presets/library/         the generated workflow library (46 presets since ComfyQ
 ```powershell
 .\.venv\Scripts\python -m pytest -q tests\unit tests\contract     # unit + live contract (ComfyQ must run)
 .\.venv\Scripts\ruff check extension tests tools
-.\tools\smoke_test.ps1                  # Blender 5.2, isolated profile, no GPU   (also: -Book, -App mixar)
-.\tools\smoke_test.ps1 -Ui [-Book]      # VISIBLE Mixar (~3 min, tell the user): every button on a copy of
-                                        # testV2V_clean.mixar -> live_check\ui\report.json + screenshots
+.\tools\smoke_test.ps1                  # Blender 5.2, isolated profile, no GPU   (also: -Book)
+.\tools\smoke_test.ps1 -Ui [-Book]      # VISIBLE Blender (~3 min, tell the user): every button on a copy of
+                                        # testV2V_clean.blend -> live_check\ui\report.json + screenshots
 .\tools\smoke_test.ps1 -Sweep           # P1.5 (GPU): calibrate + run every SERVED workflow from the scene,
                                         # -> live_check\sweep\*.json + docs\workflow-matrix.md. With the user's OK:
                                         # -SweepArgs "--lanes=a,b" (serve alongside) or "--switch=a,b --restore=c"
@@ -123,8 +120,8 @@ presets/library/         the generated workflow library (46 presets since ComfyQ
 # send a job from the node graph on a real project (visible window; use a sandbox profile for unreleased code):
 & "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" --online-mode --python tools\graph_send.py -- <file> <prompt.txt>
 ```
-`dist\comfyq_bridge-0.1.0.zip` is rebuilt by every smoke run. Installing it into a running Mixar does not
-change that session: the user must reinstall from the UI or restart Mixar.
+`dist\comfyq_bridge-0.1.0.zip` is rebuilt by every smoke run. Installing it into a running Blender does not
+change that session: the user must reinstall from the UI or restart Blender.
 
 ## ComfyQ contract used (phase 1 = ComfyQ code unchanged)
 - HTTP: `GET /workflows[?includeUnavailable=1]`, `GET /workflows/:id/parameters`, `POST /upload` (field `file`,
@@ -164,9 +161,9 @@ change that session: the user must reinstall from the UI or restart Mixar.
 14. PowerShell `Set-Content -Encoding utf8` writes a BOM → breaks `compile()`; edit Python files with the
     Edit tool or Bash, never PS Set-Content.
 15. Float props are single precision: compare with tolerance (`_same()` in studio.py).
-16. Visible GUI tests: run Mixar with the sandbox env vars + a script that screenshots
+16. Visible GUI tests: run Blender with the sandbox env vars + a script that screenshots
     (`bpy.ops.screen.screenshot`) and quits; tell the user a window will flash. `smoke_test.ps1 -Ui` does it.
-    Screenshots show the user's account email (Mixar top bar): never commit or publish them.
+    Screenshots may show the user's account email (it was in Mixar's top bar): never commit or publish them.
 17. **Windows are saved in the .blend.** The ComfyQ window comes back on reopen with a new pointer →
     it is marked by a custom property on its screen (`comfyq_window`); older files are matched by layout
     (Image Editor + Text Editor). Never write ID data from draw code (marking happens in a timer).
@@ -182,7 +179,7 @@ change that session: the user must reinstall from the UI or restart Mixar.
     there = access violation (seen on reinstall). Guard with `graph.tree.REGISTERING`; read socket kinds
     from `bl_idname`, not Python attributes.
 22. **Don't infer "the scene changed" from depsgraph updates.** Our own renders (frame steps of an
-    animated camera, mask recolouring) and Mixar's UI (re-tags objects with *shading* updates while
+    animated camera, mask recolouring) and the UI (Mixar re-tagged objects with *shading* updates while
     drawing) produce them constantly. The graph hashes the scene content instead
     (`render.scene_fingerprint`). The depsgraph tracker (bar's animation cache) ignores our passes
     (`render.own_changes`), images/texts/UI and flagless Object updates; `animation.edit_log` shows why.
@@ -240,7 +237,7 @@ change that session: the user must reinstall from the UI or restart Mixar.
     `invoke_confirm(title=, message=, confirm_text=, icon=)` for anything that deletes files or switches models.
 40. **Bash heredocs mangle backslashes**: a doubled backslash reaches Python as a single one, so `\a` becomes BEL,
     `\t` a tab, and `\` + newline joins lines. Write code with the Write/Edit tools, or build paths with `chr(92)`.
-    In PowerShell run `Set-Location E:\zaki\MixarAI` first: after a `cd` into a subfolder, `.\tools\…` fails.
+    In PowerShell run `Set-Location <repo>` first: after a `cd` into a subfolder, `.\tools\…` fails.
     Even a quoted heredoc (`<<'EOF'`) halved `\\` in this Bash tool (2026-10-04, three times): write edit scripts
     to the scratchpad with the Write tool, then run them.
 41. **A render started from Python logs no progress** (`bpy.ops.render.render` in `-b`: no "Sample n/m" lines, unlike
@@ -268,7 +265,7 @@ change that session: the user must reinstall from the UI or restart Mixar.
   **This PC is the teacher PC**: `%APPDATA%\comfyq-bridge\profiles.toml` = profile `teacher` (default,
   127.0.0.1:3000, random `admin_password`; ComfyQ itself has no admin password yet, so any value works). Without it
   Solo / Load Model / the agents' teacher tools are locked (UX phase A). Never copy that file to student PCs.
-  Mixar uninstalled. **ComfyQ serves whatever solo mode / the last preset loaded** (at stop 2026-10-06: main
+  **ComfyQ serves whatever solo mode / the last preset loaded** (at stop 2026-10-06: main
   `utility_video_frame_interpolation`, lanes `image_edit_flux2_klein_9b_image_edit` + `utility_video_segment_sam3`)
   — no fixed "state to restore" (user's choice: the next preset decides; before class, serve the lesson's model).
   **Never touch the ComfyQ repo** (F:\ComfyQ; its `git stash` from before the pull stays). We may download model

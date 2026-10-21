@@ -1,6 +1,6 @@
 """Open a file in Blender, connect to ComfyQ and turn the MCP server on (for agent round-trip tests).
 
-  blender --online-mode --python tools/mcp_session.py -- <file.blend|.mixar> <ready-marker-file>
+  blender --online-mode --python tools/mcp_session.py -- <file.blend> <ready-marker-file>
 
 Writes <ready-marker-file> once connected with the served workflows' settings loaded and the MCP
 server running. Blender stays open for the agent; the caller closes it.

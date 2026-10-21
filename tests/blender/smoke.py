@@ -1,6 +1,6 @@
-"""Headless smoke test, run inside Mixar or Blender by tools/smoke_test.ps1.
+"""Headless smoke test, run inside Blender by tools/smoke_test.ps1.
 
-  mixar -b --factory-startup --python tests/blender/smoke.py -- [--book]
+  blender -b --factory-startup --python tests/blender/smoke.py -- [--book]
 
 bpy.app.timers do not fire in background mode, so this script pumps the
 session itself. Without --book it stops before sending a job (no GPU use).
@@ -135,8 +135,7 @@ check(tuple(cube.color) == (1.0, 1.0, 1.0, 1.0), "object color restored")
 # -- importers (no network) -------------------------------------------------------------
 tmp = cache_dir() / "smoke"
 tmp.mkdir(parents=True, exist_ok=True)
-# The GLB is a committed fixture: Mixar 4.2's glTF *exporter* crashes Mixar at exit in background mode
-# (import, which is all the bridge uses, is fine).
+# The GLB is a committed fixture (no glTF export at test time; the bridge only imports).
 glb = Path(__file__).resolve().parents[1] / "fixtures" / "cube.glb"
 ply, wav = tmp / "cube.ply", tmp / "tone.wav"
 bpy.ops.wm.ply_export(filepath=str(ply), export_selected_objects=True)
@@ -424,10 +423,10 @@ def _reuses_a():
 
 
 # What happens during and after a real run must not make A's scene input look edited (the live check
-# found Mixar's UI re-tagging objects): results arriving, images, custom properties, the timeline.
+# found the UI re-tagging objects): results arriving, images, custom properties, the timeline.
 wnode.job_id = "x"
 probe = bpy.data.images.new("ComfyQ probe", 8, 8)
-cube["mixar_ui_tag"] = 1
+cube["ui_tag"] = 1
 keep_frame = scene.frame_current
 scene.frame_set(scene.frame_start + 10)
 bpy.context.view_layer.update()
@@ -435,7 +434,7 @@ check(_reuses_a(), "graph run: results arriving, custom properties and scrubbing
                    "invalidate the scene input")
 scene.frame_set(keep_frame)
 bpy.data.images.remove(probe)
-del cube["mixar_ui_tag"]
+del cube["ui_tag"]
 cam = scene.camera
 cam.location.x += 0.5                                      # a real change of what the camera sees
 check(not _reuses_a(), "graph run: moving the camera makes the scene-fed node run again")

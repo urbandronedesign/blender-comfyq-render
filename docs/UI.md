@@ -1,6 +1,6 @@
-# ComfyQ bridge — user interface reference
+# ComfyQ Render — user interface reference
 
-Every place the bridge appears in Blender 5.2 LTS (and Mixar), every button, what it does, and how it
+Every place the extension appears in Blender 5.2 LTS, every button, what it does, and how it
 is checked. The checks run in a visible Blender on a copy of a real scene:
 
 ```powershell
@@ -8,9 +8,9 @@ is checked. The checks run in a visible Blender on a copy of a real scene:
 .\tools\smoke_test.ps1 -Ui -Book    # also Generate (booked, cancelled) and a live graph chain A → B (2 short jobs)
 ```
 
-Last full runs, 2026-10-03, on `testV2V_clean.mixar` in **Blender 5.2.2 LTS**: **92 / 92** without GPU (after N5) and,
+Last full runs, 2026-10-03, on `testV2V_clean` in **Blender 5.2.2 LTS**: **92 / 92** without GPU (after N5) and,
 with `-Book`, the live part (graph chain A → B, B given A's result, *Generate again* reuses A, ✕ cancels);
-no drawing errors. Earlier the same checks passed in Mixar 4.2.0 (uninstalled since).
+no drawing errors.
 
 ---
 
@@ -22,7 +22,7 @@ no drawing errors. Earlier the same checks passed in Mixar 4.2.0 (uninstalled si
 | **ComfyQ window** | Window icon (bar, or 3D View header) | Its own window: **viewer** (top), **Player** + bar + Jobs in the viewer's sidebar, **prompt editor** (bottom) |
 | **Dialog** | **ComfyQ** button in the 3D View header, or **Ctrl+Shift+Q** (3D View, Image Editor) | The bar as a floating dialog; its **Generate** button sends the job |
 | **Queue popover** | **Queue** button of the bar | The last 8 jobs of this scene |
-| **Preferences** | Edit › Preferences › Add-ons › ComfyQ Bridge | Student Name, Profile, Server Address, Connect on Startup, AI Agents, Teacher box |
+| **Preferences** | Edit › Preferences › Add-ons › ComfyQ Render | Student Name, Profile, Server Address, Connect on Startup, AI Agents, Teacher box |
 
 The ComfyQ window is saved with the file. When the file is opened again it is recognised as the
 ComfyQ window (players, previews and the prompt editor use it) and its sidebar is put back on the ComfyQ tab.
@@ -156,7 +156,7 @@ Plays videos in the viewer **without moving the scene's timeline**.
 
 | Control | Does | Check |
 |---|---|---|
-| **ComfyQ** (3D View header) / **Ctrl+Shift+Q** | Opens the dialog (connects first if needed) | `header ComfyQ button / Ctrl+Shift+Q opens the dialog`, `Ctrl+Shift+Q shortcut registered`, `Ctrl+Shift+Q not taken by Mixar` |
+| **ComfyQ** (3D View header) / **Ctrl+Shift+Q** | Opens the dialog (connects first if needed) | `header ComfyQ button / Ctrl+Shift+Q opens the dialog`, `Ctrl+Shift+Q shortcut registered`, `Ctrl+Shift+Q not taken by Blender` |
 | Window icon (3D View header) | Opens the ComfyQ window | (same operator as §2.1) |
 | Preferences: **Student Name** | Name shown on jobs in ComfyQ; only jobs booked under it can be cancelled. Asked at the first Connect | GUI `no student name confirmed yet…`, `Connect button (name typed in its dialog)` |
 | Bar: **name · server** row + ✎ **Change Name...** | Who the jobs are booked as, on which server; ✎ changes the name and reconnects | — |
@@ -167,7 +167,7 @@ Plays videos in the viewer **without moving the scene's timeline**.
 | **Solo: load models on demand** (Teacher box) | Needs the admin password in the profile. A red *Solo* line in the bar and *Solo* in the graph header while on. **Run Graph** asks first ("Load N Model(s) in ComfyQ?") and **Load Model** asks first. Off by default; **never in class**. When you are alone on ComfyQ: **Run Graph** loads the model each node needs (alongside if it fits, else as ComfyQ's main workflow: ComfyQ restarts, about 1–2 min per switch), one model at a time; the last one stays loaded until a preset needs another. Refused while anyone has a job on the server. Workflow nodes say *Loads on Run* instead of *Not served* and get a **Load Model** button (⇩) | smoke `solo: …` (ComfyQ's switch faked) |
 | **AI agents (MCP server)** + Port | Off by default. Lets AI agents on this PC (Claude Code, Codex) use the scene and ComfyQ through scoped tools; 127.0.0.1 only, new token each start. Shows the address and the launcher command to give the agent. See [AGENTS.md](AGENTS.md) | smoke `Preferences › AI agents (MCP server) starts it`, `MCP …`; `tools\agent_roundtrip.ps1` |
 
-The shortcut was **Ctrl+Shift+G** until 2026-10-03: in Object Mode Mixar/Blender run *Add to active
+The shortcut was **Ctrl+Shift+G** until 2026-10-03: in Object Mode Blender runs *Add to active
 collection* first, so it never reached ComfyQ.
 
 ---
@@ -182,7 +182,7 @@ collection* first, so it never reached ComfyQ.
    marked on its screen and found again; older files are recognised by their layout.
 3. **ComfyQ window sidebar stuck on “Tool”**: switching the tab fails with *read-only* until the
    sidebar has been drawn once, and that error stopped the retry. Now retried until it works.
-4. **Ctrl+Shift+G** taken by Mixar's Object Mode → **Ctrl+Shift+Q**.
+4. **Ctrl+Shift+G** taken by Object Mode → **Ctrl+Shift+Q**.
 5. **Narrow sidebar**: tabs, the scene strip and the action row were cut off → icon tabs, wrapped
    lines, Generate on its own row.
 

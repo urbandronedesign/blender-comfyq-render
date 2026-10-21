@@ -1,12 +1,12 @@
-"""Send a job from the ComfyQ node graph on a real project (visible Mixar), and follow it.
+"""Send a job from the ComfyQ node graph on a real project (visible Blender), and follow it.
 
-  mixar --online-mode --python tools/graph_send.py -- <file.mixar> <prompt.txt>
+  blender --online-mode --python tools/graph_send.py -- <file.blend> <prompt.txt>
 
-Opens the file after startup (launch-crash workaround), builds
+Opens the file after startup, builds
   Scene Animation ──► <served V2V workflow> ◄── Scene Render (first frame, start image)
 with the prompt from <prompt.txt>, the bar's settings of that workflow and the scene's timing,
 presses Generate on the node, and logs every step to live_check/graph_send_report.json.
-Mixar stays open on the graph and the result.
+Blender stays open on the graph and the result.
 """
 import json
 import sys
@@ -20,7 +20,7 @@ from bpy.app.handlers import persistent
 
 ARGS = sys.argv[sys.argv.index("--") + 1:]
 FILE, PROMPT = ARGS[0], Path(ARGS[1]).read_text(encoding="utf-8").strip()
-OUT = Path(r"E:\zaki\MixarAI\live_check")
+OUT = Path(__file__).resolve().parents[1] / "live_check"
 OUT.mkdir(exist_ok=True)
 MOD = "bl_ext.user_default.comfyq_bridge"
 report: dict = {"file": FILE, "steps": []}

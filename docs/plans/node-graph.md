@@ -1,5 +1,7 @@
 # Plan — ComfyQ node graph (Moodboard-style UI)
 
+> Historical plan, written when the project ran in Mixar (a Blender fork); it now targets Blender 5.2 only.
+
 Status: **N0 + N1 + N2 done and verified in Blender 5.2.2 LTS** (2026-10-03); **N3 (look) is next** — task list in CLAUDE.md › Next steps. Decisions: Node Editor (option A); the bar stays next to
 the graph; settings are chips inside each node only (no linkable setting sockets). Goal: the same way of working as Mixar's Moodboard
 (cards wired together: image → *Generate Video* → …) inside the bridge, with nodes built from what

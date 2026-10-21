@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Match a workflow's timing/size parameters to the Mixar scene (no bpy here).
+"""Match a workflow's timing/size parameters to the Blender scene (no bpy here).
 
 ComfyQ bundles name their parameters for people, not machines, so we
 recognise them by label: "Duration (seconds)", "Clip length used (seconds,

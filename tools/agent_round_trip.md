@@ -1,4 +1,4 @@
-You are testing the Blender ↔ ComfyQ bridge through the `blender-comfyq` MCP tools. Use only those tools.
+You are testing ComfyQ Render (Blender ↔ ComfyQ) through the `blender-comfyq` MCP tools. Use only those tools.
 Do one full round trip, keeping the GPU job as short as possible (the GPU is shared by a class):
 
 1. `blender_scene_info`, then `comfyq_list_workflows` (served only).

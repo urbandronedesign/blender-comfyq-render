@@ -69,7 +69,7 @@ def main(argv: list[str] | None = None) -> int:
 
 def _run(client: ComfyQClient, args: argparse.Namespace) -> int:
     if args.cmd == "doctor":
-        results = doctor.run(client, client.profile.mixar_reserve_gb)
+        results = doctor.run(client, client.profile.reserve_gb)
         for level, msg in results:
             print(_MARK[level] + msg)
         return 1 if any(l == doctor.FAIL for l, _ in results) else 0

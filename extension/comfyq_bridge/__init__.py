@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""ComfyQ Bridge — send scene passes to ComfyQ workflows and import the results.
+"""ComfyQ Render — send scene passes to ComfyQ workflows and import the results.
 
-Works in Mixar and plain Blender 5.x: public bpy only, never mixar.* internals.
+Blender 5.x extension: public bpy only.
 `client/` holds all ComfyQ protocol code and does not import bpy.
 """
 from __future__ import annotations

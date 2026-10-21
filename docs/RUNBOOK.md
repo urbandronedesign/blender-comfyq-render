@@ -1,4 +1,4 @@
-# Runbook — Blender ↔ ComfyQ bridge (state of 2026-10-06, build `5c70c06`, ComfyQ `be109b3`)
+# Runbook — ComfyQ Render (Blender ↔ ComfyQ) (state of 2026-10-06, build `5c70c06`, ComfyQ `be109b3`)
 
 For b2renger and the teacher. It covers what the bridge does today, how to install it, run it and demo
 it, how it uses ComfyQ, what was tested, and what is missing on each side. For more detail:
@@ -11,7 +11,7 @@ quickstart), [AGENTS.md](AGENTS.md) (AI agents / MCP), [arch-render.md](arch-ren
 
 ## 1. What it is
 
-`comfyq_bridge` is a **Blender 5.2 extension** (it also runs in Mixar, the Blender fork used before).
+**ComfyQ Render** (extension id `comfyq_bridge`) is a **Blender 5.2 extension**.
 Students lay out a scene and an animation in Blender; ComfyQ workflows do the final look ("AI
 rendering"). The bridge:
 
@@ -40,7 +40,7 @@ are used only by the opt-in teacher tools and solo mode (section 5).
 | 1. Build the zip | `.\tools\smoke_test.ps1` (also runs the headless tests) → `dist\comfyq_bridge-0.1.0.zip` |
 | 2. Install | Blender › Edit › Preferences › Get Extensions › ⌄ › *Install from Disk…*, or `blender -b --online-mode --command extension install-file -r user_default -e dist\comfyq_bridge-0.1.0.zip` (**not** `--factory-startup`: it resets the user's preferences) |
 | 3. Allow online access | Preferences › System › *Allow Online Access* (the bridge cannot connect without it) |
-| 4. Server address | Preferences › Add-ons › ComfyQ Bridge › Server › *Profile* (or *Advanced › Server Address*, for example `http://192.168.1.10:3000`; *Test Connection* checks it), or a shared `%APPDATA%\comfyq-bridge\profiles.toml` (the teacher copies one file to every PC, **without** `admin_password`, which only goes in the teacher's own file; access password / token there or in env vars, never in the .blend) |
+| 4. Server address | Preferences › Add-ons › ComfyQ Render › Server › *Profile* (or *Advanced › Server Address*, for example `http://192.168.1.10:3000`; *Test Connection* checks it), or a shared `%APPDATA%\comfyq-bridge\profiles.toml` (the teacher copies one file to every PC, **without** `admin_password`, which only goes in the teacher's own file; access password / token there or in env vars, never in the .blend) |
 | 5. Student name | Asked in a dialog at the first *Connect* (lab PCs share Windows logins); shown on the jobs; you can only cancel your own. Change it with the ✎ beside the name in the bar |
 | 6. Connect | 3D View › sidebar › ComfyQ › *Connect* (or tick *Connect on startup*) |
 | 7. Presets (optional) | Copy `presets\library\*` (46 graphs) and the teacher's own presets into `%APPDATA%\comfyq-bridge\presets\`, or put them in one shared folder named by `presets_dir` in the deployed profile (or the *Shared Presets Folder* preference) |

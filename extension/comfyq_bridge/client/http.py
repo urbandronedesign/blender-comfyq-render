@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Thin HTTP layer over `requests` (bundled with Mixar and Blender).
+"""Thin HTTP layer over `requests` (bundled with Blender).
 
 Adds the access token, timeouts and readable errors. Never logs the token.
 """
@@ -20,7 +20,7 @@ def _unreachable(base: str, e: Exception) -> str:
     else:
         what = "is not answering"
     return (f"The ComfyQ server at {base} {what}. Check that the server PC is on and ComfyQ is running, "
-            f"then press Connect again (address: Preferences › Add-ons › ComfyQ Bridge).")
+            f"then press Connect again (address: Preferences › Add-ons › ComfyQ Render).")
 
 
 class ComfyQError(RuntimeError):

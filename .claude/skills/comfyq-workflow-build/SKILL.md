@@ -1,6 +1,6 @@
 ---
 name: comfyq-workflow-build
-description: The protocol for building a new AI-render workflow in the Blender ↔ ComfyQ bridge (e.g. "segment the scene, label the surfaces in the prompt, render, upscale"): check what ComfyQ offers, build the tools in layers, test on a generated scene, compare candidate workflows on the GPU by looking at the results, then ship it as a graph node + class preset + report card + docs. Use whenever the user asks for a new pipeline, a new kind of render, or "the best workflow for X".
+description: The protocol for building a new AI-render workflow in ComfyQ Render (Blender ↔ ComfyQ) (e.g. "segment the scene, label the surfaces in the prompt, render, upscale"): check what ComfyQ offers, build the tools in layers, test on a generated scene, compare candidate workflows on the GPU by looking at the results, then ship it as a graph node + class preset + report card + docs. Use whenever the user asks for a new pipeline, a new kind of render, or "the best workflow for X".
 ---
 
 # Building a workflow: the protocol

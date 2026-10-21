@@ -148,7 +148,7 @@ def _is_scene_edit(update) -> bool:
     if isinstance(idblock, bpy.types.NodeTree) and idblock.bl_idname == "ComfyQGraphTree":
         return False
     if isinstance(idblock, bpy.types.Object):
-        # Mixar's UI re-tags objects while it draws (seen live: "Object Cube", no transform, no
+        # The UI can re-tag objects while it draws (seen live: "Object Cube", no transform, no
         # geometry, every few seconds). Moving, deforming or reshading an object sets one of these;
         # mesh/camera/material/action/collection edits arrive as their own (non-Object) updates.
         return bool(update.is_updated_transform or update.is_updated_geometry or update.is_updated_shading)

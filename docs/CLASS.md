@@ -9,7 +9,7 @@ your own ready-made graphs. Every button is described in [UI.md](UI.md).
    (ComfyQ's own interface). Only served workflows can run; the others are listed but marked
    *Not served (ask the teacher)*. For animation work, serve a video-to-video workflow (e.g.
    *LTX 2.5 IC-LoRA*) and, for AI keyframes, an image workflow too (e.g. *Qwen Image 2.1 control depth*).
-2. **Every student PC**: Blender 5.2 LTS with the *ComfyQ bridge* extension installed
+2. **Every student PC**: Blender 5.2 LTS with the *ComfyQ Render* extension installed
    (Edit › Preferences › Get Extensions › Install from Disk › `comfyq_bridge-…zip`).
 3. **Connection**: copy one `profiles.toml` to `%APPDATA%\comfyq-bridge\` on each PC with the server
    address, for example:
@@ -140,4 +140,4 @@ to **cancel** (✕ on the node) jobs they no longer need.
 
 **Teacher controls need the admin password in your profile.** Solo mode and the agents' teacher tools only appear on a PC whose profile holds ComfyQ's admin password (`admin_password = "…"` under `[profiles.<name>.comfyq]` in `%APPDATA%\comfyq-bridge\profiles.toml`, or `admin_password_env` / `admin_password_file`, or the `COMFYQ_ADMIN_PASSWORD` variable). Never put it in the students' profiles file. Students are asked for their name at their first Connect (lab PCs share Windows logins).
 
-**Preparing alone (solo mode).** In class the queue needs one fixed model for everyone. When you are the only one on the server (preparing a lesson, testing presets), tick **Preferences › Add-ons › ComfyQ Bridge › Solo: load models on demand**: **Run Graph** then loads the model each node needs, one at a time (each switch restarts ComfyQ, about 1–2 min). The last model **stays loaded** until your next preset needs another one. It refuses while anyone has a job on the server, but students' open pages still reconnect at each restart: **untick it before class**, and make sure ComfyQ serves the class's model (run that lesson's preset once in solo mode, or choose it in ComfyQ's admin page). (An AI agent can do the same with the teacher tools, see [AGENTS.md](AGENTS.md).)
+**Preparing alone (solo mode).** In class the queue needs one fixed model for everyone. When you are the only one on the server (preparing a lesson, testing presets), tick **Preferences › Add-ons › ComfyQ Render › Solo: load models on demand**: **Run Graph** then loads the model each node needs, one at a time (each switch restarts ComfyQ, about 1–2 min). The last model **stays loaded** until your next preset needs another one. It refuses while anyone has a job on the server, but students' open pages still reconnect at each restart: **untick it before class**, and make sure ComfyQ serves the class's model (run that lesson's preset once in solo mode, or choose it in ComfyQ's admin page). (An AI agent can do the same with the teacher tools, see [AGENTS.md](AGENTS.md).)

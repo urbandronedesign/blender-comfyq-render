@@ -38,11 +38,11 @@ def vram_badge(wf, budget_gb: float | None) -> tuple[str, bool]:
 
 
 def shared_budget() -> float | None:
-    """VRAM left for ComfyQ when it shares this GPU with Mixar (single-machine profile)."""
+    """VRAM left for ComfyQ when it shares this GPU with Blender (single-machine profile)."""
     client = SESSION.client
     if client is None or client.profile.gpu_policy != "shared" or not SESSION.gpu.get("vramGb"):
         return None
-    return float(SESSION.gpu["vramGb"]) - client.profile.mixar_reserve_gb
+    return float(SESSION.gpu["vramGb"]) - client.profile.reserve_gb
 
 
 def sync_params(scene: bpy.types.Scene, wf_id: str, specs: list[ParamSpec]) -> None:
@@ -511,7 +511,7 @@ def comfyq_window():
 
 def _legacy_window(windows):
     """A ComfyQ window saved before windows were marked: a second window with just an Image Editor
-    above a Text Editor (Mixar's own extra windows never have that pair)."""
+    above a Text Editor (other extra windows never have that pair)."""
     for w in windows[1:]:
         types = sorted(a.type for a in w.screen.areas)
         if types == ["IMAGE_EDITOR", "TEXT_EDITOR"]:
@@ -600,7 +600,7 @@ def open_comfyq_window(context, text_name: str = "", graph: bool = False) -> boo
     except RuntimeError as e:          # e.g. background mode: no window can be opened
         print("ComfyQ window:", e)
         return False
-    # Mixar opens windows of its own (the agent bubble), so take the new window that holds the copied area.
+    # Other add-ons may open windows of their own, so take the new window that holds the copied area.
     new = [w for w in context.window_manager.windows if w.as_pointer() not in before]
     new = [w for w in new if any(a.type == source_type for a in w.screen.areas)] or new
     if not new:

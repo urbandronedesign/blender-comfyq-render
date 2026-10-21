@@ -1,8 +1,8 @@
-"""GUI check of every ComfyQ button, run in a VISIBLE Mixar/Blender by tools/ui_test.ps1.
+"""GUI check of every ComfyQ button, run in a VISIBLE Blender by tools/smoke_test.ps1 -Ui.
 
-  mixar --online-mode --python tests/blender/ui_check.py -- <scene copy.mixar> <out dir> [--book]
+  blender --online-mode --python tests/blender/ui_check.py -- <scene copy.blend> <out dir> [--book]
 
-Opens the scene after startup (Mixar crashes when launched directly with some files), then
+Opens the scene after startup (as a user does), then
 presses every button of the bar, the ComfyQ window, the Player and the job cards the way a
 click does: the operator runs with the window/area/region the button lives in, after its poll.
 Drawing errors are caught. System viewers (Explorer, video player) are not opened: those calls
@@ -571,12 +571,12 @@ def _graph_open():
 
 
 def step_graph():
-    """N0: the node graph opens in Mixar's Node Editor, nodes are built from the served workflow."""
+    """N0: the node graph opens in the Node Editor, nodes are built from the served workflow."""
     gtree = ext("graph.tree")
     sc = bpy.context.scene
     res = click("open_graph", v3d)
     yield _graph_open, 8
-    check("bar › graph icon opens the ComfyQ graph in a Node Editor (Mixar accepts the tree type)",
+    check("bar › graph icon opens the ComfyQ graph in a Node Editor (the editor accepts the tree type)",
           res == {"FINISHED"} and _graph_open(), res)
     if not _graph_open():
         return
@@ -637,7 +637,7 @@ def step_graph():
         bpy.ops.node.view_all()
     yield 1.0
     shot("09c_graph_n1")
-    # N2 without GPU: rendering a node's inputs as a run does, then showing results while Mixar idles,
+    # N2 without GPU: rendering a node's inputs as a run does, then showing results while Blender idles,
     # must not make the node look out of date (it did in the live check: A re-ran every time).
     grun, gengine, anim_mod = ext("graph.run"), ext("graph.engine"), ext("passes.animation")
     before = grun.describe(tree, sc)
@@ -987,7 +987,7 @@ def step_disconnect_reconnect():
 
 def step_reload_file():
     """Saving and reopening the file while connected: the bar must come back by itself."""
-    path = str(OUT / "reload.mixar")
+    path = str(OUT / "reload.blend")
     bpy.ops.wm.save_as_mainfile(filepath=path, copy=True)
     S().specs.clear()               # as after a fresh start (specs are per session)
     bpy.ops.wm.open_mainfile(filepath=path)
@@ -1013,7 +1013,7 @@ def step_extras():
         clash = [f"{m.name}: {k.idname}" for m in km.user.keymaps if m.space_type in (space, "EMPTY")
                  for k in m.keymap_items if k.active and k.type == "Q" and k.ctrl and k.shift and not k.alt
                  and k.idname != "comfyq.studio"]
-        check(f"Ctrl+Shift+Q not taken by Mixar ({name})", not clash, clash)
+        check(f"Ctrl+Shift+Q not taken by Blender ({name})", not clash, clash)
     taken = {}
     for m in km.user.keymaps:
         for k in m.keymap_items:
@@ -1220,8 +1220,8 @@ def _after_load(_dummy):
 
 def _open():
     addon_utils.enable(MOD, default_set=True)        # enabled before the file opens, as in real use
-    shutil.copy2(SCENE_FILE, OUT / "scene.mixar")
-    bpy.ops.wm.open_mainfile(filepath=str(OUT / "scene.mixar"))
+    shutil.copy2(SCENE_FILE, OUT / "scene.blend")
+    bpy.ops.wm.open_mainfile(filepath=str(OUT / "scene.blend"))
 
 
 bpy.app.handlers.load_post.append(_after_load)
