@@ -19,7 +19,8 @@ Git: branch `main`, remote `origin` = public GitHub `urbandronedesign/blender-co
 | Thing | Where |
 |---|---|
 | **Blender 5.2.2 LTS** (Python 3.13.13) — the host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (build of commit `cb6571b`, 2026-10-21: + 3D model / camera inputs, lane-restore wait), Allow Online Access on, **AI agents (MCP server) ON** (port 8790), **Teacher tools ON** (agents may load models; set 2026-10-04 by a startup script + `save_userpref`). Theme = Mixar's **"Mixar Forest"** with Input node colour changed from #ff284d to #3d4640 (calmer graph headers) (exported from `%APPDATA%\Mixar\Mixar\5.2\config\mixar_userpref.blend`, preset `scripts\presets\interface_theme\mixar_forest.xml`; previous prefs backed up as `config\userpref.before_mixar_theme.blend`) Default of `smoke_test.ps1` and `comfyq.ps1` |
-| ComfyQ server (Node, Socket.IO, SQLite) | `F:\ComfyQ`, http://127.0.0.1:3000 — user works with b2renger, full control of its code |
+| ComfyQ server (Node, Socket.IO, SQLite) | `F:\ComfyQ`, http://127.0.0.1:3000, started with `npm run dev` (nodemon server + Vite client `--host`) — user works with b2renger, full control of its code |
+| **Node.js 24.22.1 LTS** (npm 11.19.1, OpenSSL 3.5.9) | `C:\Program Files\nodejs`, updated 2026-10-22 from 24.14.0 for the Oct 21 2026 security release (10 CVEs, 4 High: Brotli RCE, TLS hostname bypasses, dns). Official MSI from nodejs.org, SHA-256 + OpenJS Foundation signature checked (`E:\zaki\downloads\nodejs-v24.22.1\`). ComfyQ needs Node ≥22 <25 (`.nvmrc` 24). **Do NOT `winget upgrade`**: the winget id is `OpenJS.NodeJS` (Current line) → 26.x, outside ComfyQ's range; `OpenJS.NodeJS.LTS` lags behind the security releases |
 | ComfyUI 0.37, torch 2.8 cu128, RTX 5090 32 GB | `F:\ComfyUI_windows_portable_nvidia\…`, :8188 (listens on 0.0.0.0 — P1.0 issue) |
 | Ollama | 127.0.0.1:11434 |
 | Bridge cache | `%LOCALAPPDATA%\comfyq-bridge\cache\` — `passes\` (temporary renders), `<job8>\` (downloaded results) |
@@ -294,19 +295,32 @@ change that session: the user must reinstall from the UI or restart Blender.
     meshes, destructive for textured assets. Remesh returns an EMPTY mesh above ~80 units (warned in the bar).
 53. `subprocess` output of Windows tools (netstat) is in the OEM code page: decode bytes with `errors="replace"`;
     under `PYTHONUTF8=1` `text=True` gives None from a crashed reader thread.
+54. **Background Blender runs no timers, and some plugin steps poll with one** (adding a preset waits for the
+    workflows' parameters through `bpy.app.timers`): `tools/preset_run_headless.py` replaces `bpy.app.timers`
+    with a scheduler its main loop runs (plus `SESSION.pump()` + `run.tick_all()`), and calls the MCP tool
+    functions in-process from a worker thread. Reuse it for any headless agent-style run.
+55. **A whole picture as an image-edit reference gets its LAYOUT copied** (Qwen 2.1, Flux2 Klein ref, ref + depth):
+    pass a Material Board (swatches, `passes/board.py`) when only the materials should carry over.
+56. **LTX 2.5's ComfyUI keeps more VRAM after each job**: the 3rd clip in a row ran low-VRAM (62.7 s/step in the
+    upscale stage vs 9.7; 16 min vs 2). A leftover lane next to a 30 GB model does the same: Solo now closes
+    lanes that do not fit (`serving.make_room_for_main`). Read ComfyUI's log (`user/comfyui_8188.log`, "lowvram")
+    before calling a workflow slow.
+57. **Node.js is ComfyQ's runtime, not the plugin's**: update it only with ComfyQ stopped, via the official MSI
+    (checksum + signature), never `winget upgrade` (wrong line, see Environment).
 
 
-## Status (2026-10-22, last commit see `git log`, installed build `468d184` code = HEAD code; ComfyQ at its HEAD, 65 workflows) — **hand-over for b2renger / the teacher: docs/RUNBOOK.md**
-- **Host:** Blender 5.2.2 LTS; the user's profile has the build of `468d184` (later commits changed only presets, tools,
-  docs) (MCP ON port 8790, Teacher tools ON, **Solo ON**, student name `b2renger`). Your Blender was left open on
-  `E:\zaki\cliff_house.blend` with the blockout-video preset's graph and results (unsaved).
+## Status (2026-10-22 evening, last commit see `git log`, installed build `aa9ee51` = HEAD extension code; ComfyQ at its HEAD, 65 workflows) — **hand-over for b2renger / the teacher: docs/RUNBOOK.md**
+- **Host:** Blender 5.2.2 LTS; the user's profile has the build of `aa9ee51` (multi-shot: shots, Material Board, Join
+  Text, Film; later commits = tools/docs only) (MCP ON port 8790, Teacher tools ON, **Solo ON**, student name
+  `b2renger`). The user's Blender is closed. **ComfyQ was stopped by the user for the Node update (2026-10-22) and
+  must be restarted with `npm run dev` in F:\ComfyQ** before any GPU work.
   **This PC is the teacher PC**: `%APPDATA%\comfyq-bridge\profiles.toml` = profile `teacher` (default,
   127.0.0.1:3000). **ComfyQ now HAS an admin password** (the user set it in ComfyQ's admin page on 2026-10-21 and put
   the same one in the profile; check with `POST /admin/verify-password`, never print it). Without it Solo / Load Model
   / the agents' teacher tools are refused (lanes, downloads); `activate-workflow` is still ungated. Never copy that
-  file to student PCs. **ComfyQ serves whatever solo mode / the last preset loaded** (at stop 2026-10-22: main
-  `video_edit_ltx2_5_iclora_canny_control`, no lanes) — no fixed "state to restore" (user's choice: the next preset
-  decides; before class, serve the lesson's model).
+  file to student PCs. **ComfyQ serves whatever solo mode / the last preset loaded** (after a restart: its configured
+  main workflow + remembered lanes) — no fixed "state to restore" (user's choice: the next preset decides; before
+  class, serve the lesson's model).
   **Never touch the ComfyQ repo** (F:\ComfyQ; its `git stash` from before the pull stays). We may download model
   files into ComfyUI's `models\` when the user agrees (done once for 5 LoRAs, 2026-10-05).
 - **Bar & tools (P1.1–P1.3):** client + Socket.IO transport + CLI; extension (bar: sidebar / Ctrl+Shift+Q dialog /
@@ -437,7 +451,7 @@ change that session: the user must reinstall from the UI or restart Blender.
   square). Gaussian splats render in Cycles (`tools/splat_render.py`). Four views preset; pass-name bug fixed
   (gotcha 46); batch renders from a folder.
 
-## Work of 2026-10-21 / 22 (commits `685d4cf` → `aa0e659` + docs, all pushed; build `468d184` installed)
+## Work of 2026-10-21 / 22 (commits `685d4cf` → `2260054` + docs, all pushed; build `aa9ee51` installed)
 - Folder renamed MixarAI → ComfyQRender: `.venv` rebuilt (it pointed at the old path), `requirements-dev.txt` added (`685d4cf`).
 - ComfyQ is now 68 commits past `be109b3` (65 workflows). New param types supported: **`model3d`** (Remesh & decimate,
   UV unwrap: input source *Selected Objects* / *File*; graph nodes **Scene Objects** (collection or selection) and
@@ -496,6 +510,8 @@ change that session: the user must reinstall from the UI or restart Blender.
   upstream (failed on 2026-10-04); Klein ref, Klein inpaint ref, FastH3 FLF, LTX 2.3 ia2v better than 2026-10-04.
   Report `baselines/2026-10-22/index.html` (vs 2026-10-04), results/notes `live_check/presets_2026-10-22/`.
   Runner quirk: `style.png` = the last image asset (here the objects sheet), so Bernini-R ref had no style.
+- **Node.js security update (2026-10-22):** 24.14.0 → **24.22.1** (Oct 21 2026 release: 10 CVEs, 4 High) with the
+  official MSI (checksum + OpenJS signature), ComfyQ stopped by the user first; RUNBOOK §2 explains the procedure.
 
 ## Next steps
 1. Multi-shot (user's goal: long films of several shots), docs/multi-shot.md. DONE 2026-10-22: Shot field from
@@ -508,8 +524,9 @@ change that session: the user must reinstall from the UI or restart Blender.
    frame after the keyframe become wire pyramids (blockout trees), the 3rd consecutive LTX job ran low-VRAM
    (16 min, RUNBOOK §7.1 1c). NEXT (not chosen): blockout trees that read as trees, a soundtrack in the preset,
    last frame → next shot's start for continuous moves.
-1b. Wait for the user's feedback on the **Blockout animation → photoreal video** preset (their Blender is open on the
-   cliff scene with its graph) and on the 4 mesh / camera presets; earlier: Batch and Four views.
+1b. Wait for the user's feedback on the **Multi-shot film** and **Blockout animation → photoreal video** presets and
+   on the 4 mesh / camera presets; earlier: Batch and Four views. Film to show: `live_check/cliff_house/multishot_film.mp4`.
+1c. Before GPU work: ComfyQ must be running (`npm run dev` in F:\ComfyQ, stopped for the Node update).
 2. **Library sync with ComfyQ HEAD** (offered, not chosen yet): `make_preset_library.py` per category for the new
    workflows (FLUX.3 Klein t2i ×2 and edit ×2, Qwen 2.1 relight, YuE2 music cover…); the shipped-preset smoke check
    only catches removed workflows, not missing ones.
@@ -517,8 +534,9 @@ change that session: the user must reinstall from the UI or restart Blender.
    3DReal on a real render); a plugin splat importer (coloured point cloud, as `tools/splat_render.py`); "jobs at once"
    for batches; scale a 3D result back to the blockout's size; the 3 never-run workflows (SeedVR2 3B int8 video,
    Gemma ×2); `blender_graph_describe` filtering; an MCP tool to open a .blend / save the file.
-4. For b2renger (RUNBOOK §7.1): **lane-port race** (1b, with the fix); `activate-workflow` ungated; job prompt →
-   negative prompt; Wan ID-V2V broken; missing-LoRA check; SeedVR2 HD size label; meta.json size/duration params.
+4. For b2renger (RUNBOOK §7.1): **lane-port race** (1b, with the fix); **LTX slowing over consecutive jobs** (1c);
+   `activate-workflow` ungated; job prompt → negative prompt; missing-LoRA check; SeedVR2 HD size label; meta.json
+   size/duration params. (Wan ID-V2V is fixed upstream: both ran on 2026-10-22.)
 5. Rules: follow `.claude/skills/comfyq-workflow-build` for new workflows and `.claude/skills/blender-ui-audit` for UI
    changes; after UI changes `smoke_test.ps1 -Ui` + docs/UI.md, and **look at the screenshots** (gotcha 43); install
    into the user's profile only when asked (not `--factory-startup`); ask before committing; never tick the user's

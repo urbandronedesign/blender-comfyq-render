@@ -43,9 +43,11 @@ are used only by the opt-in teacher tools and solo mode (section 5).
 | 4. Server address | Preferences › Add-ons › ComfyQ Render › Server › *Profile* (or *Advanced › Server Address*, for example `http://192.168.1.10:3000`; *Test Connection* checks it), or a shared `%APPDATA%\comfyq-bridge\profiles.toml` (the teacher copies one file to every PC, **without** `admin_password`, which only goes in the teacher's own file; access password / token there or in env vars, never in the .blend) |
 | 5. Student name | Asked in a dialog at the first *Connect* (lab PCs share Windows logins); shown on the jobs; you can only cancel your own. Change it with the ✎ beside the name in the bar |
 | 6. Connect | 3D View › sidebar › ComfyQ › *Connect* (or tick *Connect on startup*) |
-| 7. Presets (optional) | Copy `presets\library\*` (46 graphs) and the teacher's own presets into `%APPDATA%\comfyq-bridge\presets\`, or put them in one shared folder named by `presets_dir` in the deployed profile (or the *Shared Presets Folder* preference) |
+| 7. Presets (optional) | Copy `presets\library\*` (45 graphs) and the teacher's own presets into `%APPDATA%\comfyq-bridge\presets\`, or put them in one shared folder named by `presets_dir` in the deployed profile (or the *Shared Presets Folder* preference) |
 
 Health check from a terminal: `.\tools\comfyq.ps1 doctor`.
+
+**The ComfyQ server PC runs Node.js** (the plugin does not: Blender's own Python). ComfyQ needs Node ≥ 22 and < 25 (`.nvmrc` = 24). Keep it on the latest **24.x LTS** security release: on 2026-10-22 the teacher PC went from 24.14.0 to **24.22.1** for the 21 October 2026 security release (10 CVEs, 4 High: a Brotli decoder RCE, TLS certificate hostname bypasses, a `dns.resolve` flaw; ComfyQ listens on the whole LAN). How: stop ComfyQ (Ctrl+C in `npm run dev`), install the official MSI from `nodejs.org/dist/v24.x.y/` after checking its SHA-256 against `SHASUMS256.txt` and its signature (OpenJS Foundation), then `npm run dev` again. **Not `winget upgrade`**: Node was installed as winget's `OpenJS.NodeJS` (the Current line), which would jump to 26.x, outside ComfyQ's range; the `OpenJS.NodeJS.LTS` package lagged behind the security release.
 
 ## 3. Features
 
