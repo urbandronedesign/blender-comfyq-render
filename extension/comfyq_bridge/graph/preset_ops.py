@@ -157,6 +157,7 @@ _NODE_PROPS = {
     "ComfyQViewerNode": ("auto",), "ComfyQImportNode": ("auto", "replace", "place", "on_ground", "size"),
     "ComfyQSaveNode": ("auto", "folder", "pattern", "batch_suffix"), "ComfyQFolderNode": ("folder", "recursive"),
     "ComfyQSurfacesNode": ("intro", "outro", "threshold"),
+    "ComfyQBoardNode": ("cols", "rows", "keep", "seed"), "ComfyQFilmNode": ("auto", "keep_sound", "folder"),
 }
 
 

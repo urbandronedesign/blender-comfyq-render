@@ -1,0 +1,1270 @@
+{
+ "format": 1,
+ "label": "Multi-shot film: one look in every shot (FLUX.3 + Qwen board + LTX canny)",
+ "description": "A film of several shots with one look. Each shot is a timeline marker bound to a camera (Shot 1, 2, 3). Shot 1's first frame becomes the hero keyframe (FLUX.3 Klein); a Material Board cut from it (swatches, no layout) gives shots 2 and 3 the same materials through Qwen 2.1 edit, while each keeps its own composition. LTX 2.5 canny films every shot's clay animation from its keyframe (seed 7), and the Film node puts the clips end to end in the ComfyQ Film scene (Render Film writes the MP4). One Look prompt is shared by every shot. Tested on the cliff house (2026-10-22, docs/multi-shot.md).",
+ "made": "2026-10-22 01:46",
+ "nodes": [
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -2300.0,
+    400.0
+   ],
+   "width": 340.0,
+   "label": "Look (every shot)",
+   "parent": "",
+   "text": "The same house in every shot: a modern house cantilevered over the edge of a rocky granite cliff, board-formed concrete core and piers, a warm larch-clad volume with vertical battens on thin steel struts, white fibre-cement panels, a dark standing-seam zinc tower, a timber deck terrace with a glass-sided pool of turquoise water, pine trees on the plateau, snow patches and dry winter grass on the rocks, soft warm overcast winter light at dusk, warm light glowing in the windows, high-end architectural photography."
+  },
+  {
+   "name": "Film",
+   "type": "ComfyQFilmNode",
+   "location": [
+    900.0,
+    -700.0
+   ],
+   "width": 300.0,
+   "label": "Film",
+   "parent": "",
+   "auto": false,
+   "keep_sound": false,
+   "folder": "//comfyq/"
+  },
+  {
+   "name": "Scene Render",
+   "type": "ComfyQSceneRenderNode",
+   "location": [
+    -1800.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "Shot 1 first frame",
+   "parent": "",
+   "style": "MATERIAL",
+   "frame": "START",
+   "cycles_samples": 64,
+   "shot": "Shot 1"
+  },
+  {
+   "name": "Prompt.001",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -1800.0,
+    -380.0
+   ],
+   "width": 340.0,
+   "label": "Shot 1 keyframe",
+   "parent": "",
+   "text": "Turn <ref_image_0> into a photorealistic photograph, keeping exactly the same composition, camera angle, shapes and proportions. A low view from the slope up at the house and its concrete piers."
+  },
+  {
+   "name": "Join Text",
+   "type": "ComfyQJoinTextNode",
+   "location": [
+    -1400.0,
+    -380.0
+   ],
+   "width": 260.0,
+   "label": "Shot 1 keyframe + look",
+   "parent": ""
+  },
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -1000.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "Shot 1 keyframe (FLUX.3, the hero)",
+   "parent": "",
+   "workflow_id": "image_edit_flux3_klein_image_edit",
+   "params": [
+    {
+     "key": "image",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "prompt",
+     "s": "In <ref_image_0>, change the colour of her top to deep red; keep her face, hair, pose, lighting and the background exactly the same.",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "improve_prompt",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "megapixels",
+     "s": "",
+     "i": 0,
+     "f": 1.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "steps",
+     "s": "",
+     "i": 50,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "cfg",
+     "s": "",
+     "i": 0,
+     "f": 3.5,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "seed",
+     "s": "",
+     "i": 7,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    }
+   ]
+  },
+  {
+   "name": "Material Board",
+   "type": "ComfyQBoardNode",
+   "location": [
+    -600.0,
+    -520.0
+   ],
+   "width": 300.0,
+   "label": "Material Board (the hero's materials)",
+   "parent": "",
+   "cols": 4,
+   "rows": 3,
+   "keep": 8,
+   "seed": 7
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    -600.0,
+    360.0
+   ],
+   "width": 300.0,
+   "label": "Hero keyframe",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Scene Animation",
+   "type": "ComfyQSceneAnimationNode",
+   "location": [
+    -1000.0,
+    -600.0
+   ],
+   "width": 300.0,
+   "label": "Shot 1 clay",
+   "parent": "",
+   "style": "CLAY",
+   "shot": "Shot 1"
+  },
+  {
+   "name": "Prompt.002",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -1000.0,
+    -900.0
+   ],
+   "width": 340.0,
+   "label": "Shot 1 move + sound",
+   "parent": "",
+   "text": "Photorealistic cinematic shot: a slow push-in rising towards the house from the slope below. Smooth steady camera, no people. Sound: wind over the cliff."
+  },
+  {
+   "name": "Join Text.001",
+   "type": "ComfyQJoinTextNode",
+   "location": [
+    -600.0,
+    -900.0
+   ],
+   "width": 260.0,
+   "label": "Shot 1 move + look",
+   "parent": ""
+  },
+  {
+   "name": "Workflow.001",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    200.0,
+    -200.0
+   ],
+   "width": 380.0,
+   "label": "Shot 1 video (LTX canny)",
+   "parent": "",
+   "workflow_id": "video_edit_ltx2_5_iclora_canny_control",
+   "params": [
+    {
+     "key": "loadvideo_file_5001",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "primitiveboolean_value_5014_5506",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": true,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_2004",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "primitivestringmultiline_value_5508",
+     "s": "A hand-crafted claymation stop-motion film: soft rounded clay characters and props with visible fingerprints, warm pastel colors, soft studio lighting and a shallow depth of field. The motion follows the original shot naturally. Gentle ambient sounds match the scene.",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "comfyswitchnode_switch_5014_5556",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "ltxaddvideoicloraguide_strength_9002_5012",
+     "s": "",
+     "i": 0,
+     "f": 1.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "primitiveint_value_9910",
+     "s": "",
+     "i": 512,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "video_slice_duration_9900",
+     "s": "",
+     "i": 0,
+     "f": 10.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "randomnoise_noise_seed_5516_4832",
+     "s": "",
+     "i": 7,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    }
+   ]
+  },
+  {
+   "name": "Scene Render.001",
+   "type": "ComfyQSceneRenderNode",
+   "location": [
+    -1800.0,
+    -1100.0
+   ],
+   "width": 300.0,
+   "label": "Shot 2 first frame",
+   "parent": "",
+   "style": "MATERIAL",
+   "frame": "START",
+   "cycles_samples": 64,
+   "shot": "Shot 2"
+  },
+  {
+   "name": "Prompt.003",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -1800.0,
+    -1480.0
+   ],
+   "width": 340.0,
+   "label": "Shot 2 keyframe",
+   "parent": "",
+   "text": "Turn <image1> into a photorealistic photograph, keeping exactly its composition, camera angle, shapes and proportions. Use only the materials shown in the swatches of <image2>, not their layout. A three-quarter view from the right: the larch volume on its struts, the terrace and the glass pool."
+  },
+  {
+   "name": "Join Text.002",
+   "type": "ComfyQJoinTextNode",
+   "location": [
+    -1400.0,
+    -1480.0
+   ],
+   "width": 260.0,
+   "label": "Shot 2 keyframe + look",
+   "parent": ""
+  },
+  {
+   "name": "Workflow.002",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -1000.0,
+    -1100.0
+   ],
+   "width": 380.0,
+   "label": "Shot 2 keyframe (Qwen + board)",
+   "parent": "",
+   "workflow_id": "image_qwen_image_2_1_image_edit",
+   "params": [
+    {
+     "key": "textencodeqwenimage21_prompt_459_474",
+     "s": "Keep the character and pose in <image1> unchanged, put the light blue denim shirt from <image2> on the character, preserve the original facial features, hair, body shape and pose, keep the original background and lighting, realistic fabric texture, sharp details",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_470",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_475",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_476",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_477",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_478",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_479",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_480",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_481",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_482",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_483",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_484",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_485",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_486",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_487",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_488",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_489",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "resolutionselector_aspect_ratio_13",
+     "s": "1:1 (Square)",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "resolutionselector_megapixels_13",
+     "s": "",
+     "i": 0,
+     "f": 1.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "ksampler_steps_459_458",
+     "s": "",
+     "i": 40,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "ksampler_seed_459_458",
+     "s": "",
+     "i": 7,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    }
+   ]
+  },
+  {
+   "name": "Scene Animation.001",
+   "type": "ComfyQSceneAnimationNode",
+   "location": [
+    -1000.0,
+    -1700.0
+   ],
+   "width": 300.0,
+   "label": "Shot 2 clay",
+   "parent": "",
+   "style": "CLAY",
+   "shot": "Shot 2"
+  },
+  {
+   "name": "Prompt.004",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -1000.0,
+    -2000.0
+   ],
+   "width": 340.0,
+   "label": "Shot 2 move + sound",
+   "parent": "",
+   "text": "Photorealistic cinematic shot: a slow orbit around the house from the right. Smooth steady camera, no people. Sound: wind over the cliff."
+  },
+  {
+   "name": "Join Text.003",
+   "type": "ComfyQJoinTextNode",
+   "location": [
+    -600.0,
+    -2000.0
+   ],
+   "width": 260.0,
+   "label": "Shot 2 move + look",
+   "parent": ""
+  },
+  {
+   "name": "Workflow.003",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    200.0,
+    -1300.0
+   ],
+   "width": 380.0,
+   "label": "Shot 2 video (LTX canny)",
+   "parent": "",
+   "workflow_id": "video_edit_ltx2_5_iclora_canny_control",
+   "params": [
+    {
+     "key": "loadvideo_file_5001",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "primitiveboolean_value_5014_5506",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": true,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_2004",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "primitivestringmultiline_value_5508",
+     "s": "A hand-crafted claymation stop-motion film: soft rounded clay characters and props with visible fingerprints, warm pastel colors, soft studio lighting and a shallow depth of field. The motion follows the original shot naturally. Gentle ambient sounds match the scene.",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "comfyswitchnode_switch_5014_5556",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "ltxaddvideoicloraguide_strength_9002_5012",
+     "s": "",
+     "i": 0,
+     "f": 1.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "primitiveint_value_9910",
+     "s": "",
+     "i": 512,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "video_slice_duration_9900",
+     "s": "",
+     "i": 0,
+     "f": 10.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "randomnoise_noise_seed_5516_4832",
+     "s": "",
+     "i": 7,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    }
+   ]
+  },
+  {
+   "name": "Scene Render.002",
+   "type": "ComfyQSceneRenderNode",
+   "location": [
+    -1800.0,
+    -2200.0
+   ],
+   "width": 300.0,
+   "label": "Shot 3 first frame",
+   "parent": "",
+   "style": "MATERIAL",
+   "frame": "START",
+   "cycles_samples": 64,
+   "shot": "Shot 3"
+  },
+  {
+   "name": "Prompt.005",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -1800.0,
+    -2580.0
+   ],
+   "width": 340.0,
+   "label": "Shot 3 keyframe",
+   "parent": "",
+   "text": "Turn <image1> into a photorealistic photograph, keeping exactly its composition, camera angle, shapes and proportions. Use only the materials shown in the swatches of <image2>, not their layout. A view from above onto the timber terrace and the glass-sided pool, the larch volume in front."
+  },
+  {
+   "name": "Join Text.004",
+   "type": "ComfyQJoinTextNode",
+   "location": [
+    -1400.0,
+    -2580.0
+   ],
+   "width": 260.0,
+   "label": "Shot 3 keyframe + look",
+   "parent": ""
+  },
+  {
+   "name": "Workflow.004",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -1000.0,
+    -2200.0
+   ],
+   "width": 380.0,
+   "label": "Shot 3 keyframe (Qwen + board)",
+   "parent": "",
+   "workflow_id": "image_qwen_image_2_1_image_edit",
+   "params": [
+    {
+     "key": "textencodeqwenimage21_prompt_459_474",
+     "s": "Keep the character and pose in <image1> unchanged, put the light blue denim shirt from <image2> on the character, preserve the original facial features, hair, body shape and pose, keep the original background and lighting, realistic fabric texture, sharp details",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_470",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_475",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_476",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_477",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_478",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_479",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_480",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_481",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_482",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_483",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_484",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_485",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_486",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_487",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_488",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_489",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "resolutionselector_aspect_ratio_13",
+     "s": "1:1 (Square)",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "resolutionselector_megapixels_13",
+     "s": "",
+     "i": 0,
+     "f": 1.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "ksampler_steps_459_458",
+     "s": "",
+     "i": 40,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "ksampler_seed_459_458",
+     "s": "",
+     "i": 7,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    }
+   ]
+  },
+  {
+   "name": "Scene Animation.002",
+   "type": "ComfyQSceneAnimationNode",
+   "location": [
+    -1000.0,
+    -2800.0
+   ],
+   "width": 300.0,
+   "label": "Shot 3 clay",
+   "parent": "",
+   "style": "CLAY",
+   "shot": "Shot 3"
+  },
+  {
+   "name": "Prompt.006",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -1000.0,
+    -3100.0
+   ],
+   "width": 340.0,
+   "label": "Shot 3 move + sound",
+   "parent": "",
+   "text": "Photorealistic cinematic shot: a slow descent towards the terrace and the pool. Smooth steady camera, no people. Sound: wind over the cliff, water lapping."
+  },
+  {
+   "name": "Join Text.005",
+   "type": "ComfyQJoinTextNode",
+   "location": [
+    -600.0,
+    -3100.0
+   ],
+   "width": 260.0,
+   "label": "Shot 3 move + look",
+   "parent": ""
+  },
+  {
+   "name": "Workflow.005",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    200.0,
+    -2400.0
+   ],
+   "width": 380.0,
+   "label": "Shot 3 video (LTX canny)",
+   "parent": "",
+   "workflow_id": "video_edit_ltx2_5_iclora_canny_control",
+   "params": [
+    {
+     "key": "loadvideo_file_5001",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "primitiveboolean_value_5014_5506",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": true,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "loadimage_image_2004",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "primitivestringmultiline_value_5508",
+     "s": "A hand-crafted claymation stop-motion film: soft rounded clay characters and props with visible fingerprints, warm pastel colors, soft studio lighting and a shallow depth of field. The motion follows the original shot naturally. Gentle ambient sounds match the scene.",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "comfyswitchnode_switch_5014_5556",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "ltxaddvideoicloraguide_strength_9002_5012",
+     "s": "",
+     "i": 0,
+     "f": 1.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "primitiveint_value_9910",
+     "s": "",
+     "i": 512,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "video_slice_duration_9900",
+     "s": "",
+     "i": 0,
+     "f": 10.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "randomnoise_noise_seed_5516_4832",
+     "s": "",
+     "i": 7,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    }
+   ]
+  },
+  {
+   "name": "Frame",
+   "type": "NodeFrame",
+   "location": [
+    -2920.0,
+    400.0
+   ],
+   "width": 560.0,
+   "label": "How to use",
+   "parent": "",
+   "height": 490.0,
+   "text": "1. One camera per shot, bound to markers\n   Shot 1, Shot 2, Shot 3 (Timeline:\n   select the camera, Ctrl+B, rename F2)\n2. Look: materials, season and light,\n   the same for every shot\n3. Each shot: what its first frame shows,\n   then its camera move and sound\n4. Run Graph: shot 1's keyframe, the\n   Material Board, shots 2-3 keyframes,\n   then the videos (3 model loads)\n5. Film: Assemble, then Render Film...\n   (a Soundtrack: e.g. Stable Audio)\n6. More shots: copy a shot's row, set its\n   Shot, link its video to the next input"
+  }
+ ],
+ "links": [
+  {
+   "from": "Prompt.001",
+   "from_socket": "Text",
+   "to": "Join Text",
+   "to_socket": "Text 1"
+  },
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Join Text",
+   "to_socket": "Text 2"
+  },
+  {
+   "from": "Scene Render",
+   "from_socket": "Image",
+   "to": "Workflow",
+   "to_socket": "image"
+  },
+  {
+   "from": "Join Text",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "prompt"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Material Board",
+   "to_socket": "Image"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Prompt.002",
+   "from_socket": "Text",
+   "to": "Join Text.001",
+   "to_socket": "Text 1"
+  },
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Join Text.001",
+   "to_socket": "Text 2"
+  },
+  {
+   "from": "Scene Animation",
+   "from_socket": "Video",
+   "to": "Workflow.001",
+   "to_socket": "loadvideo_file_5001"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Workflow.001",
+   "to_socket": "loadimage_image_2004"
+  },
+  {
+   "from": "Join Text.001",
+   "from_socket": "Text",
+   "to": "Workflow.001",
+   "to_socket": "primitivestringmultiline_value_5508"
+  },
+  {
+   "from": "Workflow.001",
+   "from_socket": "Video",
+   "to": "Film",
+   "to_socket": "Shot 1"
+  },
+  {
+   "from": "Prompt.003",
+   "from_socket": "Text",
+   "to": "Join Text.002",
+   "to_socket": "Text 1"
+  },
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Join Text.002",
+   "to_socket": "Text 2"
+  },
+  {
+   "from": "Scene Render.001",
+   "from_socket": "Image",
+   "to": "Workflow.002",
+   "to_socket": "loadimage_image_470"
+  },
+  {
+   "from": "Material Board",
+   "from_socket": "Board",
+   "to": "Workflow.002",
+   "to_socket": "loadimage_image_475"
+  },
+  {
+   "from": "Join Text.002",
+   "from_socket": "Text",
+   "to": "Workflow.002",
+   "to_socket": "textencodeqwenimage21_prompt_459_474"
+  },
+  {
+   "from": "Prompt.004",
+   "from_socket": "Text",
+   "to": "Join Text.003",
+   "to_socket": "Text 1"
+  },
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Join Text.003",
+   "to_socket": "Text 2"
+  },
+  {
+   "from": "Scene Animation.001",
+   "from_socket": "Video",
+   "to": "Workflow.003",
+   "to_socket": "loadvideo_file_5001"
+  },
+  {
+   "from": "Workflow.002",
+   "from_socket": "Image",
+   "to": "Workflow.003",
+   "to_socket": "loadimage_image_2004"
+  },
+  {
+   "from": "Join Text.003",
+   "from_socket": "Text",
+   "to": "Workflow.003",
+   "to_socket": "primitivestringmultiline_value_5508"
+  },
+  {
+   "from": "Workflow.003",
+   "from_socket": "Video",
+   "to": "Film",
+   "to_socket": "Shot 2"
+  },
+  {
+   "from": "Prompt.005",
+   "from_socket": "Text",
+   "to": "Join Text.004",
+   "to_socket": "Text 1"
+  },
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Join Text.004",
+   "to_socket": "Text 2"
+  },
+  {
+   "from": "Scene Render.002",
+   "from_socket": "Image",
+   "to": "Workflow.004",
+   "to_socket": "loadimage_image_470"
+  },
+  {
+   "from": "Material Board",
+   "from_socket": "Board",
+   "to": "Workflow.004",
+   "to_socket": "loadimage_image_475"
+  },
+  {
+   "from": "Join Text.004",
+   "from_socket": "Text",
+   "to": "Workflow.004",
+   "to_socket": "textencodeqwenimage21_prompt_459_474"
+  },
+  {
+   "from": "Prompt.006",
+   "from_socket": "Text",
+   "to": "Join Text.005",
+   "to_socket": "Text 1"
+  },
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Join Text.005",
+   "to_socket": "Text 2"
+  },
+  {
+   "from": "Scene Animation.002",
+   "from_socket": "Video",
+   "to": "Workflow.005",
+   "to_socket": "loadvideo_file_5001"
+  },
+  {
+   "from": "Workflow.004",
+   "from_socket": "Image",
+   "to": "Workflow.005",
+   "to_socket": "loadimage_image_2004"
+  },
+  {
+   "from": "Join Text.005",
+   "from_socket": "Text",
+   "to": "Workflow.005",
+   "to_socket": "primitivestringmultiline_value_5508"
+  },
+  {
+   "from": "Workflow.005",
+   "from_socket": "Video",
+   "to": "Film",
+   "to_socket": "Shot 3"
+  }
+ ]
+}

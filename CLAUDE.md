@@ -493,8 +493,14 @@ change that session: the user must reinstall from the UI or restart Blender.
 ## Next steps
 1. Multi-shot (user's goal: long films of several shots), docs/multi-shot.md. DONE 2026-10-22: Shot field from
    camera-bound timeline markers (`passes/shots.py`; Blender's binding then drives scene.camera by itself), Solo /
-   Load Model close lanes that would not fit (`serving.make_room_for_main`). NEXT: material-board step,
-   multi-shot preset, assembly in the sequencer.
+   Load Model close lanes that would not fit (`serving.make_room_for_main`), Material Board node
+   (`passes/board.py`, matched the hand-cut board on the GPU), Join Text, Film node (Shot 1–6 + Soundtrack → scene
+   "ComfyQ Film", Render Film → MP4), Solo loads the model most waiting nodes need, class preset *Multi-shot film*
+   (`tools/make_multishot_preset.py`) run end to end on `E:\zaki\cliff_house_shots.blend` (3 shots, 14.1 s film,
+   25 min; `live_check/cliff_house/multishot/`): one look across the shots. Weak spots: cone trees entering the
+   frame after the keyframe become wire pyramids (blockout trees), the 3rd consecutive LTX job ran low-VRAM
+   (16 min, RUNBOOK §7.1 1c). NEXT (not chosen): blockout trees that read as trees, a soundtrack in the preset,
+   last frame → next shot's start for continuous moves.
 1b. Wait for the user's feedback on the **Blockout animation → photoreal video** preset (their Blender is open on the
    cliff scene with its graph) and on the 4 mesh / camera presets; earlier: Batch and Four views.
 2. **Library sync with ComfyQ HEAD** (offered, not chosen yet): `make_preset_library.py` per category for the new

@@ -72,9 +72,12 @@ def _image_file(name: str) -> str:
 
 def linked(node) -> Media | None:
     """What is linked into an output node (through Reroutes); None if nothing."""
-    if not node.inputs:
-        return None
-    src, out = upstream(node.inputs[0])
+    return linked_socket(node.inputs[0]) if node.inputs else None
+
+
+def linked_socket(sock) -> Media | None:
+    """What is linked into one input socket (through Reroutes); None if nothing."""
+    src, out = upstream(sock)
     if src is None:
         return None
     m = Media(kind=socket_kind(out),
@@ -91,6 +94,12 @@ def linked(node) -> Media | None:
     elif idn == "ComfyQPromptNode":
         m.text = src.value()
         return m
+    elif idn == "ComfyQJoinTextNode":
+        from .run import _text
+        m.text = _text(src)
+        return m
+    elif idn == "ComfyQBoardNode":
+        m.path = src.result
     elif idn == "ComfyQSceneRenderNode":
         m.path = _image_file("ComfyQ render preview")
     elif idn == "ComfyQMaskNode":
@@ -112,9 +121,15 @@ def linked(node) -> Media | None:
 def act(node, scene, force: bool = False) -> str:
     """Do what the output node does with what is linked; returns what happened ("" = nothing to do)."""
     media = linked(node)
-    if media is None or not media.ready:
-        return ""
     idn = node.bl_idname
+    if idn != "ComfyQFilmNode" and (media is None or not media.ready):
+        return ""
+    if idn == "ComfyQFilmNode":
+        msg = _film(node)
+        if msg:
+            node.status = msg
+        node.handled = film_key(node)
+        return msg
     if idn == "ComfyQViewerNode":
         msg = _show(node, media, force)
     elif idn == "ComfyQImportNode":
@@ -286,6 +301,15 @@ def tick(tree, scene) -> None:
     for node in tree.nodes:
         if node.bl_idname not in OUTPUT_NODES:
             continue
+        if node.bl_idname == "ComfyQFilmNode":
+            key = film_key(node)
+            if node.auto and key and key != node.handled:
+                try:
+                    act(node, scene)
+                except (OSError, RuntimeError) as e:
+                    node.status = f"Failed: {e}"
+                    node.handled = key
+            continue
         media = linked(node)
         if media is None or not media.ready:
             continue
@@ -305,3 +329,83 @@ def tick(tree, scene) -> None:
             except (OSError, RuntimeError) as e:
                 node.status = f"Failed: {e}"
                 node.handled = media.key()
+
+
+# -- Film: the shots' clips end to end in one sequencer scene --------------------------------------------------
+FILM_SCENE = "ComfyQ Film"
+
+
+def film_media(node) -> tuple[list[Media], Media | None]:
+    """The linked Shot inputs in order (linked ones only) and the Soundtrack."""
+    clips = [linked_socket(s) for s in node.inputs if s.name.startswith("Shot") and s.is_linked]
+    sound_sock = next((s for s in node.inputs if s.name == "Soundtrack"), None)
+    sound = linked_socket(sound_sock) if sound_sock is not None and sound_sock.is_linked else None
+    return [c for c in clips if c is not None], sound
+
+
+def film_key(node) -> str:
+    clips, sound = film_media(node)
+    keys = [c.key() for c in clips if c.path] + ([sound.key()] if sound is not None and sound.path else [])
+    return "|".join(keys)
+
+
+def _film(node) -> str:
+    """Rebuild the "ComfyQ Film" scene: the ready clips back to back (channel 2), each clip's sound (channel 1) only
+    with Keep Clip Sound, the Soundtrack (channel 3) trimmed to the film. Returns what was done."""
+    from ..importers.media import _strips
+    clips, sound = film_media(node)
+    paths = [Path(c.path) for c in clips if c.path and Path(c.path).is_file()]
+    if not paths:
+        return ""
+    sc = bpy.data.scenes.get(FILM_SCENE) or bpy.data.scenes.new(FILM_SCENE)
+    strips = _strips(sc)
+    for s in list(strips):
+        strips.remove(s)
+    frame = 1
+    for n, path in enumerate(paths, 1):
+        mv = strips.new_movie(name=f"Shot {n}", filepath=str(path), channel=2, frame_start=frame)
+        if n == 1:                                       # the film takes the first clip's rate and size
+            fps = getattr(mv, "fps", 0) or 24
+            sc.render.fps, sc.render.fps_base = round(fps), 1.0
+            el = mv.elements[0] if len(mv.elements) else None
+            if el is not None and el.orig_width:
+                sc.render.resolution_x, sc.render.resolution_y = el.orig_width, el.orig_height
+                sc.render.resolution_percentage = 100
+        if node.keep_sound:
+            try:
+                strips.new_sound(name=f"Shot {n} sound", filepath=str(path), channel=1, frame_start=frame)
+            except RuntimeError:
+                pass                                     # a clip without sound
+        frame = mv.frame_final_end
+    if sound is not None and sound.path and Path(sound.path).is_file():
+        st = strips.new_sound(name="Soundtrack", filepath=sound.path, channel=3, frame_start=1)
+        st.frame_final_end = min(st.frame_final_end, frame)
+    sc.frame_start, sc.frame_end = 1, max(1, frame - 1)
+    sc.render.use_sequencer = True
+    seconds = (frame - 1) / (sc.render.fps or 24)
+    return f"Film: {len(paths)} shots, {seconds:.1f} s in scene “{FILM_SCENE}”"
+
+
+def render_film(node) -> Path:
+    """Render the "ComfyQ Film" scene to an MP4 with sound in the node's folder (blocking)."""
+    sc = bpy.data.scenes.get(FILM_SCENE)
+    if sc is None:
+        raise RuntimeError("Assemble the film first")
+    folder = Path(bpy.path.abspath(node.folder)) if node.folder else Path.home() / "Downloads"
+    if not bpy.data.filepath and node.folder.startswith("//"):
+        folder = Path.home() / "Downloads"
+    folder.mkdir(parents=True, exist_ok=True)
+    out = folder / f"film_{time.strftime('%Y%m%d_%H%M%S')}.mp4"
+    r = sc.render
+    r.filepath = str(out)
+    r.image_settings.media_type = "VIDEO"            # gotcha 5: the media type before the file format
+    r.image_settings.file_format = "FFMPEG"
+    r.ffmpeg.format, r.ffmpeg.codec = "MPEG4", "H264"
+    r.ffmpeg.constant_rate_factor = "HIGH"
+    r.ffmpeg.audio_codec = "AAC"
+    r.use_sequencer = True
+    bpy.ops.render.render(animation=True, scene=sc.name)
+    if not out.is_file():
+        raise RuntimeError("The film render wrote no file")
+    node.last_render = str(out)
+    return out

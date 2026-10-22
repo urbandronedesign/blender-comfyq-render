@@ -45,8 +45,7 @@ the sky (flat grey): put the light in the shared look sentence ("soft warm overc
 - **Shots**: a *Shot* field on Scene Render / Scene Animation / Selection Mask = a timeline marker bound to a camera (`passes/shots.py`); `blender_camera_shot shot=` creates it, `blender_render shot=` previews it.
 - **Serving**: `serving.make_room_for_main` closes extra lanes that would not fit beside a new main model (card − 2 GB), largest first, unknown size = all; Solo, Load Model and `comfyq_serve` report what they closed.
 
-## Still to do
-
-- **Material board** node (crops of an approved image) or an agent tool.
-- A **multi-shot preset** (hero, board, one keyframe + video per shot, run in order).
-- An **assembly** step (clips → sequencer → one film, one soundtrack).
+- **Material Board** node: the picture cut into tiles, the most detailed kept and shuffled (`passes/board.py`). On the GPU it matched the hand-cut board (Qwen 2.1 keyframe of shot 2: same materials, the hero's vertical larch battens; `board_hand_vs_auto.jpg`).
+- **Join Text** node (a shot's line + the Look); **Film** node (Shot 1…6 + Soundtrack → the ComfyQ Film scene, Render Film → MP4).
+- Solo loads the model **the most waiting nodes need** (a film: FLUX.3, then Qwen, then LTX: three loads).
+- Class preset **Multi-shot film** (`tools/make_multishot_preset.py`) and the three-shot test scene (`tools/make_cliff_house_scene.py … --shots` → `E:\zaki\cliff_house_shots.blend`).

@@ -1181,6 +1181,13 @@ def step_new_inputs():
         sc_.timeline_markers.new("Note", frame=sc_.frame_start + 10)
         an = tree.nodes.new("ComfyQSceneAnimationNode")
         an.location, an.shot = (x, 300), "Shot 2"
+        bd = tree.nodes.new("ComfyQBoardNode")                 # multi-shot nodes: drawn, not run (no GPU)
+        bd.location = (x + 400, 300)
+        jn = tree.nodes.new("ComfyQJoinTextNode")
+        jn.location = (x + 400, -100)
+        fm = tree.nodes.new("ComfyQFilmNode")
+        fm.location = (x + 750, 200)
+        tree.links.new(an.outputs[0], fm.inputs["Shot 1"])
         rn = tree.nodes.new("ComfyQSceneRenderNode")
         rn.location, rn.shot = (x, -200), "Note"
         yield 0.3
@@ -1194,6 +1201,9 @@ def step_new_inputs():
               "is explained", sh.describe(sc_, "Shot 2").startswith("UI shot cam")
               and "No camera" in sh.describe(sc_, "Note") and not any("draw_shot" in e for e in draw_errors),
               f"{sh.describe(sc_, 'Shot 2')} | {sh.describe(sc_, 'Note')[:40]}")
+        check("multi-shot nodes draw: Material Board, Join Text, Film (with a shot linked)",
+              not any(k in e for e in draw_errors for k in ("Board", "JoinText", "Film", "film_media")),
+              [e[:120] for e in draw_errors][-1:])
         for name in ("Shot 1", "Shot 2", "Note"):
             sc_.timeline_markers.remove(sc_.timeline_markers[name])
         bpy.data.objects.remove(cam2)

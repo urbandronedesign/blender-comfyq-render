@@ -75,6 +75,16 @@ for n in tree.nodes:
         report["nodes"][n.label or n.name] = {"workflow": n.workflow_id, "result": n.result, "note": n.note,
                                               "settings": n.current_values()}
 report["ok"] = all(v["result"] and Path(v["result"]).is_file() for v in report["nodes"].values())
+outputs = ext("graph.outputs")
+for n in tree.nodes:                     # a Film node: assemble it and render the film, as a student would
+    if n.bl_idname == "ComfyQFilmNode":
+        n.folder = str(OUT)
+        report["film"] = {"assembled": outputs.act(n, bpy.context.scene, force=True)}
+        try:
+            report["film"]["mp4"] = str(outputs.render_film(n))
+        except RuntimeError as e:
+            report["film"]["error"] = str(e)
+        log("film", **report["film"])
 (OUT / "e2e_report.json").write_text(json.dumps(report, indent=1, default=str), encoding="utf-8")
 log("DONE", ok=report["ok"], seconds=report["seconds"],
     results={k: Path(v["result"]).name if v["result"] else v["note"] for k, v in report["nodes"].items()})

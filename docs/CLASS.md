@@ -134,6 +134,7 @@ Built by `tools/make_new_inputs_presets.py` (headless, sandbox profile) from Com
   video, two large models (in class: Klein edit as a lane, LTX canny as the main model; or Solo). Tested on a
   cliff-edge house, canny beat depth and 3DReal: [blockout-video.md](blockout-video.md). Built by
   `tools/make_blockout_video_preset.py`. The built-in *AI keyframe → video* preset stays as it was.
+- **Multi-shot film: one look in every shot (FLUX.3 + Qwen board + LTX canny)**: several shots of one scene, each a timeline marker bound to a camera (**Shot 1**, **Shot 2**, **Shot 3**: select the camera, Ctrl+B in the Timeline, rename the marker with F2). One **Look** prompt (materials, season, light) is joined to every shot's own lines. Shot 1's first frame becomes the hero keyframe (FLUX.3 Klein); a **Material Board** cut from it gives shots 2 and 3 the same materials through Qwen 2.1 edit while each keeps its own composition; LTX 2.5 canny films each shot's clay animation from its keyframe (seed 7, up to 10 s a shot); the **Film** node puts the clips end to end (Render Film writes the MP4). Three models, loaded once each with Solo. More shots: copy a shot's row, set its Shot, link its video to the next Film input. [multi-shot.md](multi-shot.md); built by `tools/make_multishot_preset.py`.
 
 ### The workflow library (one preset per image / video workflow)
 `presets\library\` in this repository holds 48 ready-made graphs, one per workflow of ComfyQ's image and

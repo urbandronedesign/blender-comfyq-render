@@ -168,6 +168,7 @@ Measured: 4 pictures ≈ 100 s with Klein edit; 2 clips ≈ 60 s with FILM inter
   the model gets, **From 3D View** (orbit the viewport around the subject, measured from the scene camera).
 - **Class presets** (10 now): Remesh, UV unwrap, Clean up a model (both), Reshoot from another angle (Qwen 2511), and
   **Blockout animation → photoreal video (FLUX.3 keyframe + LTX canny)** ([blockout-video.md](blockout-video.md)).
+- **Multi-shot films** (2026-10-22, [multi-shot.md](multi-shot.md)): a *Shot* field on scene sources (timeline markers bound to cameras), the **Material Board**, **Join Text** and **Film** nodes, and the class preset *Multi-shot film* (3 shots, one look: FLUX.3 hero keyframe → board → Qwen 2.1 keyframes → LTX canny → Film). Tested end to end: 3 shots, 14 s film, 25 min. Solo closes lanes that would not fit and loads the model most waiting nodes need.
 - **Fixes:** the bridge waits for ComfyQ's restoring lanes before loading a model alongside (§7.1 1b); auto-connect
   and the AI-agents server start when Blender is opened with a .blend; agents open the graph so the user sees it.
 
@@ -243,6 +244,7 @@ Measured: 4 pictures ≈ 100 s with Klein edit; 2 clips ≈ 60 s with FILM inter
    accepting `POST /admin/lanes`. The bridge works around it (Solo, Load Model..., `comfyq_serve` wait until the
    remembered lanes are back: `runtime/serving.wait_restored`), but other clients (ComfyQ's own admin page) still
    hit it.
+1c. **LTX 2.5 slows down over consecutive jobs** (2026-10-22, multi-shot film, only LTX loaded, no other lane): jobs 1 and 2 took 138 s and 116 s, job 3 started with the GPU almost full ("Unloaded partially … lowvram" while loading the text encoder) and its upscale stage ran at 62.7 s/step instead of 9.7: 15 min 48 s. ComfyUI seems to keep more memory after each LTX job; freeing the models between jobs (or a `--reserve-vram` margin) on the LTX lane would keep every job at ~2 min.
 2. **The job prompt lands in the negative prompt** (`realtime/realtimeBus.js` `book_job`, ~line 206): ComfyQ copies the
    job's top-level `prompt` into the first *unset* textarea whose field is `text`. When a workflow's real prompt is a
    Primitive (field `value`), as in Flux2 Klein t2i, that is the **Negative prompt**: every Klein t2i job from Blender ran

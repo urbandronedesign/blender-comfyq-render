@@ -154,6 +154,10 @@ class COMFYQ_MT_graph_scene(bpy.types.Menu):
         self.layout.separator()
         self.layout.operator(COMFYQ_OT_graph_add.bl_idname, text="Surfaces (SAM3) to Prompt",
                              icon="MATERIAL").node_type = "ComfyQSurfacesNode"
+        self.layout.operator(COMFYQ_OT_graph_add.bl_idname, text="Material Board",
+                             icon="TEXTURE").node_type = "ComfyQBoardNode"
+        self.layout.operator(COMFYQ_OT_graph_add.bl_idname, text="Join Text",
+                             icon="LINENUMBERS_ON").node_type = "ComfyQJoinTextNode"
 
 
 class COMFYQ_OT_graph_clear(bpy.types.Operator):
@@ -463,8 +467,9 @@ class COMFYQ_OT_graph_stop(_NodeOp, bpy.types.Operator):
 
 class COMFYQ_OT_graph_output(_NodeOp, bpy.types.Operator):
     bl_idname = "comfyq.graph_output"
-    bl_label = "Show, Import or Save"
-    bl_description = "Viewer: show it in the ComfyQ viewer · Import: bring it into the scene · Save: copy it to the folder"
+    bl_label = "Show, Import, Save or Assemble"
+    bl_description = ("Viewer: show it in the ComfyQ viewer · Import: bring it into the scene · Save: copy it to the "
+                      "folder · Film: put the shots' clips end to end in the ComfyQ Film scene")
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
     def execute(self, context):
@@ -479,6 +484,41 @@ class COMFYQ_OT_graph_output(_NodeOp, bpy.types.Operator):
             return {"CANCELLED"}
         self.report({"INFO"}, msg or "Nothing linked yet")
         return {"FINISHED"} if msg else {"CANCELLED"}
+
+
+class COMFYQ_OT_film_render(_NodeOp, bpy.types.Operator):
+    bl_idname = "comfyq.film_render"
+    bl_label = "Render Film..."
+    bl_description = ("Render the assembled film (the ComfyQ Film scene) to an MP4 with sound in the Film node's "
+                      "folder. Blender is busy while it renders")
+    bl_options = {"REGISTER", "INTERNAL"}
+
+    @classmethod
+    def poll(cls, context):
+        from .outputs import FILM_SCENE
+        if bpy.data.scenes.get(FILM_SCENE) is None:
+            cls.poll_message_set("Assemble the film first (the Film node's Assemble)")
+            return False
+        return True
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_confirm(
+            self, event, title="Render Film", message="Render the assembled film to an MP4? Blender is busy "
+            "until it is done (a few seconds per second of film).", confirm_text="Render", icon="RENDER_ANIMATION")
+
+    def execute(self, context):
+        from . import outputs
+        node = self.target_node()
+        if node is None:
+            return {"CANCELLED"}
+        try:
+            out = outputs.render_film(node)
+        except (OSError, RuntimeError) as e:
+            self.report({"ERROR"}, str(e))
+            return {"CANCELLED"}
+        node.status = f"Rendered {out.name}"
+        self.report({"INFO"}, f"Film: {out}")
+        return {"FINISHED"}
 
 
 class COMFYQ_OT_graph_use_result(_NodeOp, bpy.types.Operator):
@@ -889,6 +929,11 @@ def sync_all() -> None:
                 node.image.preview_ensure()
             elif node.bl_idname == "ComfyQSurfacesNode" and node.result:
                 _overlay_preview(node.result)
+            elif node.bl_idname == "ComfyQBoardNode" and node.result:
+                from pathlib import Path as _P
+                board_img = bpy.data.images.get(_P(node.result).name)
+                if board_img is not None and board_img.preview is None:
+                    board_img.preview_ensure()
             elif node.bl_idname == "ComfyQVideoFileNode" and node.filepath:
                 movie_thumbnail(bpy.path.abspath(node.filepath))
             elif node.bl_idname == "ComfyQSceneAnimationNode" and animation_path():
@@ -1070,7 +1115,7 @@ class COMFYQ_OT_graph_load_model(bpy.types.Operator):
 classes = (COMFYQ_OT_graph_load_model, COMFYQ_OT_graph_add, *TAB_MENUS, COMFYQ_MT_graph_scene, COMFYQ_OT_graph_clear, COMFYQ_OT_open_graph,
            COMFYQ_OT_open_as_graph, COMFYQ_OT_graph_add_search, COMFYQ_MT_graph_all, COMFYQ_OT_graph_set_workflow,
            COMFYQ_OT_graph_add_source, COMFYQ_OT_graph_edit_text,
-           COMFYQ_OT_graph_unlink_text, COMFYQ_OT_graph_run, COMFYQ_OT_graph_stop, COMFYQ_OT_graph_more_inputs, COMFYQ_OT_graph_output, COMFYQ_OT_graph_use_result,
+           COMFYQ_OT_graph_unlink_text, COMFYQ_OT_graph_run, COMFYQ_OT_graph_stop, COMFYQ_OT_graph_more_inputs, COMFYQ_OT_graph_output, COMFYQ_OT_film_render, COMFYQ_OT_graph_use_result,
            COMFYQ_MT_graph_output, COMFYQ_PT_graph_node, COMFYQ_PT_viewer_graph_node)
 
 

@@ -6,6 +6,7 @@ and glass railing; pines. A 5 s low-angle camera move looking up at the house (1
 Viewport colours per material so the Material style reads too. Headless:
 
     blender -b --factory-startup --python tools/make_cliff_house_scene.py -- E:\\zaki\\cliff_house.blend [preview dir]
+        [--shots]   three shots on one timeline (cameras bound to markers Shot 1 / 2 / 3, frames 1–360)
 """
 import math
 import random
@@ -167,6 +168,33 @@ sc.collection.objects.link(sun)
 sun.rotation_euler = (math.radians(55), 0, math.radians(-40))
 sun.data.energy = 3.0
 sc.render.resolution_x, sc.render.resolution_y = 1280, 720
+
+if "--shots" in args:            # three shots on one timeline: cameras bound to markers Shot 1 / 2 / 3 (5 s each)
+    def shot_camera(name, marker, keys, lens=24):
+        cam_s = bpy.data.objects.new(name, bpy.data.cameras.new(name))
+        tgt = bpy.data.objects.new(f"{name} target", None)
+        sc.collection.objects.link(cam_s)
+        sc.collection.objects.link(tgt)
+        cam_s.data.lens = lens
+        con = cam_s.constraints.new("TRACK_TO")
+        con.target, con.track_axis, con.up_axis = tgt, "TRACK_NEGATIVE_Z", "UP_Y"
+        for f, loc, look in keys:
+            cam_s.location, tgt.location = loc, look
+            cam_s.keyframe_insert("location", frame=f)
+            tgt.keyframe_insert("location", frame=f)
+        m = sc.timeline_markers.new(marker, frame=keys[0][0])
+        m.camera = cam_s
+
+    shot_camera("Shot 1 push-in", "Shot 1", ((1, (-15.0, -30.0, 5.0), (4.0, -5.0, 18.5)),
+                                             (120, (-3.0, -29.0, 8.0), (4.0, -5.0, 18.5))))
+    shot_camera("Shot 2 orbit right", "Shot 2", ((121, (30.0, -24.0, 17.0), (8.0, -5.0, 22.0)),
+                                                 (240, (21.0, -31.0, 21.0), (7.0, -5.0, 22.5))), lens=28)
+    shot_camera("Shot 3 terrace from above", "Shot 3", ((241, (24.0, -34.0, 40.0), (12.0, -4.0, 21.0)),
+                                                        (360, (18.0, -26.0, 31.0), (11.0, -4.0, 21.5))), lens=28)
+    sc.frame_start, sc.frame_end = 1, 360
+    sc.camera = bpy.data.objects["Shot 1 push-in"]
+    PREVIEW = PREVIEW and PREVIEW / "shots"
+
 bpy.ops.object.select_all(action="DESELECT")
 bpy.ops.wm.save_as_mainfile(filepath=OUT)
 print("SCENE", OUT, flush=True)
@@ -178,7 +206,7 @@ if PREVIEW:                                                     # Workbench stil
     sc.display.shading.color_type = "MATERIAL"
     sc.display.shading.show_shadows = True
     sc.display.shading.show_cavity = True
-    for f in (1, 60, 120):
+    for f in ((1, 120, 121, 240, 241, 360) if "--shots" in args else (1, 60, 120)):
         sc.frame_set(f)
         sc.render.filepath = str(PREVIEW / f"cliff_house_f{f:03d}.png")
         bpy.ops.render.render(write_still=True)

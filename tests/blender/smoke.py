@@ -508,6 +508,58 @@ if cam_wf:
 else:
     print("  skip: ComfyQ has no workflow with a camera setting")
 
+# multi-shot pieces (no GPU): Join Text, Material Board, Film
+from bl_ext.user_default.comfyq_bridge.graph import outputs as _gout_ms
+from bl_ext.user_default.comfyq_bridge.graph import run as _grun_ms
+
+_p1, _p2 = tree.nodes.new("ComfyQPromptNode"), tree.nodes.new("ComfyQPromptNode")
+_p1.text, _p2.text = "Look: larch, zinc, snow.", "Shot 2: seen from the right."
+_jn = tree.nodes.new("ComfyQJoinTextNode")
+tree.links.new(_p1.outputs[0], _jn.inputs[0])
+tree.links.new(_p2.outputs[0], _jn.inputs[1])
+check(_grun_ms._text(_jn) == "Look: larch, zinc, snow. Shot 2: seen from the right.",
+      f"Join Text: Text 1 then Text 2 ({_grun_ms._text(_jn)})")
+_src_img = bpy.data.images.load(str(render.structure_pass(scene, "MATERIAL", 1280)), check_existing=False)
+_imn, _bd = tree.nodes.new("ComfyQImageNode"), tree.nodes.new("ComfyQBoardNode")
+_imn.image = _src_img
+tree.links.new(_imn.outputs[0], _bd.inputs[0])
+_rms = _grun_ms.Run(tree, scene, [], _grun_ms.describe(tree, scene), [], ())
+_bp = _rms._file(scene, _bd, _grun_ms._PICTURE)
+_bimg = bpy.data.images.load(str(_bd.result), check_existing=False)
+_s = min(_src_img.size[0] // 4, _src_img.size[1] // 3)
+check(Path(_bp).is_file() and tuple(_bimg.size) == (4 * _s, 2 * _s),
+      f"Material Board: the 8 most detailed of 4 × 3 tiles, shuffled ({tuple(_bimg.size)} from {tuple(_src_img.size)})")
+bpy.data.images.remove(_bimg)
+_film = tree.nodes.new("ComfyQFilmNode")
+_film.folder = str(tmp / "film")
+_vfs = []
+for _n in (1, 2):
+    _vf = tree.nodes.new("ComfyQVideoFileNode")
+    _vfs.append(_vf.name)
+    _vf.filepath = str(a.path)
+    tree.links.new(_vf.outputs[0], _film.inputs[f"Shot {_n}"])
+_af = tree.nodes.new("ComfyQAudioFileNode")
+_af.filepath = str(wav)
+tree.links.new(_af.outputs[0], _film.inputs["Soundtrack"])
+_msg = _gout_ms.act(_film, scene, force=True)
+_fs = bpy.data.scenes.get("ComfyQ Film")
+_strips_ms = list((_fs.sequence_editor.strips if hasattr(_fs.sequence_editor, "strips") else
+                   _fs.sequence_editor.sequences) if _fs else [])
+_movies = sorted((s for s in _strips_ms if s.type == "MOVIE"), key=lambda s: s.frame_start)
+check(_fs is not None and len(_movies) == 2 and _movies[1].frame_start == _movies[0].frame_final_end
+      and not any(s.name.endswith(" sound") for s in _strips_ms) and any(s.name == "Soundtrack" for s in _strips_ms)
+      and _fs.frame_end == _movies[1].frame_final_end - 1
+      and (scene.sequence_editor is None or not len(scene.sequence_editor.strips)),
+      f"Film: two shots back to back, clip sound off, soundtrack on; the 3D scene's sequencer untouched ({_msg})")
+_out = _gout_ms.render_film(_film)
+check(_out.is_file() and _out.stat().st_size > 10000, f"Film › Render Film writes an MP4 ({_out.name}, "
+      f"{_out.stat().st_size if _out.is_file() else 0} bytes)")
+_made_ms = {_p1.name, _p2.name, _jn.name, _imn.name, _bd.name, _film.name, _af.name, *_vfs}
+for _n in [x for x in tree.nodes if x.name in _made_ms]:          # only the nodes this check made
+    tree.nodes.remove(_n)
+bpy.data.scenes.remove(_fs)
+bpy.data.images.remove(_src_img)
+
 # N1: change model keeps links on inputs of the same kind, and each model's settings
 other = next(w.id for w in SESSION.workflows if w.id != v2v and w.id in SESSION.specs
              and any(s.kind == "video" for s in SESSION.specs[w.id]))

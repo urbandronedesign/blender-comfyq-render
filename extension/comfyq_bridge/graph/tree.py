@@ -516,6 +516,56 @@ class ComfyQPromptNode(_Node, bpy.types.Node):
         draw_text_field(layout, self, "text", "text_block", self, "", True, "Describe the image or video to create")
 
 
+class ComfyQBoardNode(_Node, bpy.types.Node):
+    """Cuts a picture into swatches (no layout): the materials of an approved shot, for the next shots' keyframes"""
+    bl_idname = "ComfyQBoardNode"
+    bl_label = "Material Board"
+    bl_icon = "TEXTURE"
+    bl_width_default = 300
+
+    cols: IntProperty(name="Columns", default=4, min=2, max=8, description="Set how many tiles across the picture")
+    rows: IntProperty(name="Rows", default=3, min=2, max=8, description="Set how many tiles down the picture")
+    keep: IntProperty(name="Keep", default=8, min=2, max=16,
+                      description="Keep the most detailed tiles (flat sky is dropped first)")
+    seed: IntProperty(name="Shuffle Seed", default=7, min=0, description="Set the order of the tiles on the board")
+    result: StringProperty(options={"HIDDEN"})         # the last board made (a PNG pass)
+
+    def init(self, context):
+        self.inputs.new(SOCKET_IDNAME["image"], "Image")
+        self.outputs.new(SOCKET_IDNAME["image"], "Board")
+
+    def draw_buttons(self, context, layout):
+        col = layout.column(align=True)
+        col.label(text="Swatches of the linked picture, shuffled:", icon="INFO")
+        col.label(text="a reference with materials and no layout", icon="BLANK1")
+        row = layout.row(align=True)
+        row.prop(self, "cols", text="Across")
+        row.prop(self, "rows", text="Down")
+        row = layout.row(align=True)
+        row.prop(self, "keep")
+        row.prop(self, "seed", text="Seed")
+        if self.result:
+            _thumbnail(layout, bpy.data.images.get(Path(self.result).name))
+
+
+class ComfyQJoinTextNode(_Node, bpy.types.Node):
+    """Joins two texts: a shared look (materials, season, light) and this shot's own line"""
+    bl_idname = "ComfyQJoinTextNode"
+    bl_label = "Join Text"
+    bl_icon = "LINENUMBERS_ON"
+    bl_width_default = 260
+
+    def init(self, context):
+        self.inputs.new(SOCKET_IDNAME["text"], "Text 1")
+        self.inputs.new(SOCKET_IDNAME["text"], "Text 2")
+        self.outputs.new(SOCKET_IDNAME["text"], "Text")
+
+    def draw_buttons(self, context, layout):
+        from .run import _text
+        text = _text(self)
+        layout.label(text=(text[:42] + "…") if len(text) > 42 else (text or "Link two texts"), icon="TEXT")
+
+
 # -- workflow node: built from the workflow's parameters ---------------------------------------------
 def workflow_of(wf_id: str):
     return next((w for w in SESSION.workflows if w.id == wf_id), None)
@@ -1057,6 +1107,57 @@ class ComfyQSaveNode(_OutputNode, bpy.types.Node):
         col.prop(self, "pattern", text="")
 
 
+FILM_SHOTS = 6
+
+
+class ComfyQFilmNode(_OutputNode, bpy.types.Node):
+    """Puts the shots' clips end to end in the "ComfyQ Film" scene: one film, one soundtrack"""
+    bl_idname = "ComfyQFilmNode"
+    bl_label = "Film"
+    bl_icon = "SEQUENCE"
+    auto_label = "Assemble when ready"
+    verb = "assemble"
+    bl_width_default = 300
+
+    auto: BoolProperty(name="Assemble When Ready", default=False,
+                       description="Assemble the film again each time a shot gets a new clip")
+    keep_sound: BoolProperty(name="Keep Clip Sound", default=False,
+                             description="Keep each clip's own generated sound (it jumps at every cut); off: only "
+                                         "the Soundtrack plays")
+    folder: StringProperty(name="Folder", subtype="DIR_PATH", default="//comfyq/", options=REL_PATH,
+                           description="Where Render Film writes the MP4 (// = next to the .blend)")
+    last_render: StringProperty(options={"HIDDEN"})
+
+    def init(self, context):
+        for n in range(1, FILM_SHOTS + 1):
+            self.inputs.new(SOCKET_IDNAME["video"], f"Shot {n}")
+        self.inputs.new(SOCKET_IDNAME["audio"], "Soundtrack")
+
+    def draw_buttons(self, context, layout):
+        from . import outputs
+        clips, sound = outputs.film_media(self)
+        ready = [m for m in clips if m.path]
+        layout.label(text=f"{count(len(ready), 'shot')} ready of {count(len(clips), 'linked shot')}"
+                     + (" · soundtrack" if sound is not None and sound.path else ""),
+                     icon="CHECKMARK" if clips and len(ready) == len(clips) else "SORTTIME")
+        layout.prop(self, "keep_sound")
+        row = layout.row(align=True)
+        row.prop(self, "auto", text=self.auto_label)
+        act = row.row(align=True)
+        act.enabled = bool(ready)
+        target(act.operator("comfyq.graph_output", text="Assemble", icon=self.bl_icon), self)
+        target(layout.operator("comfyq.graph_run", text="Generate Upstream, then Assemble", icon="PLAY"), self)
+        col = layout.column(align=True)
+        col.prop(self, "folder", text="")
+        sub = col.row(align=True)
+        sub.enabled = bpy.data.scenes.get("ComfyQ Film") is not None
+        target(sub.operator("comfyq.film_render", text="Render Film...", icon="RENDER_ANIMATION"), self)
+        if self.status:
+            layout.label(text=self.status, icon="CHECKMARK")
+        if self.last_render:
+            layout.label(text=Path(self.last_render).name, icon="FILE_MOVIE")
+
+
 def batch_source(node, _seen=None):
     """The Media Folder node this node's input comes from (through workflow nodes and Reroutes), or None."""
     seen = set() if _seen is None else _seen
@@ -1075,7 +1176,7 @@ def batch_source(node, _seen=None):
     return None
 
 
-OUTPUT_NODES = ("ComfyQViewerNode", "ComfyQImportNode", "ComfyQSaveNode")
+OUTPUT_NODES = ("ComfyQViewerNode", "ComfyQImportNode", "ComfyQSaveNode", "ComfyQFilmNode")
 
 
 # Source node offered by the "+" of an unlinked input
@@ -1086,10 +1187,10 @@ SOURCE_LABEL = {"image": "Scene render", "video": "Scene animation", "mask": "Se
 
 NODE_CLASSES = (ComfyQImageNode, ComfyQSceneRenderNode, ComfyQMaskNode, ComfyQSceneAnimationNode,
                 ComfyQVideoFileNode, ComfyQFolderNode, ComfyQAudioFileNode, ComfyQSceneObjectsNode,
-                ComfyQModelFileNode, ComfyQPromptNode, ComfyQWorkflowNode,
-                ComfyQSurfacesNode, ComfyQViewerNode, ComfyQImportNode, ComfyQSaveNode)
+                ComfyQModelFileNode, ComfyQPromptNode, ComfyQBoardNode, ComfyQJoinTextNode, ComfyQWorkflowNode,
+                ComfyQSurfacesNode, ComfyQViewerNode, ComfyQImportNode, ComfyQSaveNode, ComfyQFilmNode)
 RUN_NODES = (WORKFLOW_NODE, SURFACES_NODE)       # nodes a graph run books (a ComfyQ job / a SAM3 segmentation)
-OUTPUT_CLASSES = (ComfyQViewerNode, ComfyQImportNode, ComfyQSaveNode)
+OUTPUT_CLASSES = (ComfyQViewerNode, ComfyQImportNode, ComfyQSaveNode, ComfyQFilmNode)
 SOURCE_NODES = (ComfyQSceneAnimationNode, ComfyQSceneRenderNode, ComfyQMaskNode, ComfyQImageNode,
                 ComfyQVideoFileNode, ComfyQFolderNode, ComfyQAudioFileNode, ComfyQSceneObjectsNode,
                 ComfyQModelFileNode, ComfyQPromptNode)

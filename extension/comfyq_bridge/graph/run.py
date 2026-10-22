@@ -17,7 +17,7 @@ import bpy
 
 from ..client.params import is_disabled
 from ..importers.media import IMAGE_EXTS
-from ..passes import animation, mesh, render, shots
+from ..passes import animation, board, mesh, render, shots
 from ..props import INT_MAX
 from ..runtime import serving
 from ..runtime.session import SESSION
@@ -84,6 +84,10 @@ def _own_hash(node, scene) -> str:
         return engine.settings_hash(idn, mesh.fingerprint(node.objects(scene)))
     if idn == "ComfyQPromptNode":
         return engine.settings_hash(idn, node.value())
+    if idn == "ComfyQBoardNode":      # its picture comes in through its input (hashed upstream)
+        return engine.settings_hash(idn, node.cols, node.rows, node.keep, node.seed)
+    if idn == "ComfyQJoinTextNode":
+        return engine.settings_hash(idn)
     if idn == SURFACES_NODE:          # the list (labels + materials), the text around it, the threshold
         return engine.settings_hash(idn, node.value(), node.intro, node.outro, round(node.threshold, 3))
     return engine.settings_hash(idn, node.name)
@@ -167,7 +171,11 @@ class Run:
                 else:
                     self._book(tree, scene, name)
         if unserved and not self.booked and not self.booking:
-            self._start_switch(tree, tree.nodes[unserved[0]].workflow_id, unserved)
+            # load the model the most waiting nodes need: a film's keyframes then all its videos, not
+            # FLUX → LTX → Qwen → LTX (each main switch restarts ComfyQ)
+            wanted = [tree.nodes[n].workflow_id for n in unserved]
+            wf_id = max(dict.fromkeys(wanted), key=wanted.count)
+            self._start_switch(tree, wf_id, unserved)
         if not self.pending and not self.booking:
             if self.after:
                 if not self.error:
@@ -477,6 +485,15 @@ class Run:
         elif idn == OBJECTS_NODE:           # its collection, else what was selected when the run started
             objs = src.objects(scene) if src.collection is not None else                 [o for o in scene.objects if o.name in self.selected]
             p = mesh.mesh_pass(objs)
+        elif idn == "ComfyQBoardNode":       # swatches of what is linked into it (a keyframe, a picture)
+            up, _out = upstream(src.inputs[0])
+            if up is None:
+                raise RuntimeError(f"“{src.label or src.name}”: link a picture into it")
+            p = board.make_board(self._file(scene, up, _PICTURE), src.cols, src.rows, src.keep, src.seed)
+            src.result = str(p)
+            img = bpy.data.images.load(str(p), check_existing=True)       # its thumbnail (the timer previews it)
+            img.reload()
+            p = render.image_pass(img, edge)                               # within the upload limits
         elif idn in FILE_NODES:
             p = Path(bpy.path.abspath(src.filepath)) if src.filepath else None
             if p is None or not p.is_file():
@@ -552,6 +569,13 @@ def _set_note(node, text: str) -> None:
 def _text(src) -> str:
     if src.bl_idname == "ComfyQPromptNode":
         return src.value()
+    if src.bl_idname == "ComfyQJoinTextNode":          # Text 1 then Text 2 (a shared look + this shot's line)
+        parts = []
+        for sock in src.inputs:
+            up, _out = upstream(sock)
+            if up is not None:
+                parts.append(_text(up))
+        return " ".join(p for p in parts if p)
     if src.bl_idname == SURFACES_NODE:
         return src.prompt()
     if src.bl_idname == WORKFLOW_NODE and src.result and Path(src.result).is_file():
