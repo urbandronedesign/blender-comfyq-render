@@ -490,6 +490,13 @@ change that session: the user must reinstall from the UI or restart Blender.
   `blender_camera_shot` (24 tools); the reveal shot taught: the keyframe prompt describes ONLY frame 1.
   A remembered Qwen lane restored beside LTX made LTX run low-VRAM (10–12 min/clip): Solo must close lanes first.
 
+- **Library run 2026-10-22** (headless: `tools/preset_run_headless.py` runs `preset_run.py` in a background Blender,
+  MCP tools called in-process, a stand-in for bpy.app.timers): **45/45 ran** in 1 h 23 min; looked at every sheet:
+  35 ok, 10 warn (inputs a workflow is not made for / its own example prompt), 0 fail. Wan 2.1 ID-V2V ×2 FIXED
+  upstream (failed on 2026-10-04); Klein ref, Klein inpaint ref, FastH3 FLF, LTX 2.3 ia2v better than 2026-10-04.
+  Report `baselines/2026-10-22/index.html` (vs 2026-10-04), results/notes `live_check/presets_2026-10-22/`.
+  Runner quirk: `style.png` = the last image asset (here the objects sheet), so Bernini-R ref had no style.
+
 ## Next steps
 1. Multi-shot (user's goal: long films of several shots), docs/multi-shot.md. DONE 2026-10-22: Shot field from
    camera-bound timeline markers (`passes/shots.py`; Blender's binding then drives scene.camera by itself), Solo /
