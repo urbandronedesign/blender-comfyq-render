@@ -1,0 +1,106 @@
+{
+ "format": 1,
+ "label": "MOSS-Image — new picture from a photo's pose and depth",
+ "description": "Drop in a photo and get a NEW picture with the same pose and framing. The photo's 3D shape is estimated (MoGe 3) and turned into a depth map; MOSS-Image then paints whatever the prompt says onto that shape. Nothing el…\nFrom: Scene render, Prompt. Viewer + Save",
+ "made": "2026-11-15 15:43",
+ "nodes": [
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "image_moss_image_color_depth_control",
+   "params": [],
+   "match_scene": true
+  },
+  {
+   "name": "Scene Render",
+   "type": "ComfyQSceneRenderNode",
+   "location": [
+    -820.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "Scene render",
+   "parent": "",
+   "style": "CLAY",
+   "frame": "CURRENT",
+   "cycles_samples": 64,
+   "shot": ""
+  },
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -820.0,
+    -330.0
+   ],
+   "width": 340.0,
+   "label": "Prompt",
+   "parent": "",
+   "text": "Candid street-style portrait of a young woman, framed from the chest up and centred, dark hair in two messy buns, chunky gold hoop earrings, oversized padded bomber jacket over a crop top. Direct on-camera flash against a night street, hard shadows on the wall behind, slightly blown highlights, raw editorial look."
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}",
+   "batch_suffix": "_render"
+  }
+ ],
+ "links": [
+  {
+   "from": "Scene Render",
+   "from_socket": "Image",
+   "to": "Workflow",
+   "to_socket": "photo_55"
+  },
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "prompt_5"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ],
+ "library": {
+  "workflow_id": "image_moss_image_color_depth_control",
+  "category": "t2i"
+ }
+}

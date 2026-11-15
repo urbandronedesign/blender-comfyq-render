@@ -2,7 +2,7 @@
  "format": 1,
  "label": "Qwen Image-Edit 2511 - reshoot from another angle (place the camera)",
  "description": "Upload one photo and reshoot the same subject from somewhere else: walk the camera round it, raise or lower it, and come in closer.  PLACE THE CAMERA, don't describe it. Drag the stage to orbit, scroll to zoom, or use…\nFrom: The subject to reshoot. Viewer + Save",
- "made": "2026-10-21 21:54",
+ "made": "2026-11-15 15:43",
  "nodes": [
   {
    "name": "Workflow",

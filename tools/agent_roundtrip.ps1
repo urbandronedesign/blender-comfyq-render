@@ -11,7 +11,8 @@ param(
 )
 $ErrorActionPreference = "Continue"
 $root = Split-Path -Parent $PSScriptRoot
-$exe = "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe"
+$exe = @("5.3", "5.2") | ForEach-Object { "C:\Program Files\Blender Foundation\Blender $_\blender.exe" } |
+    Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $Claude) {
     $Claude = (Get-Command claude -ErrorAction SilentlyContinue).Source
     if (-not $Claude) {

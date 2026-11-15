@@ -172,7 +172,7 @@ class Run:
                     self._book(tree, scene, name)
         if unserved and not self.booked and not self.booking:
             # load the model the most waiting nodes need: a film's keyframes then all its videos, not
-            # FLUX → LTX → Qwen → LTX (each main switch restarts ComfyQ)
+            # FLUX → LTX → Qwen → LTX (each main switch reloads a model)
             wanted = [tree.nodes[n].workflow_id for n in unserved]
             wf_id = max(dict.fromkeys(wanted), key=wanted.count)
             self._start_switch(tree, wf_id, unserved)
@@ -201,7 +201,7 @@ class Run:
             node = tree.nodes.get(n)
             if node is not None and node.workflow_id == wf_id:
                 node.note = "Loading its model in ComfyQ…"
-        SESSION.status_note = f"Solo: loading “{name}” in ComfyQ (ComfyQ restarts, 1 to 2 minutes)…"
+        SESSION.status_note = f"Solo: loading “{name}” in ComfyQ (about a minute)…"
         sw = self.switch
 
         def work():
@@ -528,8 +528,13 @@ _EXTS = {"image": IMAGE_EXTS, "video": {".mp4", ".mov", ".webm", ".mkv", ".gif"}
 
 
 def pick_result(files: list[Path], kind: str) -> Path:
-    """The output that matches what the node produces (a video job may also return a preview image)."""
-    return next((f for f in files if f.suffix.lower() in _EXTS.get(kind, ())), files[0])
+    """The output that matches what the node produces (a video job may also return a preview image).
+    A splat job may return the same splat twice (TripoSplat: .spz and .ply): take the .ply (5.2 reads it too)."""
+    wanted = _EXTS.get(kind, ())
+    hits = [f for f in files if f.suffix.lower() in wanted]
+    if kind == "splat":
+        hits.sort(key=lambda f: f.suffix.lower() != ".ply")
+    return hits[0] if hits else files[0]
 
 
 class _Picture:                     # what a Surfaces node asks of its Image input (any size: SAM3 has no limit)
@@ -716,7 +721,7 @@ def start(tree, scene, targets: list[str], selected: list[str], force: bool = Fa
     msg = f"Running {count(len(todo), 'job')}: " + " → ".join(todo)
     if solo:
         n_models = len({tree.nodes[n].workflow_id for n in todo if tree.nodes[n].workflow_id not in served})
-        msg += f" (solo: loads {count(n_models, 'model')} in ComfyQ; each switch restarts it, 1 to 2 minutes)"
+        msg += f" (solo: loads {count(n_models, 'model')} in ComfyQ; each switch takes about a minute)"
     if reused:
         msg += f" (reusing {', '.join(reused)})"
     return True, msg

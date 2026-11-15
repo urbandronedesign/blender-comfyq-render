@@ -1,0 +1,121 @@
+{
+ "format": 1,
+ "label": "Picture → Gaussian splat (IDOL)",
+ "description": "One picture of an object (a plant, a piece of furniture, a sculpture) becomes a 3D Gaussian splat, imported beside the scene, on the ground, and rendered by Blender itself in Workbench, EEVEE and Cycles (Blender 5.3 or later). Best with the whole object on a plain background. Splats suit leafy and soft things that meshes do badly. About 1.5 minutes on the 5090 (the model loads first).",
+ "made": "2026-11-15 15:39",
+ "nodes": [
+  {
+   "name": "Image",
+   "type": "ComfyQImageNode",
+   "location": [
+    -900.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "Picture",
+   "parent": ""
+  },
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -420.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "IDOL",
+   "parent": "",
+   "workflow_id": "3d_idol_image_to_gaussian_splat",
+   "params": [
+    {
+     "key": "loadimage_image_99",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "switch_mask_source_88_35",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": true,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "ksampler_steps_88_6",
+     "s": "",
+     "i": 20,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "ksampler_seed_88_6",
+     "s": "",
+     "i": 7,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "vaedecodetriposplat_num_gaussians_88_55",
+     "s": "",
+     "i": 262144,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    }
+   ]
+  },
+  {
+   "name": "Import to Scene",
+   "type": "ComfyQImportNode",
+   "location": [
+    80.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "Import to Scene",
+   "parent": "",
+   "auto": true,
+   "replace": true,
+   "place": "BESIDE",
+   "on_ground": true,
+   "size": 0.0
+  },
+  {
+   "name": "Frame",
+   "type": "NodeFrame",
+   "location": [
+    -1520.0,
+    0.0
+   ],
+   "width": 560.0,
+   "label": "How to use",
+   "parent": "",
+   "height": 310.0,
+   "text": "1. Picture: a photo or render of ONE object,\n   whole, on a plain background\n2. Run Graph (about 1.5 minutes)\n3. The splat is imported beside the scene,\n   about 1 m tall: set Size on Import to Scene\n   (a tree: 3 to 5 m)\n4. Needs Blender 5.3 or later (native splats;\n   5.2 keeps the .spz in the job folder)"
+  }
+ ],
+ "links": [
+  {
+   "from": "Image",
+   "from_socket": "Image",
+   "to": "Workflow",
+   "to_socket": "loadimage_image_99"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Splat",
+   "to": "Import to Scene",
+   "to_socket": "Result"
+  }
+ ]
+}

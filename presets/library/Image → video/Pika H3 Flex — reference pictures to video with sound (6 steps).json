@@ -1,0 +1,123 @@
+{
+ "format": 1,
+ "label": "Pika H3 Flex — reference pictures to video with sound (6 steps)",
+ "description": "Up to four pictures — a character, a product, a place — become the cast of a new video WITH sound. Six sampling steps (Pika H3 Flex on MiniMax H3's reference model).  Name each picture in the prompt as <Picture 1>, <P…\nFrom: Prompt, Picture 1, First frame. Viewer + Save",
+ "made": "2026-11-15 15:43",
+ "nodes": [
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "video_pika_h3_flex_ref2va",
+   "params": [],
+   "match_scene": true
+  },
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -820.0,
+    0.0
+   ],
+   "width": 340.0,
+   "label": "Prompt",
+   "parent": "",
+   "text": "subject_definitions:\n<Subject 1> is the station exterior in <Picture 2>. Reference role: form and material anchor. Features to follow exactly: a wide white saucer-shaped upper hull with visible panel seams and small antennas on top, a lit yellow-orange window band running around the rim, a cluster of white cylindrical modules hanging beneath the saucer with thin antenna spars at the bottom, weathered white paint with dark seams between plates, and the blue limb of a planet with white cloud bands behind it.\n<Subject 2> is the pilot in <Picture 1>. Reference role: identity and gear anchor. Features to follow exactly: a dark matte flight helmet with a wide glossy black visor, one thin orange glowing ring on the left side of the visor and two horizontal orange glowing bars on the right side, a segmented metal collar ring under the jaw, and a bulky dark flight suit with a soft padded cowl. Do not carry over the light grey studio background of <Picture 1>.\n<Subject 3> is the station interior, invented to match <Subject 1>: a dark rectangular hangar bay with ribbed white-metal walls, deep structural ribs, a grated catwalk running across the middle distance, small cargo clamps along the walls, and orange strip lights recessed between the ribs that match the colour of the pilot's visor glow.\n\nsummary:\n[reference generation] A five-second single continuous shot: the station of <Picture 2> hangs in orbit, the camera pushes in toward its saucer rim, the bay mouth opens and the camera travels inside, where the hangar lights come up to reveal the pilot of <Picture 1> standing on the catwalk. Exterior and interior are one move, no cut.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - saucer hull, panel seams, yellow-orange rim band, hanging module cluster, antenna spars.\n<Subject 2> (appears at the end of [Shot 1]): fully_preserved - helmet silhouette, glossy visor, the orange ring and two orange bars, collar ring and padded cowl.\n<Subject 3> (appears at the end of [Shot 1]): attribute_transfer - the ribbed white-metal language and window-band orange of <Subject 1> are carried inside as hull ribs and strip lights; the bay layout itself is new.\n<Picture 1> background: weak_reference only - its light grey studio backdrop is discarded entirely.\nNo audio reference is used in this generation.\n\ndetailed_description:\nRefined retro-futurist cinematography in a single unbroken move, cold blue ambient outside against warm orange interior light, deep blacks in both halves, fine grain and no lens flares; the camera is the only thing that travels and it never cuts.\n\n[Shot 1] Wide establishing frame: the station of <Subject 1> hangs in the black, centred and slightly below eye level, the planet's blue limb and white cloud bands filling the lower third behind it. The saucer's rim band glows a soft orange, the hanging module cluster underneath reads as a dense white cylinder mass with thin spars, and the hull plates are weathered white with dark seams. The camera pushes in with small amplitude at slow speed, straight toward the saucer rim, and the station grows until the window band fills the upper half of the frame.\n\nAt about one and a half seconds a rectangular bay mouth opens in the rim below the band: two armour plates slide apart, spilling a warm orange rectangle of light into the vacuum, and a faint haze of vented gas drifts out of it. The camera does not stop and does not slow down; it continues into the opening, the frame going completely black for a beat as it crosses the threshold, then the interior lights of <Subject 3> come up in rows from the far end toward the lens, stripping in along the ribs one section at a time.\n\nAt about three seconds the camera is inside, gliding down the length of the ribbed hangar at chest height, the grated catwalk beneath it, cargo clamps and rib shadows sliding past on both sides, and the orange strip lights drawing long converging lines toward the far bulkhead. The camera decelerates and comes to rest at about four and a half seconds, framing <Subject 2> standing on the catwalk in three-quarter profile: dark helmet, glossy black visor with the orange ring and the two orange bars lit, padded cowl, suit reading as a soft dark mass against the white ribs. The last beat holds completely still while the pilot turns their head a few degrees toward the lens and the visor glow spills a thin orange edge onto the nearest rib.\n\noverall_soundscape:\nDeep vacuum silence outside with only a low sub-bass hum from the station's structure, then a hard change as the camera crosses the threshold: pressurised air rushing past the lens, the hydraulic whine of the bay plates closing behind, distant bulkhead clanks, the hum of the hangar settling into a steady tone, and one soft suit life-support hiss from the pilot at the end.\n\nnon_diegetic_music:\nA slow retro synthwave pad that holds one low chord through the exterior, drops to near silence for the threshold crossing, and returns as a warm rising two-note figure as the hangar lights come up, ending on the held final frame."
+  },
+  {
+   "name": "Image",
+   "type": "ComfyQImageNode",
+   "location": [
+    -820.0,
+    -330.0
+   ],
+   "width": 300.0,
+   "label": "Picture 1",
+   "parent": ""
+  },
+  {
+   "name": "Scene Render",
+   "type": "ComfyQSceneRenderNode",
+   "location": [
+    -820.0,
+    -660.0
+   ],
+   "width": 300.0,
+   "label": "First frame",
+   "parent": "",
+   "style": "CLAY",
+   "frame": "START",
+   "cycles_samples": 64,
+   "shot": ""
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}",
+   "batch_suffix": "_render"
+  }
+ ],
+ "links": [
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "prompt_138"
+  },
+  {
+   "from": "Image",
+   "from_socket": "Image",
+   "to": "Workflow",
+   "to_socket": "ref_image_149"
+  },
+  {
+   "from": "Scene Render",
+   "from_socket": "Image",
+   "to": "Workflow",
+   "to_socket": "ref_image_150"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Video",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Video",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ],
+ "library": {
+  "workflow_id": "video_pika_h3_flex_ref2va",
+  "category": "i2v"
+ }
+}

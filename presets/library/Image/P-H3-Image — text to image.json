@@ -1,0 +1,85 @@
+{
+ "format": 1,
+ "label": "P-H3-Image — text to image",
+ "description": "Pruna's P-H3-Image: an image model made from MiniMax H3, the film model, run here as a LoRA on H3.  It renders long, precise descriptions best: write the subject, the setting, the light, the lens and the look, and put…\nFrom: Prompt. Viewer + Save",
+ "made": "2026-11-15 15:43",
+ "nodes": [
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "image_p_h3_t2i",
+   "params": [],
+   "match_scene": true
+  },
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -820.0,
+    0.0
+   ],
+   "width": 340.0,
+   "label": "Prompt",
+   "parent": "",
+   "text": "view through the spokes and rim of an out-of-focus bicycle wheel in extreme foreground, overlaying a sunlit courtyard, whitewashed wall and wooden gate in the midground, two children running past a line of drying sheets, terracotta pots and a lemon tree at the edge, blown-out hazy backlight with oversized golden bokeh orbs, rainbow light leaks across the upper corner, cinematic framing, natural daylight, vintage film aesthetic Absolutely no text, no typography, no letters, no words, no numbers, no logos, no watermark, no captions, pure imagery only."
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}",
+   "batch_suffix": "_render"
+  }
+ ],
+ "links": [
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "request_29_24"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ],
+ "library": {
+  "workflow_id": "image_p_h3_t2i",
+  "category": "t2i"
+ }
+}

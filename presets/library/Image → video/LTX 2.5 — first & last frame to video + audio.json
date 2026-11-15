@@ -2,7 +2,7 @@
  "format": 1,
  "label": "LTX 2.5 — first & last frame to video + audio",
  "description": "Give a START image and an END image and LTX 2.5 generates a short video that travels from the first frame to the last, with a matching audio track. In the prompt, describe what happens in between — the motion, the cam…\nFrom: First frame, Last frame, Prompt. Viewer + Save",
- "made": "2026-10-05 22:04",
+ "made": "2026-11-15 15:43",
  "nodes": [
   {
    "name": "Workflow",
@@ -30,7 +30,8 @@
    "parent": "",
    "style": "CLAY",
    "frame": "START",
-   "cycles_samples": 64
+   "cycles_samples": 64,
+   "shot": ""
   },
   {
    "name": "Scene Render.001",
@@ -44,7 +45,8 @@
    "parent": "",
    "style": "CLAY",
    "frame": "END",
-   "cycles_samples": 64
+   "cycles_samples": 64,
+   "shot": ""
   },
   {
    "name": "Prompt",
@@ -82,7 +84,8 @@
    "parent": "",
    "auto": false,
    "folder": "//comfyq/",
-   "pattern": "{source}_{date}_{time}"
+   "pattern": "{source}_{date}_{time}",
+   "batch_suffix": "_render"
   }
  ],
  "links": [

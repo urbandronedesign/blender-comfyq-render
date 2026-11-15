@@ -1,0 +1,223 @@
+{
+ "format": 1,
+ "label": "Text → Gaussian splat (FLUX.3 Klein + IDOL)",
+ "description": "Describe one object: FLUX.3 Klein makes a clean picture of it (whole object, white background), IDOL turns the picture into a 3D Gaussian splat, imported beside the scene, on the ground. Blender 5.3 renders it natively in every engine. Tested on 2026-11-15 with an olive tree in a pot: picture 38 s, splat 98 s, upright and facing the camera like the picture. Viewer shows the picture.",
+ "made": "2026-11-15 15:39",
+ "nodes": [
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -1400.0,
+    0.0
+   ],
+   "width": 340.0,
+   "label": "Prompt",
+   "parent": "",
+   "text": "Studio product photo of a mature olive tree in a terracotta pot, the whole tree and pot visible with space around it, silver-green leaves, twisted trunk, plain pure white background, soft even studio light, sharp focus, no text"
+  },
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -920.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "FLUX.3 Klein",
+   "parent": "",
+   "workflow_id": "image_flux3_klein_distilled_t2i",
+   "params": [
+    {
+     "key": "prompt",
+     "s": "A cinematic, Dutch angle night shot of a retro hotel entrance illuminated by neon cyan and warm orange lights. A bellhop in uniform pulls a gold luggage cart with suitcases across a wet sidewalk. Inside the brightly lit, teal-toned glass lobby, two women in vintage uniforms stand near a wooden desk alongside tropical plants and a seated figure. The scene features a moody, stylized teal-and-orange color palette with strong neon reflections. Absolutely no text, no typography, no letters, no words, no numbers, no logos, no watermark, no captions, pure imagery only.",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "layout",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "improve_prompt",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "aspect_ratio",
+     "s": "1:1 (Square)",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "megapixels",
+     "s": "",
+     "i": 0,
+     "f": 1.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "steps",
+     "s": "",
+     "i": 16,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "seed",
+     "s": "",
+     "i": 7,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    }
+   ]
+  },
+  {
+   "name": "Workflow.001",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -420.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "IDOL",
+   "parent": "",
+   "workflow_id": "3d_idol_image_to_gaussian_splat",
+   "params": [
+    {
+     "key": "loadimage_image_99",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "switch_mask_source_88_35",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": true,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "ksampler_steps_88_6",
+     "s": "",
+     "i": 20,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "ksampler_seed_88_6",
+     "s": "",
+     "i": 7,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "vaedecodetriposplat_num_gaussians_88_55",
+     "s": "",
+     "i": 262144,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    }
+   ]
+  },
+  {
+   "name": "Import to Scene",
+   "type": "ComfyQImportNode",
+   "location": [
+    80.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "Import to Scene",
+   "parent": "",
+   "auto": true,
+   "replace": true,
+   "place": "BESIDE",
+   "on_ground": true,
+   "size": 0.0
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    -420.0,
+    420.0
+   ],
+   "width": 300.0,
+   "label": "Viewer",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Frame",
+   "type": "NodeFrame",
+   "location": [
+    -2020.0,
+    0.0
+   ],
+   "width": 560.0,
+   "label": "How to use",
+   "parent": "",
+   "height": 310.0,
+   "text": "1. Describe ONE object in Prompt (whole,\n   plain white background)\n2. Run Graph: a picture, then the splat\n3. Check the picture in Viewer\n4. The splat is imported beside the scene:\n   set Size on Import to Scene\n5. Needs Blender 5.3 or later (native splats;\n   5.2 keeps the .spz in the job folder)"
+  }
+ ],
+ "links": [
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "prompt"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Workflow.001",
+   "to_socket": "loadimage_image_99"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow.001",
+   "from_socket": "Splat",
+   "to": "Import to Scene",
+   "to_socket": "Result"
+  }
+ ]
+}

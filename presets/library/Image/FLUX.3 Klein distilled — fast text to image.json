@@ -1,0 +1,85 @@
+{
+ "format": 1,
+ "label": "FLUX.3 Klein distilled — fast text to image",
+ "description": "Generate an image from a text prompt with Black Forest Labs' FLUX.3 Image Klein, distilled build: 16 steps and no guidance, so it is the quick one. Write full sentences: subject, action, setting, light, style; put any…\nFrom: Prompt. Viewer + Save",
+ "made": "2026-11-15 15:43",
+ "nodes": [
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "image_flux3_klein_distilled_t2i",
+   "params": [],
+   "match_scene": true
+  },
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -820.0,
+    0.0
+   ],
+   "width": 340.0,
+   "label": "Prompt",
+   "parent": "",
+   "text": "A cinematic, Dutch angle night shot of a retro hotel entrance illuminated by neon cyan and warm orange lights. A bellhop in uniform pulls a gold luggage cart with suitcases across a wet sidewalk. Inside the brightly lit, teal-toned glass lobby, two women in vintage uniforms stand near a wooden desk alongside tropical plants and a seated figure. The scene features a moody, stylized teal-and-orange color palette with strong neon reflections. Absolutely no text, no typography, no letters, no words, no numbers, no logos, no watermark, no captions, pure imagery only."
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}",
+   "batch_suffix": "_render"
+  }
+ ],
+ "links": [
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "prompt"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ],
+ "library": {
+  "workflow_id": "image_flux3_klein_distilled_t2i",
+  "category": "t2i"
+ }
+}

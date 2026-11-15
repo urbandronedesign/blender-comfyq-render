@@ -1,0 +1,85 @@
+{
+ "format": 1,
+ "label": "Qwen-Image 2512 — 360° panorama / HDRI from a description",
+ "description": "A 360° panorama of a place you describe, generated with Qwen-Image 2512 and the qwen-360-diffusion LoRA — usable as an HDRI/skybox in Blender, Unreal, Unity or a VR viewer.  Describe only the PLACE and the camera (\"a…\nFrom: Prompt. Viewer + Save",
+ "made": "2026-11-15 15:43",
+ "nodes": [
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "image_qwen_image_2512_360_panorama",
+   "params": [],
+   "match_scene": true
+  },
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -820.0,
+    0.0
+   ],
+   "width": 340.0,
+   "label": "Prompt",
+   "parent": "",
+   "text": "a quiet mountain pasture above a small alpine village in the French Alps, wooden chalets with stone bases, a gravel path, pine forest on the slopes and rocky summits all around, shot on a full-frame mirrorless camera, sharp realistic photograph"
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}",
+   "batch_suffix": "_render"
+  }
+ ],
+ "links": [
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "place_2"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ],
+ "library": {
+  "workflow_id": "image_qwen_image_2512_360_panorama",
+  "category": "t2i"
+ }
+}

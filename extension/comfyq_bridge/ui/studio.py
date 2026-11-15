@@ -491,7 +491,7 @@ def draw_jobs(layout, context, limit: int | None = None) -> None:
 
 
 _FILE_ICON = {".mp4": "FILE_MOVIE", ".mov": "FILE_MOVIE", ".webm": "FILE_MOVIE", ".gif": "FILE_MOVIE",
-              ".glb": "MESH_DATA", ".gltf": "MESH_DATA", ".ply": "POINTCLOUD_DATA",
+              ".glb": "MESH_DATA", ".gltf": "MESH_DATA", ".ply": "POINTCLOUD_DATA", ".spz": "POINTCLOUD_DATA",
               ".wav": "SOUND", ".mp3": "SOUND", ".flac": "SOUND", ".txt": "TEXT", ".json": "TEXT"}
 _VIEWABLE = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".exr", ".tif", ".tiff", ".mp4", ".mov", ".webm", ".gif"}
 

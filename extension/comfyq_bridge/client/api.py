@@ -18,6 +18,9 @@ from .transport.base import ComfyQTransport
 # POST /upload refuses still images outside a 1920×1080 box (either orientation).
 UPLOAD_MAX_LONG, UPLOAD_MAX_SHORT = 1920, 1080
 
+NOT_SERVING = ("ComfyQ is running but serves no model (admin mode). The teacher starts serving in ComfyQ's "
+               "admin page (choose a workflow); then connect again")
+
 
 class ComfyQClient:
     def __init__(self, profile: Profile, transport: ComfyQTransport | None = None):
@@ -46,10 +49,23 @@ class ComfyQClient:
             self._transport = SocketIOTransport(self.profile.url, self.profile.user, self.http.token)
         return self._transport
 
+    def mode(self) -> str:
+        """ComfyQ's mode: "student" = serving (socket, booking), "admin" = set up only, nothing served and
+        no socket (since 2026-11 ComfyQ stays in admin mode after a restart unless the teacher started serving)."""
+        try:
+            return str((self.http.get("/admin/mode") or {}).get("mode") or "")
+        except ComfyQError:
+            return ""
+
     def connect(self) -> None:
         self.login()
         if not self.transport.connected:
-            self.transport.connect()
+            try:
+                self.transport.connect()
+            except ComfyQError as e:
+                if not e.access_required and self.mode() == "admin":
+                    raise ComfyQError(NOT_SERVING) from e
+                raise
 
     def close(self) -> None:
         if self._transport is not None:
@@ -94,7 +110,8 @@ class ComfyQClient:
         self.http.delete(f"/admin/lanes/{workflow_id}", admin=True, timeout=300)
 
     def activate(self, workflow_id: str) -> dict[str, Any]:
-        """Make it the main served workflow. ComfyQ restarts (~1–2 min); the socket reconnects by itself."""
+        """Make it the main served workflow. While serving, ComfyQ swaps the main lane in place (409 when it does
+        not fit beside the other lanes); from admin mode it restarts and the socket reconnects by itself."""
         return self.http.post_json("/admin/activate-workflow", {"workflowId": workflow_id}, admin=True) or {}
 
     def calibrate(self, workflow_id: str) -> dict[str, Any]:

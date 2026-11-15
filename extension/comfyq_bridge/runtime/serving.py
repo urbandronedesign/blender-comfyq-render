@@ -4,7 +4,8 @@ the models they need). No bpy. ComfyQ's own admin routes do the work; the new se
 the socket (`SESSION.served_ids()`), so waiting for it is the caller's job.
 
 how = "alongside": a lane next to the main workflow (no restart; must fit in VRAM)
-      "main":      replace the main workflow (ComfyQ restarts ~1–2 min; running jobs would stop)
+      "main":      replace the main workflow (ComfyQ swaps it in place, ~1 min; running jobs would stop;
+                   from admin mode, i.e. serving nothing, ComfyQ restarts instead)
       "auto":      alongside if it fits, else main
 """
 from __future__ import annotations
@@ -55,12 +56,12 @@ def choose(client: ComfyQClient, wf_id: str, how: str = "auto", force: bool = Fa
         how = "alongside" if fit.get("ok") else "main"
     if how == "alongside" and not fit.get("ok") and not force:
         raise ComfyQError(f"{wf_id} does not fit alongside ({fit.get('reason')}: needs {fit.get('needGb')} GB, "
-                          f"{fit.get('freeGb')} GB free). Use how='main' (replaces the main workflow, ComfyQ "
-                          f"restarts), stop a lane first, or force when the size is unknown.")
+                          f"{fit.get('freeGb')} GB free). Use how='main' (replaces the main workflow), stop a lane "
+                          f"first, or force when the size is unknown.")
     busy = [ln.get("workflowId") for ln in info.get("lanes") or [] if ln.get("busy")]
     if how == "main" and busy and not force:
-        raise ComfyQError(f"A job is running on {', '.join(busy)}: switching the main workflow restarts "
-                          f"ComfyQ and would stop it.")
+        raise ComfyQError(f"A job is running on {', '.join(busy)}: switching the main workflow "
+                          f"would stop it.")
     return how
 
 

@@ -1,0 +1,85 @@
+{
+ "format": 1,
+ "label": "MiniMax H3 — text to video + audio in 2K (turbo draft + Open-H3-Regenerate-2K)",
+ "description": "A 768p MiniMax H3 clip (4-step turbo draft, 1344x768, 124 frames, picture and sound made together) is enlarged by ComfyUI's own H3 latent upscaler and then **regenerated in 3 steps by NVIDIA's Open-H3-Regenerate-2K**…\nFrom: Prompt. Viewer + Save",
+ "made": "2026-11-15 15:43",
+ "nodes": [
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "video_minimax_h3_t2v_2k",
+   "params": [],
+   "match_scene": true
+  },
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -820.0,
+    0.0
+   ],
+   "width": 340.0,
+   "label": "Prompt",
+   "parent": "",
+   "text": "A slow cinematic dolly shot through a sunlit forest, dust motes drifting in shafts of light, gentle ambient wind and distant birdsong"
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}",
+   "batch_suffix": "_render"
+  }
+ ],
+ "links": [
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "minimaxh3imagetovideo_prompt_11"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Video",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Video",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ],
+ "library": {
+  "workflow_id": "video_minimax_h3_t2v_2k",
+  "category": "i2v"
+ }
+}

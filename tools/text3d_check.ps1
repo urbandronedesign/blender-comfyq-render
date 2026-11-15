@@ -2,7 +2,8 @@
 #   .\tools\text3d_check.ps1 [out folder]
 $root = Split-Path -Parent $PSScriptRoot
 $ext = Join-Path $root "extension\comfyq_bridge"
-$python = "C:\Program Files\Blender Foundation\Blender 5.2\5.2\python\bin\python.exe"
+$python = @("5.3", "5.2") | ForEach-Object { "C:\Program Files\Blender Foundation\Blender $_\$_\python\bin\python.exe" } |
+    Where-Object { Test-Path $_ } | Select-Object -First 1
 $wheels = (Get-ChildItem (Join-Path $ext "wheels\*.whl") | ForEach-Object FullName) -join ";"
 $env:PYTHONPATH = "$ext;$wheels;$PSScriptRoot"
 $env:PYTHONUTF8 = "1"

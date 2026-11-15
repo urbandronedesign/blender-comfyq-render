@@ -1,0 +1,85 @@
+{
+ "format": 1,
+ "label": "MiniMax-H3-Image — text to image",
+ "description": "Generate an image from a text prompt with MiniMax-H3-Image, an open-weights image model whose single checkpoint handles both text-to-image and editing. Generation is distilled to 6 steps with no CFG. It does not work…\nFrom: Prompt. Viewer + Save",
+ "made": "2026-11-15 15:43",
+ "nodes": [
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "image_minimax_h3_image_t2i",
+   "params": [],
+   "match_scene": true
+  },
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -820.0,
+    0.0
+   ],
+   "width": 340.0,
+   "label": "Prompt",
+   "parent": "",
+   "text": "The image is a cheerful toy-packaging poster built around a handmade plush fox floating above a summer meadow, drawn in a warm, fairly saturated palette: clear sky blue deepening toward the top, rich burnt-sienna and terracotta plush for the fox, warm cream, fresh sage green in the meadow, cornflower and cherry-red accents on the small props, and buttercup yellow in the lettering, with bright afternoon sun from the upper left and crisp short shadows. The fox is the hero, sewn from long-staple mohair-type plush in warm burnt sienna and hand-stuffed so its silhouette is slightly lumpy; the pile is long and irregular, single fibres catching the light along its outline as a bright hairy halo against the sky, matted in patches where it has been handled, with cream muzzle, chest bib and sock paws, small pointed ears with soft cream inner felt, matte dark eyes with a dull highlight, a stitched smile, brushed felt blush patches, a small black felt nose, and a brush tail whose long pile fades to cream at the tip. It floats tilted in the air, hind legs tucked, one foreleg raised holding a small bunch of felt daisies in off-white and dusty rose, a thin felt collar with a small dull brass bell around its neck. Around and behind it the scene is populated rather than empty: a small plush mushroom friend sits on the grass at the lower right, its rounded cap in cherry red felt with cream spots and a stitched face on a cream stalk; a tiny round plush bird in cornflower blue perches on the fox's tail, its body made of short dense pile with a small felt beak; a second, much smaller fox plush lies on its back on the grass at the lower left, legs in the air; three felt daisies on thin wire stems stand in the meadow, and a scatter of loose felt petals and two small acorns lie among the lit blades; a few soft felt cloud puffs hang on thin white strings from the upper right, and a folded paper plane with a dashed trail glides across the sky toward the fox. Thin white line doodles are drawn flat over the blue: four small four-point stars, one larger outlined star at the left, a loose squiggle beside the raised paw, and a dotted vertical line at the right, all in a loose dry hand-drawn stroke. The typography is set in soft matte material rather than glossy plastic: across the top of the frame the word \"MINIMAX\" is inflatable and rounded but reads as thick felted wool, in warm buttercup-cream with a faint fibre texture, edges slightly soft and imperfect, lit gently from above with a shaded underside and no specular shine, filling the full width and slightly arched; directly beneath, smaller and centred, \"H3\" sits between two small dots, and below it a second small bouncy line reads \"IMAGE MODEL\" in the same felted cream. Along the bottom, on the white cloud band, a heavy bold sans-serif logotype reads \"TEXT TO IMAGE\" in saturated cornflower blue, tracked wide across almost the full width, its ink slightly uneven as if printed on soft paper. Just above the right end of that line a small right-aligned block of the same cornflower is stacked in four short lines reading \"ONE CHECKPOINT\", \"TWO TASKS\", \"SIX STEPS\", \"NO CFG\". All lettering is English only, with no Chinese characters anywhere on the poster, and the light is bright and even with soft shadows under every plush object."
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}",
+   "batch_suffix": "_render"
+  }
+ ],
+ "links": [
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "prompt_23_24"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ],
+ "library": {
+  "workflow_id": "image_minimax_h3_image_t2i",
+  "category": "t2i"
+ }
+}

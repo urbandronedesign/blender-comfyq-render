@@ -1,0 +1,85 @@
+{
+ "format": 1,
+ "label": "MOSS-Image Base — text to image, with an optional box layout",
+ "description": "MOSS-Image, a 5B text-to-image model with strong text rendering and layout control, running the BASE checkpoint — no post-training, so it groups text less neatly than the SFT box-layout card (on the same layout it fol…\nFrom: Prompt. Viewer + Save",
+ "made": "2026-11-15 15:43",
+ "nodes": [
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "image_moss_image_base_t2i",
+   "params": [],
+   "match_scene": true
+  },
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -820.0,
+    0.0
+   ],
+   "width": 340.0,
+   "label": "Prompt",
+   "parent": "",
+   "text": "Black-and-white grunge event poster: a model in an oversized black hoodie and wide black trousers sits low on a concrete floor, photographed from a low wide angle so the sneakers are huge in the foreground, grey concrete wall behind, torn newspapers lying scattered on the floor around them. The word \"MOSS\" is set in gigantic heavy condensed capitals filling the top half of the poster behind the figure, slightly cropped by the frame edges. Along the bottom a grid of small info blocks separated by thin rules: \"SATURDAY\" and \"01 SEPT 2026\" and \"DOORS OPEN 10:00 PM\" on the left, \"MOSS IMAGE\" with \"TEXT / LAYOUT / TYPE\" in the middle,  \"SUPPORTING ACT\" with \"MOSS\" on the right, and a barcode block in the bottom right corner. Monochrome, high contrast, fine film grain, editorial print, paper texture."
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}",
+   "batch_suffix": "_render"
+  }
+ ],
+ "links": [
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "prompt_117"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ],
+ "library": {
+  "workflow_id": "image_moss_image_base_t2i",
+  "category": "t2i"
+ }
+}

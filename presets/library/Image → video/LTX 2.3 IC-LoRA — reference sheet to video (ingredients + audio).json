@@ -1,8 +1,8 @@
 {
  "format": 1,
  "label": "LTX 2.3 IC-LoRA — reference sheet to video (ingredients + audio)",
- "description": "Generate a new video whose characters, props and location match a reference sheet.  The one from Dynamic Charactersheet krea2 for instance or one made by hand.  Upload ONE composite image on a black background with no…\nFrom: Reference sheet, Prompt. Viewer + Save",
- "made": "2026-10-05 22:04",
+ "description": "Generate a new video whose characters, props and location match a reference sheet, made by hand or with the \"Place characters with boxes\" card (MOSS base), as in this card's example. A page from Dynamic Charactersheet…\nFrom: Reference sheet, Prompt. Viewer + Save",
+ "made": "2026-11-15 15:43",
  "nodes": [
   {
    "name": "Workflow",
@@ -65,7 +65,8 @@
    "parent": "",
    "auto": false,
    "folder": "//comfyq/",
-   "pattern": "{source}_{date}_{time}"
+   "pattern": "{source}_{date}_{time}",
+   "batch_suffix": "_render"
   }
  ],
  "links": [

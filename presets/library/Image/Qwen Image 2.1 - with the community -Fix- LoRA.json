@@ -2,7 +2,7 @@
  "format": 1,
  "label": "Qwen Image 2.1 - with the community \"Fix\" LoRA",
  "description": "The same Qwen Image 2.1 text-to-image model as the plain bundle, plus a community adapter that aims to clean up its weak spots - and, just as importantly, the sampling settings its author ships with it.  Built to be c…\nFrom: Prompt. Viewer + Save",
- "made": "2026-10-05 22:04",
+ "made": "2026-11-15 15:43",
  "nodes": [
   {
    "name": "Workflow",
@@ -54,7 +54,8 @@
    "parent": "",
    "auto": false,
    "folder": "//comfyq/",
-   "pattern": "{source}_{date}_{time}"
+   "pattern": "{source}_{date}_{time}",
+   "batch_suffix": "_render"
   }
  ],
  "links": [

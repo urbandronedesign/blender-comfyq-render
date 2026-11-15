@@ -183,7 +183,7 @@ TEACHER_OFF = ("Teacher tools are off. In Blender: Preferences › Add-ons › C
                "“Teacher tools: agents may load models”, then reconnect the agent (/mcp in Claude Code).")
 TASK: dict[str, Any] = {}          # the one serve/calibrate running in the background (one at a time)
 _TASK_LOCK = threading.Lock()
-SERVE_TIMEOUT_S = 900              # a main-workflow switch restarts ComfyQ; loading a model takes 1–3 min
+SERVE_TIMEOUT_S = 900              # loading a model takes 1–3 min (ComfyQ restarts only from admin mode)
 
 
 def _teacher_on() -> bool:
@@ -1012,8 +1012,8 @@ TOOLS = [
          "whether that one fits; `wait_s` = first wait (≤120 s) for the running task to end.",
          obj({"workflow_id": _S, "wait_s": {"type": "number", "maximum": MAX_WAIT_S}}), comfyq_server_status),
     Tool("comfyq_serve", "TEACHER — load a workflow's models so it can run. how='alongside' opens a lane next "
-         "to the main workflow (no restart; must fit in VRAM); how='main' replaces the main workflow (ComfyQ "
-         "restarts ~1–2 min for the whole class; refused while a job runs unless force); 'auto' (default) = "
+         "to the main workflow (no restart; must fit in VRAM); how='main' replaces the main workflow (the "
+         "whole class waits ~1 min while it loads; refused while a job runs unless force); 'auto' (default) = "
          "alongside if it fits, else main. Waits up to `wait_s` (≤120, default 60), then keeps going in the "
          "background: follow with comfyq_server_status.",
          obj({"workflow_id": _S, "how": {"type": "string", "enum": ["auto", "alongside", "main"]},
@@ -1137,4 +1137,4 @@ INSTRUCTIONS = (
     "blender_graph_run → blender_graph_status. Only served workflows run; GPU time is shared by the class: "
     "keep jobs short and cancel what is not needed. comfyq_server_status shows what is served and what fits. "
     "With teacher tools on, comfyq_serve loads another workflow: alongside if it fits, else as the main one, "
-    "which restarts ComfyQ for the whole class (say so before doing it).")
+    "which changes the model for the whole class (say so before doing it).")

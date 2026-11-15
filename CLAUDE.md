@@ -6,7 +6,8 @@ add-on preferences). It renders scene passes (clay stills, masks, the clay *anim
 Main use: **AI rendering** of a Blender layout/animation (ControlNet, image edit, video-to-video), not Cycles.
 Used in a **class on a local network**.
 
-**History:** the project started inside Mixar (a Blender fork). Since 2026-10-03 it targets Blender 5.2 LTS only;
+**History:** the project started inside Mixar (a Blender fork). Since 2026-10-03 it targets Blender 5.2 LTS, and since
+2026-11-15 **Blender 5.3** (native Gaussian splats; 5.2 still works, checked by `smoke_test.ps1 -Version 5.2`);
 renamed from "Mixar ↔ ComfyQ bridge" to **ComfyQ Render** on 2026-10-21 (Mixar tools and `-App mixar` removed).
 Gotchas 2, 3, 4, 11, 12 below were Mixar-only (kept for the numbering).
 
@@ -18,7 +19,8 @@ Git: branch `main`, remote `origin` = public GitHub `urbandronedesign/blender-co
 ## Environment (this machine)
 | Thing | Where |
 |---|---|
-| **Blender 5.2.2 LTS** (Python 3.13.13) — the host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (build of commit `cb6571b`, 2026-10-21: + 3D model / camera inputs, lane-restore wait), Allow Online Access on, **AI agents (MCP server) ON** (port 8790), **Teacher tools ON** (agents may load models; set 2026-10-04 by a startup script + `save_userpref`). Theme = Mixar's **"Mixar Forest"** with Input node colour changed from #ff284d to #3d4640 (calmer graph headers) (exported from `%APPDATA%\Mixar\Mixar\5.2\config\mixar_userpref.blend`, preset `scripts\presets\interface_theme\mixar_forest.xml`; previous prefs backed up as `config\userpref.before_mixar_theme.blend`) Default of `smoke_test.ps1` and `comfyq.ps1` |
+| **Blender 5.3.0** (Python 3.13.13) — the host since 2026-11-15 | `C:\Program Files\Blender Foundation\Blender 5.3\blender.exe`, installed 2026-11-15 next to 5.2 from the official MSI (`E:\zaki\downloads\blender-5.3.0\`, SHA-256 from `blender-5.3.0.sha256` + Blender Foundation signature checked). Native Gaussian splats (`PointCloud.type` = `GAUSSIAN_SPLAT`, `wm.ply_import` / `wm.spz_import`), Vulkan default. Default of `smoke_test.ps1` (`-Version 5.2` for the LTS) and of the PowerShell helpers. **The user's 5.3 profile does not exist yet**: they open 5.3 once, *Load Blender 5.2 Settings*, then the build is installed into it (docs/blender-5.3.md) |
+| **Blender 5.2.2 LTS** (Python 3.13.13) — the previous host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (build of commit `cb6571b`, 2026-10-21: + 3D model / camera inputs, lane-restore wait), Allow Online Access on, **AI agents (MCP server) ON** (port 8790), **Teacher tools ON** (agents may load models; set 2026-10-04 by a startup script + `save_userpref`). Theme = Mixar's **"Mixar Forest"** with Input node colour changed from #ff284d to #3d4640 (calmer graph headers) (exported from `%APPDATA%\Mixar\Mixar\5.2\config\mixar_userpref.blend`, preset `scripts\presets\interface_theme\mixar_forest.xml`; previous prefs backed up as `config\userpref.before_mixar_theme.blend`) Default of `smoke_test.ps1` and `comfyq.ps1` |
 | ComfyQ server (Node, Socket.IO, SQLite) | `F:\ComfyQ`, http://127.0.0.1:3000, started with `npm run dev` (nodemon server + Vite client `--host`) — user works with b2renger, full control of its code |
 | **Node.js 24.22.1 LTS** (npm 11.19.1, OpenSSL 3.5.9) | `C:\Program Files\nodejs`, updated 2026-10-22 from 24.14.0 for the Oct 21 2026 security release (10 CVEs, 4 High: Brotli RCE, TLS hostname bypasses, dns). Official MSI from nodejs.org, SHA-256 + OpenJS Foundation signature checked (`E:\zaki\downloads\nodejs-v24.22.1\`). ComfyQ needs Node ≥22 <25 (`.nvmrc` 24). **Do NOT `winget upgrade`**: the winget id is `OpenJS.NodeJS` (Current line) → 26.x, outside ComfyQ's range; `OpenJS.NodeJS.LTS` lags behind the security releases |
 | ComfyUI 0.37, torch 2.8 cu128, RTX 5090 32 GB | `F:\ComfyUI_windows_portable_nvidia\…`, :8188 (listens on 0.0.0.0 — P1.0 issue) |
@@ -111,7 +113,9 @@ tools/cliff_video_check.py  GPU: keyframe (FLUX.3 Klein, clay vs material) / vid
 tools/make_blockout_video_preset.py  the Blockout animation → photoreal video class preset
 tools/preset_e2e.py      run any saved preset end to end, headless sandbox, Solo: build_saved + Run Graph + report
 tools/video_compare_sheet.py  one sheet: a row per video at 0, 1/3, 2/3, end (+ frames, fps, size, sound)
-tools/splat_render.py    load a 3DGS .ply (no splat support in Blender 5.2) as a coloured point cloud and render it
+tools/splat_compare.py   Blender 5.3: import splat jobs through the plugin's importer, Cycles 4 views + the .glb twin
+tools/make_splat_presets.py  the Picture / Text → Gaussian splat (IDOL) class presets
+tools/splat_render.py    (superseded by 5.3) load a 3DGS .ply (no splat support in Blender 5.2) as a coloured point cloud and render it
                          with Cycles (colour = 0.5 + 0.2821·f_dc, radius = exp(scale), opacity = sigmoid, emission)
 tools/preset_report.py   HTML report of a run (description, graph shot, inputs, prompt/settings sent, output,
                          verdict from live_check/presets/notes.json) → baselines/<date>/ (gitignored);
@@ -123,7 +127,7 @@ presets/library/         the generated workflow library (46 presets since ComfyQ
 ```powershell
 .\.venv\Scripts\python -m pytest -q tests\unit tests\contract     # unit + live contract (ComfyQ must run)
 .\.venv\Scripts\ruff check extension tests tools
-.\tools\smoke_test.ps1                  # Blender 5.2, isolated profile, no GPU   (also: -Book)
+.\tools\smoke_test.ps1                  # Blender 5.3, isolated profile, no GPU   (also: -Book, -Version 5.2)
 .\tools\smoke_test.ps1 -Ui [-Book]      # VISIBLE Blender (~3 min, tell the user): every button on a copy of
                                         # testV2V_clean.blend -> live_check\ui\report.json + screenshots
 .\tools\smoke_test.ps1 -Sweep           # P1.5 (GPU): calibrate + run every SERVED workflow from the scene,
@@ -307,6 +311,17 @@ change that session: the user must reinstall from the UI or restart Blender.
     before calling a workflow slow.
 57. **Node.js is ComfyQ's runtime, not the plugin's**: update it only with ComfyQ stopped, via the official MSI
     (checksum + signature), never `winget upgrade` (wrong line, see Environment).
+58. **Splat axes (Blender 5.3)**: the importers keep the file's axes; ComfyQ's `.ply` splats are OpenCV (Y down: up =
+    -Y), its `.spz` come in upside down (up = -Z). `importers/media.py` sets object rotations PLY_SPLAT_FIX / SPZ_FIX
+    (never Apply Transform: 5.3 does not transform splat attributes). Judge orientation on an object with an
+    obvious top (a potted tree), not a room: the first fix was derived from a room splat and was wrong.
+59. **ComfyQ admin mode (Nov 2026)**: after a restart ComfyQ only serves if the teacher had started serving; else
+    HTTP works but `/socket.io/` 404s ("Connection error"). `GET /admin/mode` tells; the client now says it plainly
+    (`client.api.NOT_SERVING`). Start serving = `activate-workflow` (admin password) or the admin page.
+    While serving, `activate-workflow` swaps the main lane IN PLACE (no restart; 409 if it does not fit).
+60. **GUI / smoke checks pick from what is served** (gotcha 32): the GUI check's model menu step now prefers a served
+    workflow with a prompt AND a picture/video input; with only text-to-image / audio / 3D models served the graph
+    step has nothing to wire (serve an image-edit model first).
 
 
 ## Status (2026-10-22 evening, last commit see `git log`, installed build `aa9ee51` = HEAD extension code; ComfyQ at its HEAD, 65 workflows) — **hand-over for b2renger / the teacher: docs/RUNBOOK.md**
@@ -513,7 +528,23 @@ change that session: the user must reinstall from the UI or restart Blender.
 - **Node.js security update (2026-10-22):** 24.14.0 → **24.22.1** (Oct 21 2026 release: 10 CVEs, 4 High) with the
   official MSI (checksum + OpenJS signature), ComfyQ stopped by the user first; RUNBOOK §2 explains the procedure.
 
+## Work of 2026-11-15 (Blender 5.3 + ComfyQ November updates; docs/blender-5.3.md)
+- F: disk back; ComfyQ restarted (`npm run dev`, admin mode) and, with the user's OK, set serving its configured main
+  (`audio_yue2_music_cover`) through `activate-workflow`. ComfyQ now has 87 workflows, no new parameter types.
+- **Blender 5.3.0** installed (official MSI, hash + signature). Plugin: native splat import (.ply/.spz, one splat per
+  job, axis fixes, "Gaussian splat (N splats)" message), admin-mode message on connect, in-place switch wording,
+  tools take `-Version` / prefer 5.3's Python, `preset_e2e.py` fires Import nodes headless and saves `e2e_scene.blend`.
+- GPU: FLUX.3 Klein distilled olive tree (38 s) → TripoSplat (52 s) vs **IDOL** (98 s, chosen: keeps the canopy);
+  class presets *Picture → Gaussian splat (IDOL)* and *Text → Gaussian splat (FLUX.3 Klein + IDOL)* (13 class presets),
+  Text → splat run end to end on the cliff house (65 s), rendered in Cycles. `live_check/splat53/`.
+- Library regenerated: **67 presets** (+25 new workflows, 3 renamed upstream, Save nodes gain `batch_suffix`).
+- Tests: unit + contract 95 (1 skipped); smoke PASSED on 5.3 and 5.2; GUI `-Ui -Version 5.3` 112 ok (screenshots
+  looked at). ComfyQ left serving: YuE2 (main) + FLUX.3 Klein t2i + FLUX.3 Klein edit lanes.
+
 ## Next steps
+0. **Install into the user's Blender 5.3** once they have opened it and loaded their 5.2 settings; copy the new class
+   presets (splats) and the regenerated library to `%APPDATA%\comfyq-bridge\presets`. Not yet: a clay / material pass
+   check with splats in the scene; splats as inputs (no ComfyQ workflow takes one).
 1. Multi-shot (user's goal: long films of several shots), docs/multi-shot.md. DONE 2026-10-22: Shot field from
    camera-bound timeline markers (`passes/shots.py`; Blender's binding then drives scene.camera by itself), Solo /
    Load Model close lanes that would not fit (`serving.make_room_for_main`), Material Board node

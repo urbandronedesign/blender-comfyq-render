@@ -56,3 +56,33 @@ def test_explicit_prompt_wins():
     c = ComfyQClient(Profile(name="t"), transport=t)
     c.submit("wf", {"primitivestringmultiline_value_5508": "a"}, prompt="b", specs=SPECS, check_served=False)
     assert t.booked[0]["prompt"] == "b"
+
+
+class DownTransport(FakeTransport):
+    """ComfyQ in admin mode has no Socket.IO server: the handshake 404s."""
+
+    def connect(self):
+        from client.http import ComfyQError
+        raise ComfyQError("Socket connection to http://x failed: Connection error")
+
+    @property
+    def connected(self):
+        return False
+
+
+def _client(mode):
+    c = ComfyQClient(Profile(name="t", user="ana"), transport=DownTransport())
+    c.http.get = lambda path, **_: {"locked": False} if path == "/access/status" else {"mode": mode}
+    return c
+
+
+def test_admin_mode_says_comfyq_serves_nothing():
+    import pytest
+    from client.api import NOT_SERVING
+    from client.http import ComfyQError
+    with pytest.raises(ComfyQError) as e:
+        _client("admin").connect()
+    assert str(e.value) == NOT_SERVING
+    with pytest.raises(ComfyQError) as e:                  # serving but unreachable: the socket's own error
+        _client("student").connect()
+    assert "Connection error" in str(e.value)

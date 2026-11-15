@@ -1,8 +1,8 @@
 {
  "format": 1,
  "label": "Wan 2.2 Bernini-R — video editing with a reference image",
- "description": "Edit a short video guided by a reference image. Upload a clip, a reference image (a look, subject, or object to bring in), and a text instruction — the Bernini-R model (Wan 2.2) regenerates the clip following the prom…\nFrom: Clay animation, Reference image, Prompt. Viewer + Save",
- "made": "2026-10-05 22:04",
+ "description": "Put the clothes from a photo onto the person in a short video. Upload a clip, a reference photo of an outfit and an instruction — the Bernini-R model (Wan 2.2) regenerates the clip so the person wears that outfit, kee…\nFrom: Clay animation, Reference image, Prompt. Viewer + Save",
+ "made": "2026-11-15 15:43",
  "nodes": [
   {
    "name": "Workflow",
@@ -28,7 +28,8 @@
    "width": 300.0,
    "label": "Clay animation",
    "parent": "",
-   "style": "CLAY"
+   "style": "CLAY",
+   "shot": ""
   },
   {
    "name": "Image",
@@ -51,7 +52,7 @@
    "width": 340.0,
    "label": "Prompt",
    "parent": "",
-   "text": "Restyle the video to match the look of the reference image."
+   "text": "Replace the person's clothing with the outfit from the reference image. Keep the face, hair, background, lighting, camera and all motion unchanged."
   },
   {
    "name": "Viewer",
@@ -77,7 +78,8 @@
    "parent": "",
    "auto": false,
    "folder": "//comfyq/",
-   "pattern": "{source}_{date}_{time}"
+   "pattern": "{source}_{date}_{time}",
+   "batch_suffix": "_render"
   }
  ],
  "links": [

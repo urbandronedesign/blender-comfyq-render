@@ -1,6 +1,6 @@
 # Build the extension, install it into an ISOLATED user folder and run the headless smoke test.
 # Run after every Blender update, before class. Your real Blender setup is not touched.
-#   .\tools\smoke_test.ps1                    # Blender 5.2 LTS, no GPU job
+#   .\tools\smoke_test.ps1                    # Blender 5.3, no GPU job (-Version 5.2: the previous LTS)
 #   .\tools\smoke_test.ps1 -Book              # also books a short job on the served workflow
 #   .\tools\smoke_test.ps1 -Ui [-Book]       # VISIBLE window: presses every ComfyQ button on a copy of
 #                                            # -Scene (default Desktop\testV2V_clean.blend); report in live_check\ui
@@ -8,6 +8,7 @@
 #                                            # SERVED workflow on a copy of -Scene (GPU!) -> live_check\sweep
 param(
     [switch] $Book,
+    [string] $Version = "5.3",
     [switch] $Ui,
     [switch] $Sweep,
     [string] $SweepArgs = "",
@@ -17,7 +18,7 @@ param(
 # Exit codes are checked explicitly instead.
 $ErrorActionPreference = "Continue"
 $root = Split-Path -Parent $PSScriptRoot
-$exe = "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe"
+$exe = "C:\Program Files\Blender Foundation\Blender $Version\blender.exe"
 if (-not (Test-Path $exe)) { Write-Error "Blender not found at $exe"; exit 1 }
 
 $dist = Join-Path $root "dist"
@@ -32,7 +33,7 @@ if (Test-Path $sandbox) { Remove-Item -Recurse -Force $sandbox }
 New-Item -ItemType Directory -Force $sandbox | Out-Null
 $env:BLENDER_USER_RESOURCES = $sandbox
 
-$real = Join-Path $env:APPDATA "Blender Foundation\Blender\5.2\extensions\user_default\comfyq_bridge"
+$real = Join-Path $env:APPDATA "Blender Foundation\Blender\$Version\extensions\user_default\comfyq_bridge"
 $realBefore = if (Test-Path $real) { (Get-Item $real).LastWriteTime } else { $null }
 & $exe -b --factory-startup --online-mode --command extension install-file -r user_default -e $zip.FullName 2>&1 |
     Where-Object { "$_" -notmatch "SyntaxWarning|^\s*$" } | Out-Host

@@ -211,7 +211,15 @@ def step_tabs_and_menu():
     cq.tab = saved
     check("every tab lists workflows", all(counts.values()), counts)
     served = sorted(S().served_ids())
-    wf = served[0]
+    # whatever ComfyQ serves now (gotcha 32): prefer a served workflow with a prompt (the next steps type one)
+    for w in served:
+        ext("ops.workflow").request_specs(w)
+    yield (lambda: all(w in S().specs for w in served)), 30
+    # and a picture / video input (the graph step wires a scene source into it)
+    def score(w):
+        kinds = {s.kind for s in S().specs.get(w, ())}
+        return ("prompt" in kinds) * 2 + bool(kinds & {"image", "mask", "video"})
+    wf = max(served, key=score)
     res = click("set_workflow", v3d, workflow_id=wf)
     yield (lambda: specs_ready(wf)), 15
     check(f"model menu → {wf}", res == {"FINISHED"} and cq.workflow_id == wf and specs_ready(wf), res)

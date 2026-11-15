@@ -2,7 +2,7 @@
  "format": 1,
  "label": "SCAIL-2 (Wan 2.1) — character replacement in video",
  "description": "Swap the person in a video for your own character. Upload a picture of the character you want to see and a video of someone moving — SCAIL-2 replaces that person with your character, copying their motion while the res…\nFrom: Character image, Clay animation, Prompt. Viewer + Save",
- "made": "2026-10-05 22:04",
+ "made": "2026-11-15 15:43",
  "nodes": [
   {
    "name": "Workflow",
@@ -39,7 +39,8 @@
    "width": 300.0,
    "label": "Clay animation",
    "parent": "",
-   "style": "CLAY"
+   "style": "CLAY",
+   "shot": ""
   },
   {
    "name": "Prompt",
@@ -77,7 +78,8 @@
    "parent": "",
    "auto": false,
    "folder": "//comfyq/",
-   "pattern": "{source}_{date}_{time}"
+   "pattern": "{source}_{date}_{time}",
+   "batch_suffix": "_render"
   }
  ],
  "links": [

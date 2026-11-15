@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Run one saved class preset end to end, headless in the sandbox profile (Solo on), on the open scene: build it with
-preset_ops.build_saved, run its last workflow node(s) as Run Graph does, report every node's result.
+preset_ops.build_saved, run its last workflow node(s) as Run Graph does, report every node's result. A copy of the
+scene with what the graph imported is saved as <out>/e2e_scene.blend.
 
     blender -b <scene.blend> --online-mode --python tools/preset_e2e.py -- <preset.json> <out folder>
 """
@@ -85,6 +86,12 @@ for n in tree.nodes:                     # a Film node: assemble it and render t
         except RuntimeError as e:
             report["film"]["error"] = str(e)
         log("film", **report["film"])
+for n in tree.nodes:                     # Import to Scene: its timer does not run headless (gotcha 54): act now
+    if n.bl_idname == "ComfyQImportNode":
+        report.setdefault("imported", {})[n.label or n.name] = outputs.act(n, bpy.context.scene, force=True)
+        log("import", result=report["imported"][n.label or n.name])
+# keep the scene with its results to look at (never the opened file itself)
+bpy.ops.wm.save_as_mainfile(filepath=str(OUT / "e2e_scene.blend"), copy=True)
 (OUT / "e2e_report.json").write_text(json.dumps(report, indent=1, default=str), encoding="utf-8")
 log("DONE", ok=report["ok"], seconds=report["seconds"],
     results={k: Path(v["result"]).name if v["result"] else v["note"] for k, v in report["nodes"].items()})

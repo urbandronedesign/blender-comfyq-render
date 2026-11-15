@@ -121,7 +121,7 @@ class COMFYQ_OT_server_load_model(bpy.types.Operator):
     bl_idname = "comfyq.server_load_model"
     bl_label = "Load Model..."
     bl_description = ("Choose a model for ComfyQ to serve: beside the current ones when it fits, otherwise "
-                      "instead of the main one (ComfyQ restarts for 1 to 2 minutes, for everyone)")
+                      "instead of the main one (jobs wait while it loads, about a minute, for everyone)")
     bl_options = {"INTERNAL"}
     bl_property = "workflow_id"
     workflow_id: EnumProperty(name="Model", items=_model_items)

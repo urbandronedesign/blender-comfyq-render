@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Load a 3D Gaussian splat .ply (3DGS layout: x y z, f_dc_0..2, opacity, scale_0..2, rot_0..3) into Blender and
-render it with Cycles. Blender 5.2 has no splat support, so each Gaussian becomes a point of a point cloud: colour
+render it with Cycles. SUPERSEDED on Blender 5.3, which imports and renders splats natively (the plugin's importer
+uses it; see docs/blender-5.3.md). Blender 5.2 has no splat support, so each Gaussian becomes a point of a point cloud: colour
 from the base spherical-harmonic band (0.5 + 0.2821 × f_dc), radius from its scale (exp), opacity (sigmoid) mixed
 with transparency, emission shading (a splat carries its own baked light). An approximation: spheres, not Gaussian
 falloff or view-dependent colour.

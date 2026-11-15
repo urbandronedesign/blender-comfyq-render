@@ -2,11 +2,16 @@
 """Bring downloaded results into the .blend (main thread only).
 
 image → Image Editor · video → Sequencer strip + Image Editor playback ·
-GLB/glTF → its own collection · PLY (splats / point clouds) → its own collection ·
+GLB/glTF → its own collection · PLY / SPZ (Gaussian splats, point clouds) → its own collection ·
 audio → Sequencer sound strip. Everything is tagged with its job and workflow.
+
+Gaussian splats: Blender 5.3 imports them natively (`wm.ply_import` makes a PointCloud of type
+GAUSSIAN_SPLAT, `wm.spz_import` reads .spz) and every engine renders them. Blender 5.2 has no splat
+type: a splat .ply comes in as bare vertices and a .spz is left in the job folder.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -17,7 +22,33 @@ IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".exr", ".tif", ".tiff"}
 VIDEO_EXTS = {".mp4", ".mov", ".webm", ".mkv", ".avi", ".gif"}
 MODEL_EXTS = {".glb", ".gltf"}
 PLY_EXTS = {".ply"}
+SPZ_EXTS = {".spz"}
 AUDIO_EXTS = {".wav", ".mp3", ".flac", ".ogg", ".m4a"}
+
+# Blender 5.3's splat importers keep the file's axes, and ComfyQ's splats (TripoSplat, IDOL) are not Z-up:
+# the .ply is in OpenCV axes (Y down, Z away from the camera) and comes in lying on its side; the .spz comes in
+# upside down. Measured 2026-11-15 on an olive tree in a pot (pot → canopy direction, 262,144 splats): .ply up =
+# -Y, .spz up = -Z, and ply = (x, z, -y) of spz exactly (residual 1e-4 on 1M splats). The fixes turn both into
+# Blender's Z-up with the picture's camera looking from -Y, like the .glb mesh twin (glTF import converts).
+PLY_SPLAT_FIX = (-math.pi / 2, 0.0, 0.0)
+SPZ_FIX = (math.pi, 0.0, 0.0)
+
+
+def native_splats() -> bool:
+    """True when this Blender has the Gaussian splat point cloud type (5.3+)."""
+    tp = bpy.types.PointCloud.bl_rna.properties.get("type")
+    return tp is not None and "GAUSSIAN_SPLAT" in {i.identifier for i in tp.enum_items}
+
+
+def is_splat(obj) -> bool:
+    return obj.type == "POINTCLOUD" and getattr(obj.data, "type", "") == "GAUSSIAN_SPLAT"
+
+
+def pick_files(files: list[Path]) -> list[Path]:
+    """One splat per job: TripoSplat returns the same splat as .spz AND .ply. Keep the .ply (readable by
+    5.2 too, as vertices) and drop its .spz twin; a lone .spz (IDOL) stays."""
+    has_ply = any(f.suffix.lower() in PLY_EXTS for f in files)
+    return [f for f in files if not (has_ply and f.suffix.lower() in SPZ_EXTS)]
 
 
 def tag(idblock: bpy.types.ID, job_id: str, workflow_id: str) -> None:
@@ -168,7 +199,7 @@ def place(scene: bpy.types.Scene, new: list, placement: Placement) -> str:
 
 
 def _import_objects(scene, op, path: Path, job_id: str, workflow_id: str,
-                    placement: Placement = DEFAULT_PLACEMENT) -> str:
+                    placement: Placement = DEFAULT_PLACEMENT, rotate: tuple | None = None) -> str:
     before = set(bpy.data.objects)
     ctx = {}
     win = bpy.context.window or next(iter(bpy.context.window_manager.windows), None)
@@ -183,8 +214,15 @@ def _import_objects(scene, op, path: Path, job_id: str, workflow_id: str,
             c.objects.unlink(o)
         coll.objects.link(o)
         tag(o, job_id, workflow_id)
+        fix = rotate if rotate is not None else (PLY_SPLAT_FIX if path.suffix.lower() in PLY_EXTS else None)
+        if fix and o.parent is None and is_splat(o):
+            # Object rotation only: Apply Transform does not handle splat scale / rotation / SH (5.3 notes).
+            o.rotation_euler = fix
     tag(coll, job_id, workflow_id)
-    return f"{len(new)} object(s) in collection “{coll.name}”" + place(scene, new, placement)
+    splats = sum(is_splat(o) for o in new)
+    what = (f"Gaussian splat ({len(new[0].data.points):,} splats)" if splats == len(new) == 1
+            else f"{len(new)} object(s)")
+    return f"{what} in collection “{coll.name}”" + place(scene, new, placement)
 
 
 def import_files(files: list[Path], job_id: str, workflow_id: str, scene: bpy.types.Scene | None = None,
@@ -192,7 +230,7 @@ def import_files(files: list[Path], job_id: str, workflow_id: str, scene: bpy.ty
     """Import what we can; return a short description per file."""
     scene = scene or bpy.context.scene
     done: list[str] = []
-    for f in files:
+    for f in pick_files(files):
         ext = f.suffix.lower()
         try:
             if ext in IMAGE_EXTS:
@@ -204,6 +242,12 @@ def import_files(files: list[Path], job_id: str, workflow_id: str, scene: bpy.ty
                                             placement))
             elif ext in PLY_EXTS:
                 done.append(_import_objects(scene, bpy.ops.wm.ply_import, f, job_id, workflow_id, placement))
+            elif ext in SPZ_EXTS:
+                if hasattr(bpy.ops.wm, "spz_import") and native_splats():
+                    done.append(_import_objects(scene, bpy.ops.wm.spz_import, f, job_id, workflow_id, placement,
+                                                rotate=SPZ_FIX))
+                else:
+                    done.append(f"{f.name} (Gaussian splat kept in the job folder: Blender 5.3 or later imports it)")
             elif ext in AUDIO_EXTS:
                 done.append(import_audio(scene, f, job_id, workflow_id))
             else:

@@ -125,8 +125,8 @@ class ComfyQPreferences(bpy.types.AddonPreferences):
                           description="Network port the agents connect to on this PC")
     solo_mode: BoolProperty(
         name="Solo Mode: Load Models on Demand", default=False,
-        description="Load the models a graph needs when running it (each switch can restart ComfyQ for 1 to 2 "
-                    "minutes). Only while nobody else has a job; never during class")
+        description="Load the models a graph needs when running it (each switch takes about a minute, for "
+                    "everyone). Only while nobody else has a job; never during class")
     mcp_teacher: BoolProperty(
         name="Teacher Tools for Agents", default=False, update=_teacher_toggle,
         description="Let AI agents change which models ComfyQ serves for the whole class (load, stop, "

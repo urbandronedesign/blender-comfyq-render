@@ -394,8 +394,8 @@ class COMFYQ_OT_graph_run(_NodeOp, bpy.types.Operator):
             models = run.models_to_load(tree, context.scene, targets, self.force)
             if models:
                 title = title or f"Load {count(len(models), 'Model')} in ComfyQ?"
-                lines.append("Solo mode loads " + ", ".join(models) + ". Each switch can restart ComfyQ "
-                             "(1 to 2 minutes) for everyone connected.")
+                lines.append("Solo mode loads " + ", ".join(models) + ". Each switch takes about a minute "
+                             "for everyone connected.")
         if lines:
             return context.window_manager.invoke_confirm(self, event, title=title, message=" ".join(lines),
                                                          confirm_text="Run", icon="WARNING")
@@ -1062,7 +1062,7 @@ class COMFYQ_OT_graph_load_model(bpy.types.Operator):
     bl_idname = "comfyq.graph_load_model"
     bl_label = "Load Model"
     bl_description = ("Make ComfyQ serve this model now: beside the current one when it fits, otherwise "
-                      "instead of it (ComfyQ restarts for 1 to 2 minutes). Only while nobody has a job")
+                      "instead of it (about a minute, for everyone). Only while nobody has a job")
     bl_options = {"INTERNAL"}
     workflow_id: StringProperty(options={"HIDDEN", "SKIP_SAVE"})
 
@@ -1082,7 +1082,7 @@ class COMFYQ_OT_graph_load_model(bpy.types.Operator):
         return context.window_manager.invoke_confirm(
             self, event, title="Load This Model in ComfyQ?",
             message=(f"“{_wf_name(self.workflow_id)}” is loaded beside the current model when it fits, otherwise "
-                     "it replaces it: ComfyQ then restarts (1 to 2 minutes) for everyone connected."),
+                     "it replaces it: jobs wait about a minute while it loads, for everyone connected."),
             confirm_text="Load", icon="WARNING")
 
     def execute(self, context):
@@ -1103,7 +1103,7 @@ class COMFYQ_OT_graph_load_model(bpy.types.Operator):
         def done(res):
             how, closed = res
             SESSION.status_note = (f"“{name}” loading alongside" if how == "alongside" else
-                                   f"ComfyQ restarts with “{name}” (1 to 2 minutes)")
+                                   f"ComfyQ switches to “{name}” (about a minute)")
             if closed:
                 SESSION.status_note += f"; closed to make room: {', '.join(_wf_name(w) for w in closed)}"
         SESSION.status_note = f"Asking ComfyQ to load “{name}”…"

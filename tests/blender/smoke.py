@@ -238,6 +238,74 @@ for _o in [o for o in bpy.data.objects if o not in before_objs]:
     bpy.data.objects.remove(_o)
 scene.cursor.location = (0.0, 0.0, 0.0)
 
+
+# Gaussian splats: a tiny 3DGS .ply (INRIA layout, as TripoSplat writes it). Blender 5.3 makes a native
+# splat point cloud; 5.2 bare vertices. A .spz twin of a .ply is dropped; a lone .spz needs 5.3.
+def _splat_ply(path, n=64):
+    props = (["x", "y", "z", "nx", "ny", "nz", "f_dc_0", "f_dc_1", "f_dc_2", "opacity",
+              "scale_0", "scale_1", "scale_2", "rot_0", "rot_1", "rot_2", "rot_3"])
+    head = (f"ply\nformat binary_little_endian 1.0\nelement vertex {n}\n"
+            + "".join(f"property float {p}\n" for p in props) + "end_header\n").encode()
+    rows = b"".join(struct.pack("<17f", (i % 4) * 0.25, (i // 4 % 4) * 0.25, (i // 16) * 0.5, 0, 0, 0,
+                                1.0, 0.2, 0.2, 2.0, -4.0, -4.0, -4.0, 1, 0, 0, 0) for i in range(n))
+    path.write_bytes(head + rows)
+
+
+_sply = tmp / "splat.ply"
+_splat_ply(_sply)
+check(_media.pick_files([tmp / "a.spz", _sply, glb]) == [_sply, glb]
+      and _media.pick_files([tmp / "a.spz", glb]) == [tmp / "a.spz", glb],
+      "one splat per job: the .ply is kept, its .spz twin dropped; a lone .spz stays")
+before_objs = set(bpy.data.objects)
+_smsg = import_files([_sply], "smoketest-0002", "smoke_splat", scene)
+_snew = [o for o in bpy.data.objects if o not in before_objs]
+if _media.native_splats():
+    check(len(_snew) == 1 and _media.is_splat(_snew[0]) and len(_snew[0].data.points) == 64
+          and "Gaussian splat (64 splats)" in _smsg[0],
+          f"Blender {bpy.app.version_string}: a splat .ply becomes a native Gaussian splat ({_smsg})")
+    bpy.context.view_layer.update()
+    _sb = _media._bbox(_snew)
+    check(_sb is not None and abs(_sb[0].z) < 1e-3, "the splat is placed on the ground like a model")
+    check(all(abs(a - b) < 1e-5 for a, b in zip(_snew[0].rotation_euler, _media.PLY_SPLAT_FIX, strict=True)),
+          "a splat .ply is turned from ComfyQ's Y-down axes to Z-up")
+
+    # local TripoSplat result of an olive tree in a pot (not committed: 15 MB): the pot must be BELOW the canopy
+    def _pot_below(obj):
+        import numpy as np
+        d, n = obj.data, len(obj.data.points)
+        pos = np.empty(n * 3, np.float32)
+        d.attributes["position"].data.foreach_get("vector", pos)
+        rad = np.empty(n * 4, np.float32)
+        d.attributes["radiance:base"].data.foreach_get("vector", rad)
+        pos, rad = pos.reshape(n, 3), rad.reshape(n, 4)
+        rgb = 0.5 + 0.28209479 * rad[:, :3]
+        orange = (rgb[:, 0] > rgb[:, 1] + 0.15) & (rgb[:, 0] > rgb[:, 2] + 0.25) & (rad[:, 3] > 0.3)
+        green = (rgb[:, 1] >= rgb[:, 0] - 0.02) & (rgb[:, 1] > rgb[:, 2]) & (rad[:, 3] > 0.3)
+        mw = np.array(obj.matrix_world.to_3x3())
+        return float((pos[orange] @ mw.T)[:, 2].mean()), float((pos[green] @ mw.T)[:, 2].mean())
+
+    _tree = Path(__file__).resolve().parents[2] / "live_check" / "splat53" / "triposplat" / "job0"
+    _tree_files = sorted(_tree.glob("*.ply")) + sorted(_tree.glob("*.spz")) if _tree.is_dir() else []
+    if len(_tree_files) == 2:
+        for _f in _tree_files:
+            before2 = set(bpy.data.objects)
+            import_files([_f], "smoketest-0003", "smoke_splat", scene, _media.Placement("ASIS"))
+            _z = [o for o in bpy.data.objects if o not in before2]
+            bpy.context.view_layer.update()
+            _pot, _leaves = _pot_below(_z[0]) if _z and _media.is_splat(_z[0]) else (1.0, 0.0)
+            check(_pot < _leaves - 0.2, f"a ComfyQ {_f.suffix} splat comes in upright (pot z {_pot:.2f} below "
+                                        f"the leaves {_leaves:.2f})")
+            for _o in _z:
+                bpy.data.objects.remove(_o)
+    else:
+        print("  skip: no local TripoSplat tree (live_check/splat53) to check the axis fixes")
+else:
+    check(len(_snew) == 1 and _snew[0].type == "MESH", "Blender 5.2: a splat .ply comes in as vertices")
+    check("Blender 5.3" in import_files([tmp / "a.spz"], "smoketest-0003", "smoke_splat", scene)[0],
+          "Blender 5.2: a .spz is kept in the job folder, the message says 5.3 imports it")
+for _o in _snew:
+    bpy.data.objects.remove(_o)
+
 # -- connect + workflow --------------------------------------------------------------
 check(bpy.app.online_access, "online access enabled (--online-mode)")
 SESSION.connect("", "smoke-test")

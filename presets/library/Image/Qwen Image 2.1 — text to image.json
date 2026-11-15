@@ -1,8 +1,8 @@
 {
  "format": 1,
  "label": "Qwen Image 2.1 — text to image",
- "description": "Make an image from a written description with Qwen Image 2.1. It is unusually good at TEXT inside the picture — signs, posters, packaging, handwriting — in Latin and Chinese alike, so put the words you want rendered i…\nFrom: Prompt. Viewer + Save",
- "made": "2026-10-05 22:04",
+ "description": "Make an image from a written description with Qwen Image 2.1. It is unusually good at TEXT inside the picture — signs, posters, packaging, handwriting — so put the words you want rendered in quotes and say where they…\nFrom: Prompt. Viewer + Save",
+ "made": "2026-11-15 15:43",
  "nodes": [
   {
    "name": "Workflow",
@@ -54,7 +54,8 @@
    "parent": "",
    "auto": false,
    "folder": "//comfyq/",
-   "pattern": "{source}_{date}_{time}"
+   "pattern": "{source}_{date}_{time}",
+   "batch_suffix": "_render"
   }
  ],
  "links": [
