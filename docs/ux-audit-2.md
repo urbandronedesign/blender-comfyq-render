@@ -225,8 +225,15 @@ It draws through the scene camera, with a red overlay and header settings Grow /
 
 The Mask node became **Mask Zone**. The source became *Render + Mask Zone*. GPU-verified on `mask_demo_zone.blend` (sunflowers spilling above the old vase).
 
+**Picture Mask (2026-11-15):** the zone on ANY picture: the graph node *Picture Mask* (`graph/picture_mask_ui.py`,
+`passes/picture_mask.py`). It finds objects by name with SAM3 and keeps them as a ticked list; clicks, boxes and
+free shapes are drawn with the **ComfyQ Picture Mask** tool in the Image Editor; Grow / Feather / Invert as in 3D.
+SAM3 runs only when the picture or the words change. This solves **#18** in the graph; the bar has no picture
+source for masks yet. GPU-verified (a Chesterfield replacing only the armchair). ComfyQ's SAM3 takes words, not
+clicks (gotcha 36), so a click picks among what was found; a click-point SAM workflow is on b2renger's list.
+
 Still open for masking:
-- a zone on any picture (#18: the zone applies to scene renders only);
+- a picture source for masks in the bar (the graph has Picture Mask);
 - Paint Zone in the Image Editor;
 - SAM3 picking;
 - one thumbnail per node (#39).

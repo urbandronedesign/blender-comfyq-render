@@ -1662,6 +1662,59 @@ check(_sf2 is not None and _sf2.value() == _sf.value() and _sf2.intro == _sf.int
 if "utility_video_segment_sam3" not in SESSION.served_ids() and not _grun.solo_on():
     _ok, _msg = _grun.start(_st, scene, [_sf.name], [])
     check(not _ok and "Not served" in _msg and "Surfaces" in _msg, f"Surfaces node: not run while SAM3 is not served ({_msg})")
+# Picture Mask node: a mask on ANY picture (found objects faked: no SAM3 job; drawn shapes; grow / invert)
+_pt = bpy.data.node_groups.new("Picture mask smoke", "ComfyQGraphTree")
+_pimg = bpy.data.images.new("pm smoke picture", 640, 360, alpha=True)
+_pa = np.ones((360, 640, 4), np.float32)
+_pa[..., :3] = 0.5
+_pimg.pixels.foreach_set(_pa.ravel())
+_pin, _pm = _pt.nodes.new("ComfyQImageNode"), _pt.nodes.new("ComfyQPictureMaskNode")
+_pin.image = _pimg
+_pt.links.new(_pin.outputs[0], _pm.inputs["Image"])
+_left = tmp / "pm_left.png"                                   # a "found sofa": the left half of the picture
+_lm_img = bpy.data.images.new("pm left", 640, 360, alpha=True)
+_la = np.zeros((360, 640, 4), np.float32)
+_la[:, :320, :3] = 1.0
+_la[..., 3] = 1.0
+_lm_img.pixels.foreach_set(_la.ravel())
+_lm_img.filepath_raw, _lm_img.file_format = str(_left), "PNG"
+_lm_img.save()
+bpy.data.images.remove(_lm_img)
+_pm.regions = json.dumps([{"label": "sofa", "found": True, "coverage_pct": 50.0, "mask": str(_left), "picked": True}])
+_pm.grow, _pm.feather = 0.0, 0.0
+from bl_ext.user_default.comfyq_bridge.graph import picture_mask_ui as _pmui
+from bl_ext.user_default.comfyq_bridge.graph import run as _grun_pm
+
+check(_grun_pm.needed_model(_pm) == "", "Picture Mask: without words it needs no SAM3 (ticks and shapes are local)")
+_ok, _msg = _grun_pm.start(_pt, scene, [_pm.name], [])
+pump_until(lambda: (_grun_pm.tick_all(), _pt.name not in _grun_pm.RUNS)[1], 30, "picture mask run")
+_r = Path(_pm.result) if _pm.result else None
+_ra = _alpha(_r) if _r and _r.is_file() else np.ones(1)
+check(_ok and abs(float((_ra < 0.5).mean()) - 0.5) < 0.01 and Path(_pm.preview).is_file(),
+      f"Picture Mask: the ticked object (half the picture) is the zone ({float((_ra < 0.5).mean()):.1%}); "
+      f"a red preview is made ({_msg})")
+_h0 = _grun_pm._own_hash(_pm, scene)
+bpy.ops.comfyq.picture_mask_pick(tree=_pt.name, node=_pm.name, label="sofa")
+bpy.ops.comfyq.picture_mask_add_shape(tree=_pt.name, node=_pm.name,
+                                      points="[[0.6, 0.1], [0.9, 0.1], [0.9, 0.5], [0.6, 0.5]]")
+check(_grun_pm._own_hash(_pm, scene) != _h0, "Picture Mask: unticking / drawing makes the mask out of date")
+_ok2, _ = _grun_pm.start(_pt, scene, [_pm.name], [])
+pump_until(lambda: (_grun_pm.tick_all(), _pt.name not in _grun_pm.RUNS)[1], 30, "picture mask run 2")
+_ra2 = _alpha(Path(_pm.result))
+_q = _ra2.reshape(360, 640)                                   # Blender rows: 0 = bottom
+check(_ok2 and abs(float((_ra2 < 0.5).mean()) - 0.12) < 0.01 and _q[100, 480] < 0.5 and _q[100, 100] > 0.5,
+      f"Picture Mask: unticked object kept, drawn box (12 % of the picture) repainted "
+      f"({float((_ra2 < 0.5).mean()):.1%})")
+_pm.shapes, _pm.invert = "", False
+bpy.ops.comfyq.picture_mask_pick(tree=_pt.name, node=_pm.name, label="sofa")
+_pm.invert = True
+_mk = _pmui.make_mask(_pm)
+check(abs(float((_alpha(_mk) < 0.5).mean()) - 0.5) < 0.01, "Picture Mask: Invert repaints the other half")
+_pd = _gpo.serialize(_pt, "pm", "")
+check(any(d["type"] == "ComfyQPictureMaskNode" and "invert" in d for d in _pd["nodes"]),
+      "Picture Mask: saved in presets (words, grow, feather, invert, shapes)")
+_grun_pm.RUNS.pop(_pt.name, None)
+bpy.data.node_groups.remove(_pt)
 _arch = next((Path(__file__).resolve().parents[2] / "presets" / "class").glob("Architecture*SeedVR2*.json"))
 _ad = json.loads(_arch.read_text(encoding="utf-8"))
 for _w in {d["workflow_id"] for d in _ad["nodes"] if d.get("workflow_id") and d["type"] == "ComfyQWorkflowNode"}:

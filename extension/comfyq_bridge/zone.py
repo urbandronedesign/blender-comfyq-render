@@ -135,6 +135,28 @@ def describe(n_objects: int, zone: Zone) -> str:
     return " · ".join(parts) or "Empty"
 
 
+def merge_found(old: list[dict], new: list[dict]) -> list[dict]:
+    """Regions SAM3 just found (segmentation.region_dicts), keeping what the student ticked last time by label;
+    a newly found object starts ticked. Objects SAM3 did not find are dropped."""
+    before = {r["label"]: bool(r.get("picked")) for r in old}
+    return [{**r, "picked": before.get(r["label"], True)} for r in new if r.get("found")]
+
+
+def toggle(regions: list[dict], label: str) -> bool | None:
+    """Tick / untick one found object; returns its new state (None: no such object)."""
+    for r in regions:
+        if r["label"] == label:
+            r["picked"] = not r.get("picked")
+            return r["picked"]
+    return None
+
+
+def words(text: str) -> list[str]:
+    """'sofa, rug ; lamp\\nwall|left wall' → ['sofa', 'rug', 'lamp', 'wall|left wall'] (| merges phrases)."""
+    import re
+    return [w.strip() for w in re.split(r"[,;\n]", text or "") if w.strip()]
+
+
 def grow_px(grow: float, width: int) -> int:
     """Grow (a fraction of the picture width) in pixels for a picture `width` wide."""
     return max(0, round(grow * width))

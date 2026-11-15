@@ -231,6 +231,9 @@ Measured: 4 pictures ≈ 100 s with Klein edit; 2 clips ≈ 60 s with FILM inter
 ## 7. What is missing
 
 ### 7.1 For ComfyQ (b2renger), most important first
+0. **SAM with click points** (2026-11-15): the bridge's Picture Mask finds objects by WORDS only (SAM3 here is
+   phrase-based, one region per phrase). A SAM2/SAM3 workflow taking positive / negative points (x, y on the
+   picture) would let students click an object to select it directly.
 1. **Security for class:**
    - ~~there is no admin password~~ an admin password is set since 2026-10-21 (admin page); the bridge's teacher
      profile holds the same one. Lanes, calibration and model downloads now need it;

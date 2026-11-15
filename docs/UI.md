@@ -131,6 +131,23 @@ Tested on the GPU (2026-11-15, `E:\zaki\mask_demo_zone.blend`): the vase + a fre
 0.8 % → Flux2 Klein inpaint drew a sunflower bouquet in a glass vase filling the zone, the room unchanged
 (`live_check/mask_demo/zone/`).
 
+### 2.9 Masking an existing picture: the Picture Mask node (graph › Scene › Picture Mask)
+For a photo, an AI result or a keyframe (not the 3D scene). Image in, Mask out (the picture with the zone
+transparent), linked into an inpaint workflow's mask input.
+
+| Control | Does | Check |
+|---|---|---|
+| **Find** (words: `armchair, floor lamp`; `wall\|left wall` merges phrases) + Detection Threshold | Run Graph asks ComfyQ's SAM3 to find each object (one region per word; Solo loads SAM3). Found again only when the picture or the words change; the line under it says whether SAM3 is needed and served | smoke `Picture Mask: without words it needs no SAM3`; GPU `tools/picture_mask_check.py` |
+| Found list (✓ armchair 8 %) | Tick what to repaint; new objects start ticked, ticks are kept when found again | smoke `Picture Mask: unticking / drawing makes the mask out of date` |
+| **Edit on Picture** | Shows the picture with the zone in red (unticked objects lightly tinted) in the ComfyQ viewer and turns on the **ComfyQ Picture Mask** tool in that Image Editor: click a found object to tick / untick it, drag a box, Shift+drag a free shape, Ctrl cuts. 🗑 *N drawn* clears the shapes | GUI `Picture Mask › Edit on Picture…` (`17_picture_mask_comfyq.png`) |
+| **Grow / Feather / ⇄ Invert** | As the 3D zone (% of the picture width) | smoke `Picture Mask: Invert repaints the other half` |
+| **Find and Make Mask** / **Make Mask** | Runs the node alone (Find only when needed); the node shows the preview | smoke `the ticked object (half the picture) is the zone` |
+
+Tested on the GPU (2026-11-15, `live_check/picture_mask/`): on an AI render of the living room SAM3 found the
+armchair (8 %) and the floor lamp (1 %) in 21 s; with the lamp unticked (no new SAM3 run) Flux2 Klein inpaint
+turned only the armchair into a leather Chesterfield in 10 s. Example: `E:\zaki\picture_mask_demo.blend`
+(`tools/make_picture_mask_demo.py`).
+
 ## 3. Jobs (sidebar list, Queue popover)
 
 One card per job of this scene, newest first.

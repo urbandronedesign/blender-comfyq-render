@@ -24,6 +24,7 @@ from ..runtime.session import SESSION
 from ..wording import count
 from . import engine, kinds
 from .tree import (
+    PICTURE_MASK_NODE,
     RUN_NODES,
     SURFACES_NODE,
     TREE,
@@ -92,6 +93,10 @@ def _own_hash(node, scene) -> str:
         return engine.settings_hash(idn, node.cols, node.rows, node.keep, node.seed)
     if idn == "ComfyQJoinTextNode":
         return engine.settings_hash(idn)
+    if idn == PICTURE_MASK_NODE:      # what to find, the ticks, the drawn shapes, grow / feather / invert
+        picks = sorted(r["label"] for r in node.found() if r.get("picked"))
+        return engine.settings_hash(idn, node.words, round(node.threshold, 3), picks, node.shapes,
+                                    round(node.grow, 3), round(node.feather, 3), node.invert)
     if idn == SURFACES_NODE:          # the list (labels + materials), the text around it, the threshold
         return engine.settings_hash(idn, node.value(), node.intro, node.outro, round(node.threshold, 3))
     return engine.settings_hash(idn, node.name)
@@ -170,14 +175,14 @@ class Run:
             if name in self.booked or name in self.booking:
                 continue
             if engine.ready(self.nodes, name, self.pending):
-                if self.solo and tree.nodes[name].workflow_id not in served:
+                if self.solo and needed_model(tree.nodes[name]) not in served | {""}:
                     unserved.append(name)
                 else:
                     self._book(tree, scene, name)
         if unserved and not self.booked and not self.booking:
             # load the model the most waiting nodes need: a film's keyframes then all its videos, not
             # FLUX → LTX → Qwen → LTX (each main switch reloads a model)
-            wanted = [tree.nodes[n].workflow_id for n in unserved]
+            wanted = [needed_model(tree.nodes[n]) for n in unserved]
             wf_id = max(dict.fromkeys(wanted), key=wanted.count)
             self._start_switch(tree, wf_id, unserved)
         if not self.pending and not self.booking:
@@ -303,6 +308,9 @@ class Run:
         if node is not None and node.bl_idname == SURFACES_NODE:
             self._book_surfaces(tree, scene, node)
             return
+        if node is not None and node.bl_idname == PICTURE_MASK_NODE:
+            self._book_picture_mask(tree, scene, node)
+            return
         specs = SESSION.specs.get(node.workflow_id) if node else None
         if node is None or specs is None:
             self._fail(tree, name, "workflow settings not loaded")
@@ -409,6 +417,85 @@ class Run:
             if t is not None and name in self.booking:
                 self._fail(t, name, f"Failed: {msg}")
         SESSION.run(work, done, label="Finding surfaces", on_error=failed)
+
+    def _book_picture_mask(self, tree, scene, node) -> None:
+        """A mask on the linked picture: SAM3 finds the named objects (background, only when the picture or the
+        words changed), then the ticked objects + drawn shapes → the picture with that zone transparent."""
+        from .. import zone as zmod
+        from ..passes import segment as seg
+        from ..runtime import segmentation
+        name = node.name
+        src = _links_into(node).get("Image")
+        if src is None:
+            self._fail(tree, name, "Link a picture into Image (an image, a render, a workflow's result)")
+            return
+        try:
+            pic = self._file(scene, src, _PICTURE)
+        except Rendering as r:
+            _set_note(node, f"Waiting for the render: {r}")
+            return
+        except RuntimeError as e:
+            self._fail(tree, name, str(e))
+            return
+        words = zmod.words(node.words)
+        key = engine.settings_hash(words, round(node.threshold, 3), engine.node_hash(self.nodes, src.name))
+        cached = node.masks_key == key and all(Path(r["mask"]).is_file() for r in node.found())
+        if not words or cached:
+            node.picture = str(pic)
+            self._finish_picture_mask(tree, node)
+            return
+        if node.workflow_id not in SESSION.served_ids():
+            self._fail(tree, name, "SAM3 is not served: ask the teacher (needed to find objects by name)")
+            return
+        node.note, node.pending_hash = f"SAM3: finding {count(len(words), 'object')}…", self.hashes[name]
+        self.booking.add(name)
+        client, thr = SESSION.client, node.threshold
+        out = seg.work_dir(f"picmask_{segmentation.safe(name)}_{time.strftime('%Y%m%d_%H%M%S')}")
+        tree_name = tree.name
+
+        def note(msg):
+            def go():
+                t = bpy.data.node_groups.get(tree_name)
+                n = t.nodes.get(name) if t is not None else None
+                if n is not None:
+                    n.note = f"SAM3: {msg}"
+            SESSION.later(go)
+
+        def work():
+            return segmentation.segment(client, pic, words, out, _on_main, thr, progress=note,
+                                        on_booked=lambda ids: self.surface_jobs.__setitem__(name, ids))
+
+        def done(res):
+            if name not in self.booking:               # stopped meanwhile
+                return
+            self.booking.discard(name)
+            t = self.tree()
+            n = t.nodes.get(name) if t is not None else None
+            if n is None:
+                self.pending.discard(name)
+                return
+            n.regions = json.dumps(zmod.merge_found(n.found(), segmentation.region_dicts(res["regions"])))
+            n.masks_key, n.found_for, n.picture = key, _found_key(words, thr), str(pic)
+            missed = [r.label for r in res["regions"] if not r.found] + list(res["errors"])
+            self._finish_picture_mask(t, n, f"Not found: {', '.join(missed)}" if missed else "")
+
+        def failed(msg):
+            t = self.tree()
+            if t is not None and name in self.booking:
+                self._fail(t, name, f"Failed: {msg}")
+        SESSION.run(work, done, label="Finding objects", on_error=failed)
+
+    def _finish_picture_mask(self, tree, node, note: str = "") -> None:
+        from . import picture_mask_ui
+        try:
+            mask = picture_mask_ui.make_mask(node)
+        except RuntimeError as e:
+            picture_mask_ui.refresh_preview(node)
+            self._fail(tree, node.name, str(e))
+            return
+        node.note = note
+        remember_result(node, "", str(mask), self.hashes[node.name])
+        self.pending.discard(node.name)
 
     def _collect(self, scene, node, specs) -> tuple[dict, dict[str, Path]]:
         current = node.current_values()
@@ -646,6 +733,20 @@ def chain_name(tree, name: str) -> str:
     return node.draw_label() if node is not None and hasattr(node, "draw_label") else name
 
 
+def needed_model(node) -> str:
+    """The ComfyQ workflow this node needs served to run ('' = none): a Picture Mask needs SAM3 only to FIND
+    objects (words, not found yet with these words); drawn shapes and ticks are made here."""
+    if node.bl_idname == PICTURE_MASK_NODE:
+        from .. import zone as zmod
+        w = zmod.words(node.words)
+        return node.workflow_id if w and node.found_for != _found_key(w, node.threshold) else ""
+    return node.workflow_id
+
+
+def _found_key(words: list[str], threshold: float) -> str:
+    return "|".join(words) + f"@{threshold:.3f}"
+
+
 def models_to_load(tree, scene, targets: list[str], force: bool = False) -> list[str]:
     """Names of the models a solo run of `targets` would load (what ComfyQ does not serve now)."""
     try:
@@ -653,7 +754,7 @@ def models_to_load(tree, scene, targets: list[str], force: bool = False) -> list
     except engine.CycleError:
         return []
     served = SESSION.served_ids()
-    wfs = dict.fromkeys(tree.nodes[n].workflow_id for n in todo if tree.nodes.get(n) is not None)
+    wfs = dict.fromkeys(needed_model(tree.nodes[n]) for n in todo if tree.nodes.get(n) is not None)
     return [_wf_name(w) for w in wfs if w and w not in served]
 
 
@@ -674,7 +775,7 @@ def _check(tree, todo: list[str]) -> tuple[str, bool]:
                 and tree.nodes[n].workflow_id not in SESSION.specs]
     if unloaded:
         return "Still loading the settings of: " + ", ".join(unloaded), False
-    unserved = [tree.nodes[n].draw_label() for n in todo if tree.nodes[n].workflow_id not in served]
+    unserved = [tree.nodes[n].draw_label() for n in todo if needed_model(tree.nodes[n]) not in served | {""}]
     solo = bool(unserved) and solo_on()
     if unserved and not solo:
         return "Not served right now (ask the teacher): " + ", ".join(unserved), False
@@ -686,7 +787,7 @@ def _check(tree, todo: list[str]) -> tuple[str, bool]:
     missing = []
     for name in todo:
         node = tree.nodes[name]
-        if node.bl_idname == SURFACES_NODE:
+        if node.bl_idname in (SURFACES_NODE, PICTURE_MASK_NODE):
             if "Image" not in _links_into(node):
                 missing.append(f"{name} › Image")
             continue
@@ -732,7 +833,8 @@ def start(tree, scene, targets: list[str], selected: list[str], force: bool = Fa
     reused = [n for n in engine.order(nodes, targets) if n not in todo]
     msg = f"Running {count(len(todo), 'job')}: " + " → ".join(todo)
     if solo:
-        n_models = len({tree.nodes[n].workflow_id for n in todo if tree.nodes[n].workflow_id not in served})
+        n_models = len({needed_model(tree.nodes[n]) for n in todo
+                        if needed_model(tree.nodes[n]) not in served | {""}})
         msg += f" (solo: loads {count(n_models, 'model')} in ComfyQ; each switch takes about a minute)"
     if reused:
         msg += f" (reusing {', '.join(reused)})"

@@ -56,6 +56,9 @@ extension/comfyq_bridge/
   passes/zone_scene.py   the scene's zone (picked objects + shapes, Grow / Feather / Invert) → mask pass
   ui/zone_tool.py        ComfyQ Mask tool (3D View toolbar): click picks, drag box, Shift lasso, Ctrl cuts;
                          red gpu overlay; header settings
+  passes/picture_mask.py  a mask on ANY picture: ticked SAM3 regions + drawn shapes → alpha, preview, region_at
+  graph/picture_mask_ui.py  Picture Mask node editing: Edit on Picture, ComfyQ Picture Mask tool (Image Editor),
+                         pick / draw / clear operators, make_mask / refresh_preview
   passes/mesh.py         3D-model inputs: selected objects → one GLB (modifiers applied), size warning (remesh
                          returns an empty mesh at ~80 units), fingerprint for the graph's Scene Objects node
   ops/generate.py        start_job (render inputs -> upload -> book), AI-keyframe chain, cancel/import/open folder

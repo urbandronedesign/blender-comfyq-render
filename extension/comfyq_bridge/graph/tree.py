@@ -982,6 +982,124 @@ class ComfyQSurfacesNode(_Node, bpy.types.Node):
             btn.operator("comfyq.open_media", text="Open", icon="URL").path = str(path)
 
 
+PICTURE_MASK_NODE = "ComfyQPictureMaskNode"
+
+
+def _pm_redraw(self, context):
+    """A pick, a shape, Grow / Feather / Invert changed: refresh the preview the student looks at (cheap, local)."""
+    from . import picture_mask_ui
+    picture_mask_ui.refresh_preview(self)
+
+
+class ComfyQPictureMaskNode(_Node, bpy.types.Node):
+    """A mask on any picture (photo, AI result, keyframe): objects SAM3 finds by name, ticked, plus shapes drawn on
+    the picture. Mask = the picture with that zone transparent, for an inpaint workflow"""
+    bl_idname = PICTURE_MASK_NODE
+    bl_label = "Picture Mask"
+    bl_icon = "SELECT_SET"
+    bl_width_default = 360
+    bl_width_min = 280
+
+    workflow_id: StringProperty(default=SAM3_ID)      # needed only to FIND objects (no words: no SAM3)
+    words: StringProperty(name="Find", description="Name the objects to find, separated by commas (sofa, lamp, "
+                                                   "rug). Separate phrases with | to merge them into one object")
+    threshold: FloatProperty(name="Detection Threshold", default=0.5, min=0.1, max=0.9, step=5,
+                             description="Set how sure SAM3 must be. Lower finds more, higher is stricter")
+    regions: StringProperty()                         # JSON: found objects (label, mask, coverage_pct, picked…)
+    shapes: StringProperty()                          # zone.py JSON, picture coordinates
+    grow: FloatProperty(name="Grow", default=1.0, min=0.0, max=20.0, subtype="PERCENTAGE", precision=1,
+                        update=_pm_redraw, description="Widen the zone (in % of the picture width) so the new "
+                                                       "content can be bigger than what it replaces")
+    feather: FloatProperty(name="Feather", default=0.4, min=0.0, max=10.0, subtype="PERCENTAGE", precision=1,
+                           update=_pm_redraw, description="Soften the zone's edge (in % of the picture width)")
+    invert: BoolProperty(name="Invert", default=False, update=_pm_redraw,
+                         description="Repaint everything except the zone")
+    picture: StringProperty(subtype="FILE_PATH")      # the picture the objects were found on / the zone drawn on
+    preview: StringProperty(subtype="FILE_PATH")      # picture + zone in red (what the student looks at)
+    masks_key: StringProperty()                       # picture + words + threshold the regions were found with
+    found_for: StringProperty()                       # words + threshold of the last find (SAM3 not needed again)
+    note: StringProperty()
+    job_id: StringProperty()
+    result: StringProperty(subtype="FILE_PATH")       # the mask sent (picture with the zone transparent)
+    result_hash: StringProperty()
+    pending_hash: StringProperty()
+    history: CollectionProperty(type=ComfyQResultRecord)
+
+    def init(self, context):
+        self.inputs.new(SOCKET_IDNAME["image"], "Image")
+        self.outputs.new(SOCKET_IDNAME["mask"], "Mask")
+
+    def draw_label(self):
+        return self.label or self.bl_label
+
+    def found(self) -> list[dict]:
+        try:
+            return json.loads(self.regions) if self.regions else []
+        except ValueError:
+            return []
+
+    def needs_sam3(self) -> bool:
+        from .. import zone as zmod
+        return bool(zmod.words(self.words))
+
+    def draw_buttons(self, context, layout):
+        from .. import zone as zmod
+        from ..ui.studio import wrap
+        from .run import needed_model, running, solo_on
+        col = layout.column(align=True)
+        col.prop(self, "words", text="", icon="VIEWZOOM", placeholder="Objects to find: sofa, lamp, rug")
+        must_find = bool(needed_model(self))         # words not found yet on this picture: SAM3 has to run
+        if must_find:
+            served = self.workflow_id in SESSION.served_ids()
+            sub = col.row()
+            sub.alert = not served and not solo_on()
+            sub.label(text="SAM3 served" if served else ("SAM3 Loads on Run" if solo_on() else
+                                                         "SAM3 not served: ask the teacher"),
+                      icon="CHECKMARK" if served else ("PACKAGE" if solo_on() else "ERROR"))
+            col.prop(self, "threshold")
+        found = self.found()
+        if found:
+            box = layout.box().column(align=True)
+            box.label(text="Tick what to repaint (or click it on the picture)", icon="CHECKBOX_HLT")
+            for r in found:
+                op = box.operator("comfyq.picture_mask_pick", text=f"{r['label']}  {r['coverage_pct']:.0f}%",
+                                  icon="CHECKBOX_HLT" if r.get("picked") else "CHECKBOX_DEHLT", depress=r.get("picked"))
+                op.tree, op.node, op.label = self.id_data.name, self.name, r["label"]
+        n_shapes = len(zmod.loads(self.shapes).shapes)
+        row = layout.row(align=True)
+        op = row.operator("comfyq.picture_mask_edit", text="Edit on Picture", icon="GREASEPENCIL")
+        op.tree, op.node = self.id_data.name, self.name
+        if n_shapes:
+            op = row.operator("comfyq.picture_mask_clear_shapes", text=f"{n_shapes} drawn", icon="TRASH")
+            op.tree, op.node = self.id_data.name, self.name
+        row = layout.row(align=True)
+        row.prop(self, "grow")
+        row.prop(self, "feather")
+        row.prop(self, "invert", text="", icon="ARROW_LEFTRIGHT")
+        if self.note:
+            box = layout.column(align=True)
+            box.alert = self.note.startswith(("Failed", "Not run", "Could not", "Link", "The zone"))
+            for k, line in enumerate(wrap(self.note, 45, max_lines=4)):
+                box.label(text=line, icon=("ERROR" if box.alert else "INFO") if k == 0 else "BLANK1")
+        row = layout.row(align=True)
+        row.scale_y = 1.3
+        state = running(self.id_data.name, self.name)
+        if state:
+            row.label(text="Finding objects…" if state in ("booked", "sending") else "Waiting for its picture",
+                      icon="SORTTIME")
+            row.operator("comfyq.graph_stop", text="", icon="CANCEL").tree = self.id_data.name
+        else:
+            target(row.operator("comfyq.graph_run", text="Find and Make Mask" if must_find else "Make Mask",
+                                icon="PLAY"), self)
+            op = row.operator("comfyq.graph_run", text="", icon="FILE_REFRESH")
+            target(op, self)
+            op.force = True
+        from pathlib import Path
+        img = bpy.data.images.get(Path(self.preview).name) if self.preview and Path(self.preview).is_file() else None
+        if img is not None:
+            _thumbnail(layout, img, scale=10.0)
+
+
 # -- output nodes: act on what is linked into them (no job of their own) ------------------------------
 class _OutputNode(_Node):
     bl_width_default = 300
@@ -1198,8 +1316,10 @@ SOURCE_LABEL = {"image": "Scene render", "video": "Scene animation", "mask": "Se
 NODE_CLASSES = (ComfyQImageNode, ComfyQSceneRenderNode, ComfyQMaskNode, ComfyQSceneAnimationNode,
                 ComfyQVideoFileNode, ComfyQFolderNode, ComfyQAudioFileNode, ComfyQSceneObjectsNode,
                 ComfyQModelFileNode, ComfyQPromptNode, ComfyQBoardNode, ComfyQJoinTextNode, ComfyQWorkflowNode,
-                ComfyQSurfacesNode, ComfyQViewerNode, ComfyQImportNode, ComfyQSaveNode, ComfyQFilmNode)
-RUN_NODES = (WORKFLOW_NODE, SURFACES_NODE)       # nodes a graph run books (a ComfyQ job / a SAM3 segmentation)
+                ComfyQSurfacesNode, ComfyQPictureMaskNode, ComfyQViewerNode, ComfyQImportNode, ComfyQSaveNode,
+                ComfyQFilmNode)
+# nodes a graph run books (a ComfyQ job / a SAM3 segmentation / a picture mask, with SAM3 when it has words)
+RUN_NODES = (WORKFLOW_NODE, SURFACES_NODE, PICTURE_MASK_NODE)
 OUTPUT_CLASSES = (ComfyQViewerNode, ComfyQImportNode, ComfyQSaveNode, ComfyQFilmNode)
 SOURCE_NODES = (ComfyQSceneAnimationNode, ComfyQSceneRenderNode, ComfyQMaskNode, ComfyQImageNode,
                 ComfyQVideoFileNode, ComfyQFolderNode, ComfyQAudioFileNode, ComfyQSceneObjectsNode,

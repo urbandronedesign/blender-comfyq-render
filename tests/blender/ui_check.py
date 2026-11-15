@@ -1332,10 +1332,67 @@ def step_mask_zone():
         bpy.ops.wm.tool_set_by_id(name="builtin.select_box", space_type="VIEW_3D")
 
 
+def step_picture_mask():
+    """Picture Mask node: found objects (faked), Edit on Picture → the picture + zone in the ComfyQ viewer and the
+    Picture Mask tool in that Image Editor; a click ticks, a drawn shape adds."""
+    import numpy as np
+    _w, area = graph_area()
+    tree = area.spaces.active.node_tree
+    pic = bpy.data.images.new("ui pm picture", 480, 270, alpha=True)
+    a = np.ones((270, 480, 4), np.float32)
+    a[..., :3] = (0.55, 0.5, 0.45)
+    pic.pixels.foreach_set(a.ravel())
+    src, pm = tree.nodes.new("ComfyQImageNode"), tree.nodes.new("ComfyQPictureMaskNode")
+    src.image = pic
+    src.location, pm.location = (-1400, -900), (-1000, -900)
+    tree.links.new(src.outputs[0], pm.inputs["Image"])
+    mpath = OUT / "pm_found.png"
+    mi = bpy.data.images.new("ui pm mask", 480, 270, alpha=True)
+    m = np.zeros((270, 480, 4), np.float32)
+    m[60:200, 40:220, :3] = 1.0
+    m[..., 3] = 1.0
+    mi.pixels.foreach_set(m.ravel())
+    mi.filepath_raw, mi.file_format = str(mpath), "PNG"
+    mi.save()
+    pm.regions = json.dumps([{"label": "armchair", "found": True, "coverage_pct": 19.4, "mask": str(mpath),
+                              "picked": False}])
+    pm.words = "armchair"
+    with ctx(graph_area):
+        res = bpy.ops.comfyq.picture_mask_edit(tree=tree.name, node=pm.name)
+    yield 0.8
+    w, ia = img()
+    sp = ia.spaces.active
+    tool = w.workspace.tools.from_space_image_mode("VIEW", create=False)
+    check("Picture Mask › Edit on Picture: the picture + zone in the ComfyQ viewer, Picture Mask tool on",
+          res == {"FINISHED"} and sp.image is not None and sp.image.name.startswith("ComfyQ picture mask")
+          and tool is not None and tool.idname == "comfyq.picture_mask", f"{res} image={sp.image and sp.image.name} "
+          f"tool={tool and tool.idname}")
+    bpy.ops.comfyq.picture_mask_pick(tree=tree.name, node=pm.name, label="armchair")
+    bpy.ops.comfyq.picture_mask_add_shape(tree=tree.name, node=pm.name,
+                                          points="[[0.6, 0.6], [0.9, 0.6], [0.9, 0.9], [0.6, 0.9]]")
+    yield 0.5
+    for n in tree.nodes:
+        n.select = n == pm
+    tree.nodes.active = pm
+    region = next(r for r in area.regions if r.type == "WINDOW")
+    with bpy.context.temp_override(window=_w, area=area, region=region):
+        bpy.ops.node.view_selected()
+    yield 0.5
+    shot("17_picture_mask")
+    picked = [r["label"] for r in pm.found() if r.get("picked")]
+    check("Picture Mask: a tick and a drawn box show in red; the node lists the found object",
+          picked == ["armchair"] and "1 shape" in ext("zone").describe(1, ext("zone").loads(pm.shapes))
+          and not any("picture_mask" in e or "PictureMask" in e for e in draw_errors), picked)
+    with bpy.context.temp_override(window=w, area=ia, region=next(r for r in ia.regions if r.type == "WINDOW")):
+        bpy.ops.wm.tool_set_by_id(name="builtin.select_box", space_type="IMAGE_EDITOR")
+    tree.nodes.remove(src)
+    tree.nodes.remove(pm)
+
+
 STEPS = [step_start, step_connect, step_refresh, step_tabs_and_menu, step_chips, step_prompt, step_match,
          step_render_scene, step_animation, step_player, step_library, step_cleanup, step_finished_job_card,
          step_failed_job_card,
-         step_keyframe, step_graph, step_cycles_render, step_graph_run, step_generate, step_disconnect_reconnect, step_reload_file, step_new_inputs, step_mask_zone, step_extras, step_preferences, step_media_folder, step_queue_popover, step_server_panel,
+         step_keyframe, step_graph, step_cycles_render, step_graph_run, step_generate, step_disconnect_reconnect, step_reload_file, step_new_inputs, step_mask_zone, step_picture_mask, step_extras, step_preferences, step_media_folder, step_queue_popover, step_server_panel,
          step_presets_menu]
 
 

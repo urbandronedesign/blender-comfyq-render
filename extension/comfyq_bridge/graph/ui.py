@@ -154,6 +154,8 @@ class COMFYQ_MT_graph_scene(bpy.types.Menu):
         self.layout.separator()
         self.layout.operator(COMFYQ_OT_graph_add.bl_idname, text="Surfaces (SAM3) to Prompt",
                              icon="MATERIAL").node_type = "ComfyQSurfacesNode"
+        self.layout.operator(COMFYQ_OT_graph_add.bl_idname, text="Picture Mask (SAM3 + drawn)",
+                             icon="SELECT_SET").node_type = "ComfyQPictureMaskNode"
         self.layout.operator(COMFYQ_OT_graph_add.bl_idname, text="Material Board",
                              icon="TEXTURE").node_type = "ComfyQBoardNode"
         self.layout.operator(COMFYQ_OT_graph_add.bl_idname, text="Join Text",
@@ -1017,6 +1019,8 @@ def _node_media(node):
     path = ""
     if node.bl_idname in (WORKFLOW_NODE, "ComfyQSurfacesNode"):
         path = node.result
+    elif node.bl_idname == "ComfyQPictureMaskNode":
+        path = node.preview
     elif node.bl_idname == "ComfyQImageNode":
         return node.image
     elif node.bl_idname == "ComfyQSceneRenderNode":

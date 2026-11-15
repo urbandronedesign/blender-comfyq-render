@@ -49,6 +49,15 @@ def test_contains_applies_shapes_in_order():
     assert not zone.contains(z, 0.95, 0.5)
 
 
+def test_found_objects_keep_their_ticks():
+    old = [{"label": "sofa", "picked": False}, {"label": "lamp", "picked": True}]
+    new = [{"label": "sofa", "found": True}, {"label": "lamp", "found": False}, {"label": "rug", "found": True}]
+    merged = zone.merge_found(old, new)
+    assert [(r["label"], r["picked"]) for r in merged] == [("sofa", False), ("rug", True)]
+    assert zone.toggle(merged, "sofa") is True and zone.toggle(merged, "nothing") is None
+    assert zone.words(" sofa, rug ;lamp\nwall|left wall,, ") == ["sofa", "rug", "lamp", "wall|left wall"]
+
+
 def test_describe_and_grow():
     z = zone.Zone([zone.box((0.1, 0.1), (0.2, 0.2)), zone.box((0.1, 0.1), (0.15, 0.15), "sub")])
     assert zone.describe(2, z) == "2 objects · 1 shape · 1 cut"
