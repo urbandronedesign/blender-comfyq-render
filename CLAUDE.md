@@ -113,6 +113,9 @@ tools/cliff_video_check.py  GPU: keyframe (FLUX.3 Klein, clay vs material) / vid
 tools/make_blockout_video_preset.py  the Blockout animation → photoreal video class preset
 tools/preset_e2e.py      run any saved preset end to end, headless sandbox, Solo: build_saved + Run Graph + report
 tools/video_compare_sheet.py  one sheet: a row per video at 0, 1/3, 2/3, end (+ frames, fps, size, sound)
+tools/make_mask_demo_scene.py  masking test scene (living room, objects to replace) + Flux2 Klein inpaint graph,
+                         Material style, Vase selected → E:\zaki\mask_demo.blend (verified on the GPU 2026-11-15)
+tools/draw_mask_spikes.py  audit-2 phase 2 spikes (GP sketch pass, Mask → alpha, painted alpha, workspace, pixel hash)
 tools/splat_compare.py   Blender 5.3: import splat jobs through the plugin's importer, Cycles 4 views + the .glb twin
 tools/make_splat_presets.py  the Picture / Text → Gaussian splat (IDOL) class presets
 tools/splat_render.py    (superseded by 5.3) load a 3DGS .ply (no splat support in Blender 5.2) as a coloured point cloud and render it

@@ -4,6 +4,7 @@ preset_ops.build_saved, run its last workflow node(s) as Run Graph does, report 
 scene with what the graph imported is saved as <out>/e2e_scene.blend.
 
     blender -b <scene.blend> --online-mode --python tools/preset_e2e.py -- <preset.json> <out folder>
+    blender -b <scene.blend> --online-mode --python tools/preset_e2e.py -- graph:<graph name> <out folder>
 """
 import importlib
 import json
@@ -47,15 +48,23 @@ prefs.solo_mode = True                                              # sandbox pr
 S.connect(prefs.profile, "preset-e2e", prefs.url.strip())
 if not pump_until(lambda: S.connected and S.workflows, 60):
     sys.exit("cannot connect")
-data = json.loads(PRESET.read_text(encoding="utf-8"))
-for d in data["nodes"]:
-    if d.get("workflow_id"):
-        S.specs[d["workflow_id"]] = S.client.params(d["workflow_id"])
-tree = bpy.data.node_groups.new("E2E", "ComfyQGraphTree")
-preset_ops.build_saved(data, tree, bpy.context.scene)
+if str(ARGS[0]).startswith("graph:"):       # a graph already saved in the opened file (e.g. tools/make_mask_demo_scene)
+    tree = bpy.data.node_groups[str(ARGS[0])[6:]]
+    data = {"label": tree.name}
+    for n in tree.nodes:
+        if getattr(n, "workflow_id", ""):
+            S.specs[n.workflow_id] = S.client.params(n.workflow_id)
+else:
+    data = json.loads(PRESET.read_text(encoding="utf-8"))
+    for d in data["nodes"]:
+        if d.get("workflow_id"):
+            S.specs[d["workflow_id"]] = S.client.params(d["workflow_id"])
+    tree = bpy.data.node_groups.new("E2E", "ComfyQGraphTree")
+    preset_ops.build_saved(data, tree, bpy.context.scene)
 targets = grun.graph_targets(tree, bpy.context.scene)[0]
 t0 = time.monotonic()
-ok, msg = grun.start(tree, bpy.context.scene, targets, [])
+selected = [o.name for o in bpy.context.scene.objects if o.select_get()]   # as Run Graph passes them (Mask nodes)
+ok, msg = grun.start(tree, bpy.context.scene, targets, selected)
 log("Run Graph", ok=ok, msg=msg, targets=targets)
 seen = {}
 
