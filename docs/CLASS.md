@@ -179,6 +179,16 @@ upscaler, fed by a file or result the student picks). Each one is wired the same
 - the workflow's **default settings**, with its duration / size / fps **matched to the scene** the
   preset is added to (not frozen at the time it was made).
 
+A few workflows need more than the rules above; the generator handles them by name (`OVERRIDES` in
+`tools/make_preset_library.py`) and adds a *How to use* note:
+- **Wan 2.2 key-frame animation**: its three motion prompts (one per segment) all come from the one Prompt
+  node. Left alone, segments 2 and 3 used ComfyQ's example (a red line-art dancer appeared in the clip).
+- **Qwen 2.1 relight a composite**: the scene render is the background (`<image1>`), the picked picture is the
+  object (`<image2>`), and the prompt names both.
+- **Ideogram 4.0**: the prompt **must stay in Ideogram's JSON form** (descriptions + a box per element,
+  `bbox = [top, left, bottom, right]` from 0 to 1000). Students change only the texts in quotes. Plain text
+  comes back as a grey "Image blocked by safety filter" picture.
+
 Install: copy the four folders of `presets\library\` into each PC's presets folder (or into the shared
 presets folder). Only workflows ComfyQ serves that day can run; the others show
 *Not served*. Regenerate after ComfyQ's workflows change (headless, no GPU, extension installed in the

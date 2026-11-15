@@ -68,6 +68,40 @@ COL_SRC, COL_WF, COL_OUT, STEP = -820.0, -380.0, 120.0, 330.0
 
 PICK_A_FILE = ("reference", "style", "character", "portrait", "subject", "sheet", "stylized")
 
+# Workflows the label rules get wrong (found by the preset series of 2026-11-15):
+#   inputs     socket key -> (node type, label, props), or None to leave it free
+#   prompt     the Prompt node's text instead of ComfyQ's example
+#   prompt_to  more text sockets fed by the same Prompt node
+#   steps      a How to use note (lines under ~45 characters, gotcha 43)
+WAN_MOTION = ("Smooth, continuous camera move from one key frame to the next. The scene, the buildings and the "
+              "materials stay exactly the same; no cuts, no new objects, natural light.")
+OVERRIDES = {
+    # three motion prompts, one per segment: only the first was linked, the other two kept ComfyQ's example
+    # (a red line-art capoeira dancer, who then flew across the clip)
+    "video_wan22_4_key_frames": {
+        "prompt": WAN_MOTION,
+        "prompt_to": ["cliptextencode_text_228_225", "cliptextencode_text_245_242"],
+        "steps": ["1. Key frames 1 and 4 come from the scene", "2. Pick pictures for key frames 2 and 3",
+                  "3. The Prompt describes the motion", "   (used for all three segments)"],
+    },
+    # Image 2 is the object; Image 3 an optional lighting reference ("reference" in its label took the file node)
+    "image_edit_qwen_2_1_relight_composite": {
+        "inputs": {"loadimage_image_475": ("ComfyQImageNode", "Object to place", {}), "loadimage_image_476": None},
+        "prompt": ("Place the object from <image2> into the scene of <image1>, standing naturally in the scene at a "
+                   "believable size. Apply consistent lighting to the object, enhance specular highlights, keep the "
+                   "front-back spatial relationship, add a natural contact shadow, and blend it seamlessly into the "
+                   "background."),
+        "steps": ["1. The scene render is the background", "   (<image1> in the prompt)",
+                  "2. Pick the object picture (<image2>)", "3. Say where the object goes in the Prompt"],
+    },
+    # plain text comes back as a grey "Image blocked by safety filter" picture: keep ComfyQ's JSON example
+    "image_ideogram4_t2i": {
+        "steps": ["1. The prompt must stay in this JSON form", "2. Change only the texts in quotes",
+                  "3. bbox = [top, left, bottom, right],", "   each from 0 to 1000",
+                  "4. Plain text gives a grey blocked picture"],
+    },
+}
+
 
 def short(label: str) -> str:
     """'Reference image (what to insert)' -> 'Reference image'."""
@@ -124,6 +158,8 @@ def build(tree, wf):
     by_key = {sp.key: sp for sp in specs}
     seen: dict[str, int] = {}
     y, used = 0.0, []
+    ov = OVERRIDES.get(wf.id, {})
+    prompt_node = None
     for sock in socks:
         kind = socket_kind(sock)
         spec = by_key.get(sock.identifier)
@@ -134,7 +170,12 @@ def build(tree, wf):
             kind_count = kind
         nth = seen.get(kind_count, 0)
         seen[kind_count] = nth + 1
-        ntype, label, props = source_for(kind, nth, wf.category, spec)
+        if sock.identifier in ov.get("prompt_to", ()):
+            continue                                   # linked to the Prompt node below
+        if sock.identifier in ov.get("inputs", {}):
+            ntype, label, props = ov["inputs"][sock.identifier] or (None, "", {})
+        else:
+            ntype, label, props = source_for(kind, nth, wf.category, spec)
         if ntype is None:
             continue
         src = tree.nodes.new(ntype)
@@ -146,8 +187,16 @@ def build(tree, wf):
         tree.links.new(src.outputs[0], sock)
         if ntype == "ComfyQPromptNode":
             it = node.item(sock.identifier)            # the workflow's own example prompt
-            src.text = (it.s if it is not None else "") or ""
+            src.text = ov.get("prompt") or (it.s if it is not None else "") or ""
+            prompt_node = prompt_node or src
         used.append(label)
+    for key in ov.get("prompt_to", ()):
+        sock = next((s for s in socks if s.identifier == key), None)
+        if prompt_node is not None and sock is not None:
+            tree.links.new(prompt_node.outputs[0], sock)
+    if ov.get("steps"):
+        note = preset_ops.steps_note(tree, ov["steps"], f"How to use · {wf.name}")
+        note.location = (COL_SRC - note.width - 60, 0.0)
     viewer = tree.nodes.new("ComfyQViewerNode")
     viewer.location = (COL_OUT, 160.0)
     save = tree.nodes.new("ComfyQSaveNode")

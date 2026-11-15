@@ -2,7 +2,7 @@
  "format": 1,
  "label": "Flux2 Klein 9B — inpaint (paint & prompt)",
  "description": "Select the objects to replace in the scene, and describe what should appear there. Flux.2 Klein regenerates only the selected area and blends it back into the picture. Great for removing or swapping objects.\nFrom: Mask (selected objects), Prompt. Viewer + Save. In Blender: select the objects to repaint; the scene render with them cut out is sent.",
- "made": "2026-11-15 15:43",
+ "made": "2026-11-16 00:22",
  "nodes": [
   {
    "name": "Workflow",
@@ -19,7 +19,7 @@
    "match_scene": true
   },
   {
-   "name": "Selection Mask",
+   "name": "Mask Zone",
    "type": "ComfyQMaskNode",
    "location": [
     -820.0,
@@ -74,7 +74,7 @@
  ],
  "links": [
   {
-   "from": "Selection Mask",
+   "from": "Mask Zone",
    "from_socket": "Mask",
    "to": "Workflow",
    "to_socket": "loadimage_image_1"

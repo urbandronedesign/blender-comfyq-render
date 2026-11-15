@@ -267,6 +267,12 @@ Measured: 4 pictures ≈ 100 s with Klein edit; 2 clips ≈ 60 s with FILM inter
    the job ("lora_name … this ComfyUI does not offer"). On the teacher PC we downloaded them (2026-10-05) from
    `e-n-v-y/Qwen-Image-2.1-Fix` and `prithivMLmods/Qwen-Image-Edit-2511-Unblur-Upscale` (all 4 checkpoints); other
    rigs still need them.
+2d. **Found by the preset series of 2026-11-15** (`tools/preset_series.py`, every preset on its own inputs):
+   - `utility_seedvr2_3b_int8_video_upscale` runs out of GPU memory (`torch.OutOfMemoryError` in ComfyUI's log) on a
+     5 s 848×480 clip, twice, alone on the 5090;
+   - `image_ideogram4_t2i` returns a grey "Image blocked by safety filter" picture when the prompt is plain text
+     instead of its JSON caption: the job "succeeds", so the student is not told why. A check (or a clear error)
+     before booking would help; the bridge's preset now carries a How to use note.
 3. **Calibration inputs missing:** `comfyq__bench-vi__sports_car.png` and `comfyq__bench-im__sports_car.png`
    are not in ComfyUI/input, so calibrating LTX 2.5 union and Qwen 2.1 control depth fails.
 4. **Names that don't match ids:**

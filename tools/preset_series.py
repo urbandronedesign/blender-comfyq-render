@@ -8,7 +8,7 @@ character workflows, a Scene Render by a photoreal keyframe for image-to-video),
 other cards need are made first by the presets themselves (ASSET cards: the character, the portrait, the keyframes…).
 Seeds are fixed (7) so a later run can be compared.
 
-    python tools/preset_series.py [--only=a,b] [--scenes=cliff,room] [--fresh]     # orchestrates, one Blender per scene
+    python tools/preset_series.py [--only=a,b] [--scenes=cliff,room] [--fresh] [--redo] [--results=x.json]     # orchestrates, one Blender per scene
     (inside Blender: tools/preset_run_headless.py <out> --module=preset_series --scene=<alias>)
 
 Needs: ComfyQ serving, the sandbox profile with the extension (tools/smoke_test.ps1), file inputs made by
@@ -244,8 +244,7 @@ card(f"{E}/Wan 2.2 Bernini-R — image editing with a reference image", "room", 
          "Replace the armchair in the picture with the cognac leather armchair from the reference image, in the same "
          "spot, at the same size and in the same light, keeping everything else exactly as it is.")})
 card(f"{E}/Qwen Image 2.1 — relight a composite (blend an object into a background)", "room",
-     swap={"Scene render": "@room_photo.png"}, files={"Image 3": "@chair.png"},
-     relink={"Image 3": "loadimage_image_475"}, prompts={"Prompt": (
+     swap={"Scene render": "@room_photo.png"}, files={"Object to place": "@chair.png"}, prompts={"Prompt": (
          "Place the cognac leather armchair from <image2> into the living room of <image1>, standing on the floor next "
          "to the floor lamp at a natural size. Apply consistent lighting to it, matching the soft daylight from the "
          "window, enhance specular highlights on the leather, keep the front-back spatial relationship, add a natural "
@@ -326,10 +325,9 @@ WAN_ORBIT = ("A smooth continuous camera orbit to the right around a modern hous
              "in the wind.")
 card(f"{I2V}/Wan 2.2 — key-frame animation (4 frames to video)", "cliff",
      swap=KEYS, files={"Key frame 2": "@cliff_k2.png", "Key frame 3": "@cliff_k3.png"}, prompts={"Prompt": WAN_ORBIT},
-     # the workflow has one motion prompt per segment; the preset links only the first, the other two keep ComfyQ's
-     # example (a red line-art capoeira dancer, who then appeared in the clip): every segment gets the orbit
-     set={"Workflow": {"cliptextencode_text_228_225": WAN_ORBIT, "cliptextencode_text_245_242": WAN_ORBIT,
-                       "primitiveint_value_283": 1024, "primitiveint_value_284": 576}})
+     # one motion prompt per segment: the preset's Prompt feeds all three since 2026-11-16 (before, the other two
+     # kept ComfyQ's example, a red line-art capoeira dancer, who then appeared in the clip)
+     set={"Workflow": {"primitiveint_value_283": 1024, "primitiveint_value_284": 576}})
 
 # Upscale -----------------------------------------------------------------------------------------------------------
 for label in ("RelayVSR — video upscale 2x", "SeedVR2 3B (int8) — video upscale & restore",
@@ -640,6 +638,7 @@ def run_card(c: dict) -> dict:
 def main() -> None:
     scene = next((a.split("=", 1)[1] for a in sys.argv[1:] if a.startswith("--scene=")), None)
     only = next((a.split("=", 1)[1].split(",") for a in sys.argv[1:] if a.startswith("--only=")), None)
+    RESULTS = next((OUT / a.split("=", 1)[1] for a in sys.argv[1:] if a.startswith("--results=")), globals()["RESULTS"])
     ASSETS.mkdir(parents=True, exist_ok=True)
     results = json.loads(RESULTS.read_text(encoding="utf-8")) if RESULTS.is_file() else []
     done = {r["key"] for r in results if r.get("ok")} if "--redo" not in sys.argv else set()
@@ -678,7 +677,7 @@ def main() -> None:
 # -- orchestrating (plain python: one background Blender per scene) -------------------------------------------------
 def orchestrate() -> None:
     scenes = next((a.split("=", 1)[1].split(",") for a in sys.argv[1:] if a.startswith("--scenes=")), list(SCENES))
-    extra = [a for a in sys.argv[1:] if a.startswith("--only=") or a == "--redo"]
+    extra = [a for a in sys.argv[1:] if a.startswith(("--only=", "--results=")) or a == "--redo"]
     if "--fresh" in sys.argv and RESULTS.is_file():
         RESULTS.rename(RESULTS.with_suffix(f".{time.strftime('%H%M%S')}.json"))
     env = dict(__import__("os").environ, BLENDER_USER_RESOURCES=str(Path(__import__("os").environ["TEMP"])

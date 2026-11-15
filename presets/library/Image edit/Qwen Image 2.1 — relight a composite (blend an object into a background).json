@@ -1,8 +1,8 @@
 {
  "format": 1,
  "label": "Qwen Image 2.1 — relight a composite (blend an object into a background)",
- "description": "Harmonise the lighting of a composite. Qwen-Image-2.1 with a community relighting adapter (光影溶图, \"light-and-shadow blending\"): give it a picture where an object has been dropped onto a background and it re-lights the…\nFrom: Prompt, Scene render, Image 3. Viewer + Save",
- "made": "2026-11-15 15:43",
+ "description": "Harmonise the lighting of a composite. Qwen-Image-2.1 with a community relighting adapter (光影溶图, \"light-and-shadow blending\"): give it a picture where an object has been dropped onto a background and it re-lights the…\nFrom: Prompt, Scene render, Object to place. Viewer + Save",
+ "made": "2026-11-16 00:22",
  "nodes": [
   {
    "name": "Workflow",
@@ -28,7 +28,7 @@
    "width": 340.0,
    "label": "Prompt",
    "parent": "",
-   "text": "Apply consistent lighting to the product or object, enhance specular highlights，front-back spatial relationship，add natural contact shadow, and blend it seamlessly into the background。"
+   "text": "Place the object from <image2> into the scene of <image1>, standing naturally in the scene at a believable size. Apply consistent lighting to the object, enhance specular highlights, keep the front-back spatial relationship, add a natural contact shadow, and blend it seamlessly into the background."
   },
   {
    "name": "Scene Render",
@@ -53,8 +53,21 @@
     -660.0
    ],
    "width": 300.0,
-   "label": "Image 3",
+   "label": "Object to place",
    "parent": ""
+  },
+  {
+   "name": "Frame",
+   "type": "NodeFrame",
+   "location": [
+    -1440.0,
+    0.0
+   ],
+   "width": 560.0,
+   "label": "How to use",
+   "parent": "",
+   "height": 190.0,
+   "text": "1. The scene render is the background\n   (<image1> in the prompt)\n2. Pick the object picture (<image2>)\n3. Say where the object goes in the Prompt"
   },
   {
    "name": "Viewer",
@@ -101,7 +114,7 @@
    "from": "Image",
    "from_socket": "Image",
    "to": "Workflow",
-   "to_socket": "loadimage_image_476"
+   "to_socket": "loadimage_image_475"
   },
   {
    "from": "Workflow",

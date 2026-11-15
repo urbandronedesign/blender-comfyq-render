@@ -594,6 +594,14 @@ change that session: the user must reinstall from the UI or restart Blender.
   Flux2 42 s vs FLUX.3 full 83 s, `live_check/flux3_compare/sheet.jpg`); FLUX.3 prompts name the picture `<ref_image_0>`;
   the built-in Scene render → image role prefers it; inpaint stays Flux2 (no FLUX.3 inpaint workflow).
 
+## Work of 2026-11-15 / 16: preset series (commit `c2bc873` + fixes)
+- `tools/preset_series.py`: every preset (76 library + 15 class) on inputs chosen for it, with written prompts, one
+  headless Blender per scene; 91 presets: 73 ok, 16 to check, 2 fail (SeedVR2 3B OOM, Qwen 2.1 edit copies the
+  reference layout). Report `baselines/2026-11-15/index.html` (vs 2026-10-22 and 2026-10-04).
+- Library generator `OVERRIDES` (2026-11-16): Wan 2.2 key-frames (one Prompt feeds all 3 motion prompts), Qwen
+  relight (object → Image 2, Image 3 free), Ideogram (How to use: keep the JSON caption). GPU-checked
+  (`--results=fixcheck_2026-11-16.json`): orbit without the capoeira dancer, chair sent as Image 2, poster ok.
+
 ## Next steps
 0. **Audit-2 phases 3–5 (the user's current goal):** (3) the **ComfyQ workspace**: author `workspace.blend` once in a
    visible Blender (`tools/make_workspace_blend.py`, timers), ship it in the extension, `workspace.append_activate`,

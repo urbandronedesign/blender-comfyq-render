@@ -2,7 +2,7 @@
  "format": 1,
  "label": "Wan 2.2 — key-frame animation (4 frames to video)",
  "description": "Turn four still key frames into one continuous video. Wan 2.2 generates a smooth animated transition between each consecutive pair of frames (frame 1→2, 2→3, 3→4) and stitches the three segments into a single clip.  I…\nFrom: First frame, Key frame 2, Key frame 3, Last frame, Prompt. Viewer + Save",
- "made": "2026-11-15 15:43",
+ "made": "2026-11-16 00:22",
  "nodes": [
   {
    "name": "Workflow",
@@ -80,7 +80,20 @@
    "width": 340.0,
    "label": "Prompt",
    "parent": "",
-   "text": "Red minimalist line art animation of a man performing a capoeira meia lua de compasso. From a standing leaning stance, the man smoothly bends forward at the waist. His torso rotates downward toward the floor as his hands reach down to plant firmly onto the ground for support. His back begins to arch, and his weight shifts entirely onto his hands and pivoting front foot, preparing to unleash the spinning kick. Fluid transition, clean red lines on a plain white background."
+   "text": "Smooth, continuous camera move from one key frame to the next. The scene, the buildings and the materials stay exactly the same; no cuts, no new objects, natural light."
+  },
+  {
+   "name": "Frame",
+   "type": "NodeFrame",
+   "location": [
+    -1440.0,
+    0.0
+   ],
+   "width": 560.0,
+   "label": "How to use",
+   "parent": "",
+   "height": 190.0,
+   "text": "1. Key frames 1 and 4 come from the scene\n2. Pick pictures for key frames 2 and 3\n3. The Prompt describes the motion\n   (used for all three segments)"
   },
   {
    "name": "Viewer",
@@ -140,6 +153,18 @@
    "from_socket": "Text",
    "to": "Workflow",
    "to_socket": "cliptextencode_text_140_6"
+  },
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "cliptextencode_text_228_225"
+  },
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "cliptextencode_text_245_242"
   },
   {
    "from": "Workflow",
