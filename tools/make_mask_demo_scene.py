@@ -118,8 +118,8 @@ sc.display.shading.show_shadows = True
 sc.display.shading.show_cavity = True
 
 # ---------------------------------------------------------------- the ComfyQ graph (Flux2 Klein inpaint)
-from bl_ext.user_default.comfyq_bridge.graph import preset_ops  # noqa: E402
-from bl_ext.user_default.comfyq_bridge.runtime.session import SESSION  # noqa: E402
+from bl_ext.user_default.comfyq_bridge.graph import preset_ops
+from bl_ext.user_default.comfyq_bridge.runtime.session import SESSION
 
 
 def pump_until(pred, timeout):
