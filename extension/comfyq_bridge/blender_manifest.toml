@@ -25,4 +25,4 @@ network = "Send scene passes to a ComfyQ server and download results"
 files = "Save passes and downloaded results to a cache folder"
 
 [build]
-paths_exclude_pattern = ["__pycache__/", "/.git/", "*.part"]
+paths_exclude_pattern = ["__pycache__/", "/.git/", "*.part", "*.blend1"]
