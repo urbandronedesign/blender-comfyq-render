@@ -18,10 +18,10 @@ Most of it is in code added since October: the Server panel, 3D-model and splat 
 ## Test-evidence problems (fix first: the next audit runs on these)
 | # | Problem | Fix |
 |---|---|---|
-| T1 ✔ | **Six ComfyQ-window screenshots are byte-identical:** `09m`, `09n`, `12`, `13`, `14`, `15` `_comfyq.png`. The window capture stops updating after step 09m on 5.3, so later window checks show nothing new. | `ui_check.shot()`: redraw that window (`wm.redraw_timer` in its context) before `screen.screenshot`, and flag identical consecutive captures. |
-| T2 | **The Queue popover from step 08 stays open** in `09_keyframe_main` and `11_disconnected_main`. This is gotcha 42 regressed. | Close it, or move the popover step last. |
-| T3 | **Panels are drawn on top of each other:** Jobs over Prompt in `01_connected_main`, and the Server (Teacher) header over a job card in `07_job_card_main`. This may be panel animation caught mid-move, or a real 5.3 layout bug. | Reproduce interactively on 5.3. Screenshot after a settle delay. |
-| T4 | **`09j_cycles_rendering` shows no Cycles progress:** the view is zoomed on a Viewer node. | Frame the Scene Render node. |
+| T1 | ~~Six ComfyQ-window screenshots are byte-identical~~ **false alarm** (checked 2026-11-15): the file names are not in run order. In run order these shots come from steps that work in the main window and then restore the ComfyQ window exactly as it was (reload → camera bar → mesh bar; new-inputs graph removed; Media Folder restored). Window capture works. | None. |
+| T2 | **The Queue popover from step 08 stays open** in `09_keyframe_main` and `11_disconnected_main`. This is gotcha 42 regressed. | DONE: moved to a `step_queue_popover` near the end, with the other popups. |
+| T3 | **Panels are drawn on top of each other:** Jobs over Prompt in `01_connected_main`, and the Server (Teacher) header over a job card in `07_job_card_main`. | Partly explained. `shot()` now redraws 3 times, and a 1 s settle goes before `09_keyframe`, which is now clean, so that overlap was panel animation. `01_connected` **still overlaps after 1 s**, with LTX's long multi-line prompt preview: suspected layout oscillation (a tall bar → scrollbar → narrower → re-wrap → new height). **To check interactively in phase 6** (choose LTX with a long prompt in a normal sidebar). |
+| T4 | **`09j_cycles_rendering` shows no Cycles progress:** the view is zoomed on a Viewer node. | DONE: the node is made active and drawn before `view_selected`; the shot shows "Cycles: loading the scene" on the framed node. |
 
 ## Severity 3 — fix before the next class
 
@@ -193,6 +193,15 @@ Most of it is in code added since October: the Server panel, 3D-model and splat 
     - labels that fit the sidebar; status lines that expire.
 17. **Graph and agent parity:** Sketch, Paint Frame and Mask Zone as nodes and as MCP tools.
 18. **Version checks at run time:** greyed with the reason when this Blender lacks the tool (Grease Pencil v3, Mask, splats). CLASS.md says which Blender the class PCs need (#10).
+
+## Phase 2b results — spikes on Blender 5.3 (2026-11-15, `tools/draw_mask_spikes.py`, `live_check/draw_mask_spikes/`)
+| Spike | Result | Consequence for the build |
+|---|---|---|
+| S1 Grease Pencil sketch → the plugin's clay pass | ✅ A GP object parented to the camera, 2 m ahead, is in the clay pass (0.4 s): grey ink lines over the clay scene, aligned with the camera. "Sketch only": hiding the other objects works, but the background stays the pass's dark grey (the world colour is not used). | Sketch source = GP collection in the pass. "Sketch Only" needs a white-background option in `render.structure_pass`. Coloured ink becomes grey in Clay (expected; keep colours with the Material style). |
+| S2 Mask data-block → alpha | ✅ Blender's **Compositor** (Mask node → output, 0.1 s at 1280×720) and a numpy fill of the splines agree on **99.99 %** of pixels. The axis rule was found by the spike: mask y is width-normalised around the centre, `frame_y = 0.5 + (y − 0.5)·W/H` (first try without it: 87 %). | Use the Compositor (exact Blender result, feather and layer blending for free), with the numpy fill as a bpy-free, unit-tested fallback and checker. `Scene.compositing_node_group` is deprecated for Blender 6.0: keep the call in one place. |
+| S3 painted alpha (Erase Alpha) → upload | ✅ `render.image_pass` keeps the alpha exactly (8.68 % transparent in, 8.68 % out). | Paint Zone needs no conversion: the painted image IS the ComfyQ mask. |
+| S4 a ComfyQ workspace in a .blend | ⚠ `libraries.write` stores a workspace with its layout, and loading it back works. But **area-type changes made in background mode are not applied** (the copy kept Properties / Outliner). | Build the workspace .blend once in a VISIBLE Blender (`tools/make_workspace_blend.py`, timers: gotchas 10 / 26) and ship it in the extension; append it with `workspace.append_activate`. |
+| S5 pixel hash of a 1920×1080 image | ✅ 4.7 ms (`foreach_get` + sha1 of every 97th value) | Fine from the timer for the Image / Paint Frame nodes (fixes #16). |
 
 ## Proposed order (phases 2–7 of the plan, adjusted by these findings)
 1. **Phase 2a — fix the test harness first:** T1–T4, so later screenshots can be trusted.

@@ -82,16 +82,22 @@ def click(op, where, _mode="INVOKE_DEFAULT", **props):
         return fn(_mode, **props)
 
 
-def redraw():
+def redraw(iterations=1):
     for w in bpy.context.window_manager.windows:
         for a in w.screen.areas:
             a.tag_redraw()
         with bpy.context.temp_override(window=w):
-            bpy.ops.wm.redraw_timer(type="DRAW_WIN_SWAP", iterations=1)
+            bpy.ops.wm.redraw_timer(type="DRAW_WIN_SWAP", iterations=iterations)
 
 
 def shot(name):
-    redraw()
+    # Several redraws: sidebar panels slide into place over a few draws when the bar's sections change height;
+    # one draw caught them overlapping (audit 2, T3).
+    redraw(3)
+    _shoot(name)
+
+
+def _shoot(name):
     for n, w in enumerate(bpy.context.window_manager.windows):
         tag = "main" if n == 0 else ("comfyq" if w == ext("ops.workflow").comfyq_window() else f"win{n}")
         with bpy.context.temp_override(window=w):
@@ -184,6 +190,7 @@ def step_connect():
         why = ext("ops.generate").why_not_generate(bpy.context.scene, wf)
         check("Generate enabled after Connect when its model is served, else greyed with the reason",
               bpy.ops.comfyq.generate.poll() == served and (served or "not served" in why), why or "enabled")
+    yield 1.0        # let the sidebar panels settle (audit 2, T3: overlap caught right after the bar grew)
     shot("01_connected")
 
 
@@ -495,6 +502,10 @@ def step_finished_job_card():
     res = click("download", v3d, job_id=pick["id"])
     yield (lambda: S().jobs[pick["id"]].files and not S().jobs[pick["id"]].downloading), 30
     check("card › Download result", res == {"FINISHED"} and bool(S().jobs[pick["id"]].files), res)
+
+
+def step_queue_popover():
+    """Near the end: a popover opened by a script stays open and covers every later screenshot (gotcha 42)."""
     with ctx(v3d):
         bpy.ops.wm.call_panel(name="COMFYQ_PT_queue", keep_open=False)
     yield 0.3
@@ -548,6 +559,7 @@ def step_keyframe():
     yield (lambda: specs_ready(kf)), 15
     check("keyframe model menu", res == {"FINISHED"} and sc.comfyq.keyframe_workflow_id == kf and specs_ready(kf)
           and sc.comfyq.workflow_id == wf, res)
+    yield 1.0        # T3: let the panels settle after the keyframe box opened
     shot("09_keyframe")
     with ctx(v3d):
         greyed = not bpy.ops.comfyq.generate_keyframe.poll()
@@ -828,10 +840,13 @@ def step_cycles_render():
     node.location = (-600, 600)
     for n in tree.nodes:
         n.select = n == node
+    tree.nodes.active = node
+    yield 0.3                       # the new node needs a draw before view_selected sees its size (audit 2, T4)
     w, a = graph_area()
     region = next(r for r in a.regions if r.type == "WINDOW")
     with bpy.context.temp_override(window=w, area=a, region=region):
         bpy.ops.node.view_selected()
+    yield 0.3
     t0 = time.monotonic()
     res = click("preview_pass", graph_area, mask=False, style="CYCLES", frame=bpy.context.scene.frame_current,
                 tag=f"{tree.name}/{node.name}")
@@ -1257,7 +1272,8 @@ def step_presets_menu():
 STEPS = [step_start, step_connect, step_refresh, step_tabs_and_menu, step_chips, step_prompt, step_match,
          step_render_scene, step_animation, step_player, step_library, step_cleanup, step_finished_job_card,
          step_failed_job_card,
-         step_keyframe, step_graph, step_cycles_render, step_graph_run, step_generate, step_disconnect_reconnect, step_reload_file, step_new_inputs, step_extras, step_preferences, step_media_folder, step_server_panel, step_presets_menu]
+         step_keyframe, step_graph, step_cycles_render, step_graph_run, step_generate, step_disconnect_reconnect, step_reload_file, step_new_inputs, step_extras, step_preferences, step_media_folder, step_queue_popover, step_server_panel,
+         step_presets_menu]
 
 
 class Runner:
