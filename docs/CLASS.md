@@ -154,6 +154,14 @@ Built by `tools/make_new_inputs_presets.py` (headless, sandbox profile) from Com
   enlarged result, and *Before upscale* the model's own. Models chosen on the GPU (2026-11-15): RelayVSR for
   video (the original's texture, the least flicker, 45 s for 5 s of video), SeedVR2 4K for pictures.
   [upscale.md](upscale.md); built by `tools/make_upscale_presets.py`.
+- **Repaint the background of a picture (SAM3 + Flux2 Klein inpaint + SeedVR2 4K)**: keeps the subject of an
+  existing picture pixel for pixel and paints a new, sharp background, for renders of Gaussian splats or scans whose
+  background is smeared (few capture photos saw it). In **Picture Mask › Find**, name what to KEEP: the subject AND
+  the ground it stands on (`truck, sidewalk, road`; Invert is on). The prompt describes only what is behind it.
+  Tested 2026-11-15 on a captured truck splat (`tools/make_splat_scene.py` puts the camera where a capture photo was
+  taken → Cycles → FLUX.3 → this preset): with only "truck" kept, the street was repainted, the perspective lost and
+  a second truck invented; with the ground kept, a clean glass tower and trees, 4096×2238, about 4 min with Solo
+  loading three models. Built by `tools/make_bg_repaint_preset.py`.
 
 ### The workflow library (one preset per image / video workflow)
 `presets\library\` in this repository holds 67 ready-made graphs (regenerated 2026-11-15 for ComfyQ's 87
