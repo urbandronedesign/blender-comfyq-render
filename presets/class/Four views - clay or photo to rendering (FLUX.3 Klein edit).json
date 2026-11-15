@@ -1,7 +1,7 @@
 {
  "format": 1,
- "label": "Four views: clay or photo → rendering (Flux2 Klein edit)",
- "description": "Four views of one building (front, left, back, right) — clay renders of your 3D model or real photos — rendered as finished photographs by Flux2 Klein image edit, one shared prompt and the same seed so the materials match across the views. No 3D step: the four pictures are saved next to the .blend.",
+ "label": "Four views: clay or photo → rendering (FLUX.3 Klein edit)",
+ "description": "Four views of one building (front, left, back, right) — clay renders of your 3D model or real photos — rendered as finished photographs by FLUX.3 Klein image edit, one shared prompt and the same seed so the materials match across the views. No 3D step: the four pictures are saved next to the .blend.",
  "made": "2026-10-06 00:09",
  "nodes": [
   {
@@ -14,7 +14,7 @@
    "width": 340.0,
    "label": "Prompt (all 4 views)",
    "parent": "",
-   "text": "Re-render this picture of a building as a finished photorealistic architectural photograph, keeping exactly the same shape, proportions, openings and the same camera view: the main volume is clad in a perforated copper skin with a pixelated pattern of punched holes of varying sizes, the openings are deep windows with dark glass, the ground floor is glazed, the base is a light concrete plinth. Plain pure white background, soft even daylight, sharp architectural photograph."
+   "text": "Re-render the picture <ref_image_0> of a building as a finished photorealistic architectural photograph, keeping exactly the same shape, proportions, openings and the same camera view: the main volume is clad in a perforated copper skin with a pixelated pattern of punched holes of varying sizes, the openings are deep windows with dark glass, the ground floor is glazed, the base is a light concrete plinth. Plain pure white background, soft even daylight, sharp architectural photograph."
   },
   {
    "name": "Image",
@@ -37,10 +37,10 @@
    "width": 380.0,
    "label": "Front rendering",
    "parent": "",
-   "workflow_id": "image_edit_flux2_klein_9b_image_edit",
+   "workflow_id": "image_edit_flux3_klein_distilled_image_edit",
    "params": [
     {
-     "key": "loadimage_image_76",
+     "key": "image",
      "s": "",
      "i": 0,
      "f": 0.0,
@@ -49,16 +49,7 @@
      "text": null
     },
     {
-     "key": "flux2scheduler_steps_75_62",
-     "s": "",
-     "i": 20,
-     "f": 0.0,
-     "b": false,
-     "randomize": false,
-     "text": null
-    },
-    {
-     "key": "randomnoise_noise_seed_75_73",
+     "key": "seed",
      "s": "",
      "i": 7,
      "f": 0.0,
@@ -67,30 +58,12 @@
      "text": null
     },
     {
-     "key": "cliptextencode_text_75_74",
-     "s": "Change the camera angle to a first-person driver's perspective looking through the steering wheel at the dashboard and windshield, maintaining the same minimalist style and lighting",
+     "key": "prompt",
+     "s": "In <ref_image_0>, change the camera angle to a first-person driver's perspective looking through the steering wheel at the dashboard and windshield, maintaining the same minimalist style and lighting",
      "i": 0,
      "f": 0.0,
      "b": false,
      "randomize": true,
-     "text": null
-    },
-    {
-     "key": "cliptextencode_text_75_67",
-     "s": "",
-     "i": 0,
-     "f": 0.0,
-     "b": false,
-     "randomize": true,
-     "text": null
-    },
-    {
-     "key": "emptyflux2latentimage_batch_size_75_66",
-     "s": "",
-     "i": 1,
-     "f": 0.0,
-     "b": false,
-     "randomize": false,
      "text": null
     }
    ]
@@ -142,10 +115,10 @@
    "width": 380.0,
    "label": "Left rendering",
    "parent": "",
-   "workflow_id": "image_edit_flux2_klein_9b_image_edit",
+   "workflow_id": "image_edit_flux3_klein_distilled_image_edit",
    "params": [
     {
-     "key": "loadimage_image_76",
+     "key": "image",
      "s": "",
      "i": 0,
      "f": 0.0,
@@ -154,16 +127,7 @@
      "text": null
     },
     {
-     "key": "flux2scheduler_steps_75_62",
-     "s": "",
-     "i": 20,
-     "f": 0.0,
-     "b": false,
-     "randomize": false,
-     "text": null
-    },
-    {
-     "key": "randomnoise_noise_seed_75_73",
+     "key": "seed",
      "s": "",
      "i": 7,
      "f": 0.0,
@@ -172,30 +136,12 @@
      "text": null
     },
     {
-     "key": "cliptextencode_text_75_74",
-     "s": "Change the camera angle to a first-person driver's perspective looking through the steering wheel at the dashboard and windshield, maintaining the same minimalist style and lighting",
+     "key": "prompt",
+     "s": "In <ref_image_0>, change the camera angle to a first-person driver's perspective looking through the steering wheel at the dashboard and windshield, maintaining the same minimalist style and lighting",
      "i": 0,
      "f": 0.0,
      "b": false,
      "randomize": true,
-     "text": null
-    },
-    {
-     "key": "cliptextencode_text_75_67",
-     "s": "",
-     "i": 0,
-     "f": 0.0,
-     "b": false,
-     "randomize": true,
-     "text": null
-    },
-    {
-     "key": "emptyflux2latentimage_batch_size_75_66",
-     "s": "",
-     "i": 1,
-     "f": 0.0,
-     "b": false,
-     "randomize": false,
      "text": null
     }
    ]
@@ -235,10 +181,10 @@
    "width": 380.0,
    "label": "Back rendering",
    "parent": "",
-   "workflow_id": "image_edit_flux2_klein_9b_image_edit",
+   "workflow_id": "image_edit_flux3_klein_distilled_image_edit",
    "params": [
     {
-     "key": "loadimage_image_76",
+     "key": "image",
      "s": "",
      "i": 0,
      "f": 0.0,
@@ -247,16 +193,7 @@
      "text": null
     },
     {
-     "key": "flux2scheduler_steps_75_62",
-     "s": "",
-     "i": 20,
-     "f": 0.0,
-     "b": false,
-     "randomize": false,
-     "text": null
-    },
-    {
-     "key": "randomnoise_noise_seed_75_73",
+     "key": "seed",
      "s": "",
      "i": 7,
      "f": 0.0,
@@ -265,30 +202,12 @@
      "text": null
     },
     {
-     "key": "cliptextencode_text_75_74",
-     "s": "Change the camera angle to a first-person driver's perspective looking through the steering wheel at the dashboard and windshield, maintaining the same minimalist style and lighting",
+     "key": "prompt",
+     "s": "In <ref_image_0>, change the camera angle to a first-person driver's perspective looking through the steering wheel at the dashboard and windshield, maintaining the same minimalist style and lighting",
      "i": 0,
      "f": 0.0,
      "b": false,
      "randomize": true,
-     "text": null
-    },
-    {
-     "key": "cliptextencode_text_75_67",
-     "s": "",
-     "i": 0,
-     "f": 0.0,
-     "b": false,
-     "randomize": true,
-     "text": null
-    },
-    {
-     "key": "emptyflux2latentimage_batch_size_75_66",
-     "s": "",
-     "i": 1,
-     "f": 0.0,
-     "b": false,
-     "randomize": false,
      "text": null
     }
    ]
@@ -328,10 +247,10 @@
    "width": 380.0,
    "label": "Right rendering",
    "parent": "",
-   "workflow_id": "image_edit_flux2_klein_9b_image_edit",
+   "workflow_id": "image_edit_flux3_klein_distilled_image_edit",
    "params": [
     {
-     "key": "loadimage_image_76",
+     "key": "image",
      "s": "",
      "i": 0,
      "f": 0.0,
@@ -340,16 +259,7 @@
      "text": null
     },
     {
-     "key": "flux2scheduler_steps_75_62",
-     "s": "",
-     "i": 20,
-     "f": 0.0,
-     "b": false,
-     "randomize": false,
-     "text": null
-    },
-    {
-     "key": "randomnoise_noise_seed_75_73",
+     "key": "seed",
      "s": "",
      "i": 7,
      "f": 0.0,
@@ -358,30 +268,12 @@
      "text": null
     },
     {
-     "key": "cliptextencode_text_75_74",
-     "s": "Change the camera angle to a first-person driver's perspective looking through the steering wheel at the dashboard and windshield, maintaining the same minimalist style and lighting",
+     "key": "prompt",
+     "s": "In <ref_image_0>, change the camera angle to a first-person driver's perspective looking through the steering wheel at the dashboard and windshield, maintaining the same minimalist style and lighting",
      "i": 0,
      "f": 0.0,
      "b": false,
      "randomize": true,
-     "text": null
-    },
-    {
-     "key": "cliptextencode_text_75_67",
-     "s": "",
-     "i": 0,
-     "f": 0.0,
-     "b": false,
-     "randomize": true,
-     "text": null
-    },
-    {
-     "key": "emptyflux2latentimage_batch_size_75_66",
-     "s": "",
-     "i": 1,
-     "f": 0.0,
-     "b": false,
-     "randomize": false,
      "text": null
     }
    ]
@@ -419,13 +311,13 @@
    "from": "Image",
    "from_socket": "Image",
    "to": "Workflow",
-   "to_socket": "loadimage_image_76"
+   "to_socket": "image"
   },
   {
    "from": "Prompt",
    "from_socket": "Text",
    "to": "Workflow",
-   "to_socket": "cliptextencode_text_75_74"
+   "to_socket": "prompt"
   },
   {
    "from": "Workflow",
@@ -443,13 +335,13 @@
    "from": "Image.001",
    "from_socket": "Image",
    "to": "Workflow.001",
-   "to_socket": "loadimage_image_76"
+   "to_socket": "image"
   },
   {
    "from": "Prompt",
    "from_socket": "Text",
    "to": "Workflow.001",
-   "to_socket": "cliptextencode_text_75_74"
+   "to_socket": "prompt"
   },
   {
    "from": "Workflow.001",
@@ -461,13 +353,13 @@
    "from": "Image.002",
    "from_socket": "Image",
    "to": "Workflow.002",
-   "to_socket": "loadimage_image_76"
+   "to_socket": "image"
   },
   {
    "from": "Prompt",
    "from_socket": "Text",
    "to": "Workflow.002",
-   "to_socket": "cliptextencode_text_75_74"
+   "to_socket": "prompt"
   },
   {
    "from": "Workflow.002",
@@ -479,13 +371,13 @@
    "from": "Image.003",
    "from_socket": "Image",
    "to": "Workflow.003",
-   "to_socket": "loadimage_image_76"
+   "to_socket": "image"
   },
   {
    "from": "Prompt",
    "from_socket": "Text",
    "to": "Workflow.003",
-   "to_socket": "cliptextencode_text_75_74"
+   "to_socket": "prompt"
   },
   {
    "from": "Workflow.003",

@@ -83,24 +83,28 @@ every PC can reach (or let students pick theirs).
 long list by lesson or task.
 
 ### Class presets in the repository
+Since 2026-11-15 the Klein presets use **FLUX.3 Klein distilled** (same render, prompt and seed: it kept the
+layout best, 18 s per picture vs Flux2 Klein 9B 42 s and FLUX.3 Klein full 83 s; `live_check/flux3_compare/`).
+FLUX.3 names the picture `<ref_image_0>` in the prompt ("Re-render the picture <ref_image_0> as…").
+Converted by `tools/presets_to_flux3.py`. Inpainting stays on Flux2 Klein (FLUX.3 has no inpaint workflow).
 `presets\class\` holds hand-made presets, copied into the presets folder's **Class** subfolder:
-- **Cycles render → photoreal (Flux2 Klein)**: a real Cycles render of the camera view (materials, lights,
-  HDRI, shadow catchers; rendered in a separate Blender so the GPU is free), made photoreal by Flux2 Klein 9B
+- **Cycles render → photoreal (FLUX.3 Klein)**: a real Cycles render of the camera view (materials, lights,
+  HDRI, shadow catchers; rendered in a separate Blender so the GPU is free), made photoreal by FLUX.3 Klein distilled
   image edit with the same composition. Viewer + Save. Tested on a supercar-on-a-driveway scene (2026-10-04).
-- **Batch: folder → rendering (Flux2 Klein edit)**: a **Media Folder** node (choose a folder of photos or clay
+- **Batch: folder → rendering (FLUX.3 Klein edit)**: a **Media Folder** node (choose a folder of photos or clay
   renders; *Include Subfolders* is on) → one Prompt → Klein image edit with a fixed seed (a consistent series) →
   Save. **Run Graph** renders the pictures one after the other (about 25 s each; the folder node shows `12 / 48`
   and the time left, ✕ stops). The results go to a new folder next to yours, **`<name>_renders`**, with the same
   subfolders and each file's name plus the Save node's **Batch Suffix** (`facade_01.jpg` → `facade_01_render.png`).
   Stopped or crashed? Run Graph again: files already rendered are skipped. Any image or video chain can be
   batched the same way: put a Media Folder where its Image (or Video File) node was, and a Save at the end.
-- **Four views: clay or photo → rendering (Flux2 Klein edit)**: four Image nodes (Front, Left, Back, Right) that
+- **Four views: clay or photo → rendering (FLUX.3 Klein edit)**: four Image nodes (Front, Left, Back, Right) that
   you fill yourself, with clay renders of your 3D model or with real photos of a building; one Prompt describes
   the materials for all four; four Klein image edits with the same fixed seed (7) so the materials match across
   the views; each view is saved automatically next to the .blend (`//comfyq/views/front_….png` …), the Viewer
   shows the front. About 25 s per view. No 3D step (the views were consistent, but Pixal3D Multi-View could not
   keep the building's proportions, 2026-10-06). Change the seed on all four nodes for another variant.
-- **Text → 3D model (Flux2 Klein + Pixal3D)**: describe an object; Klein makes a clean product picture (white
+- **Text → 3D model (FLUX.3 Klein + Pixal3D)**: describe an object; Klein makes a clean product picture (white
   background, whole object), Pixal3D (ComfyUI's built-in 3D nodes; a checkbox switches to TRELLIS.2) turns it into a
   textured 3D model (about 4 min; TRELLIS2 alone was removed from ComfyQ on 2026-10-05), imported beside the scene, on
   the ground, 4.5 m long (Import node › Size). Two models: in class, both must be served (or use solo mode).
@@ -145,10 +149,17 @@ Built by `tools/make_new_inputs_presets.py` (headless, sandbox profile) from Com
   [blender-5.3.md](blender-5.3.md); built by `tools/make_splat_presets.py`.
 - **Multi-shot film: one look in every shot (FLUX.3 + Qwen board + LTX canny)**: several shots of one scene, each a timeline marker bound to a camera (**Shot 1**, **Shot 2**, **Shot 3**: select the camera, Ctrl+B in the Timeline, rename the marker with F2). One **Look** prompt (materials, season, light) is joined to every shot's own lines. Shot 1's first frame becomes the hero keyframe (FLUX.3 Klein); a **Material Board** cut from it gives shots 2 and 3 the same materials through Qwen 2.1 edit while each keeps its own composition; LTX 2.5 canny films each shot's clay animation from its keyframe (seed 7, up to 10 s a shot); the **Film** node puts the clips end to end (Render Film writes the MP4). Three models, loaded once each with Solo. More shots: copy a shot's row, set its Shot, link its video to the next Film input. [multi-shot.md](multi-shot.md); built by `tools/make_multishot_preset.py`.
 
+- **Cycles render → photoreal 4K (FLUX.3 Klein + SeedVR2 4K)** and **Blockout animation → photoreal video ×2
+  (FLUX.3 + LTX canny + RelayVSR)**: the same chains with an Upscale node at the end. Viewer / Save show the
+  enlarged result, and *Before upscale* the model's own. Models chosen on the GPU (2026-11-15): RelayVSR for
+  video (the original's texture, the least flicker, 45 s for 5 s of video), SeedVR2 4K for pictures.
+  [upscale.md](upscale.md); built by `tools/make_upscale_presets.py`.
+
 ### The workflow library (one preset per image / video workflow)
 `presets\library\` in this repository holds 67 ready-made graphs (regenerated 2026-11-15 for ComfyQ's 87
-workflows), one per workflow of ComfyQ's image and video categories, sorted into four submenus: **Image** (t2i,
-17), **Image edit** (16), **Image → video** (i2v, 18), **Video → video** (16). Each one is wired the same way:
+workflows), one per workflow of ComfyQ's image and video categories, sorted into submenus: **Image** (t2i,
+17), **Image edit** (16), **Image → video** (i2v, 18), **Video → video** (16), **Upscale** (8: every picture and video
+upscaler, fed by a file or result the student picks). Each one is wired the same way:
 
 - **Scene render** (clay, current frame) for the image to edit or the structure to follow; **First /
   Last frame** of the scene for videos that start or end on an image; **Clay animation** for a source video;

@@ -1,0 +1,102 @@
+{
+ "format": 1,
+ "label": "Unblur & upscale a photo (Qwen Image Edit 2511)",
+ "description": "Sharpen a blurry or low-resolution photograph. Upload a picture and the model re-renders it, recovering detail — it was trained above all to bring back FACES in partly blurred pictures.  Read this before judging it. T…\nFrom: Picture to upscale, Prompt. Viewer + Save",
+ "made": "2026-11-15 18:17",
+ "nodes": [
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "utility_qwen_2511_unblur_upscale",
+   "params": [],
+   "match_scene": true
+  },
+  {
+   "name": "Image",
+   "type": "ComfyQImageNode",
+   "location": [
+    -820.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "Picture to upscale",
+   "parent": ""
+  },
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -820.0,
+    -330.0
+   ],
+   "width": 340.0,
+   "label": "Prompt",
+   "parent": "",
+   "text": ""
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}",
+   "batch_suffix": "_render"
+  }
+ ],
+ "links": [
+  {
+   "from": "Image",
+   "from_socket": "Image",
+   "to": "Workflow",
+   "to_socket": "loadimage_image_25"
+  },
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "textencodeqwenimageeditplus_prompt_427_221_151"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ],
+ "library": {
+  "workflow_id": "utility_qwen_2511_unblur_upscale",
+  "category": "i2i"
+ }
+}

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Class preset "Four views: clay or photo → rendering (Flux2 Klein edit)": four Image nodes (front, left, back,
+"""Class preset "Four views: clay or photo → rendering (FLUX.3 Klein edit)": four Image nodes (front, left, back,
 right) the student fills with clay renders of a 3D model or with real photos → one shared Prompt → four Klein image
 edits with the SAME fixed seed (consistent materials across the views) → a Save per view + one Viewer. No 3D step.
 
@@ -21,10 +21,10 @@ from bl_ext.user_default.comfyq_bridge.runtime.session import SESSION
 
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 OUT = Path(argv[0] if argv else "four_views.json")
-WF = "image_edit_flux2_klein_9b_image_edit"
+WF = "image_edit_flux3_klein_distilled_image_edit"
 SEED = 7
-LABEL = "Four views: clay or photo → rendering (Flux2 Klein edit)"
-PROMPT = ("Re-render this picture of a building as a finished photorealistic architectural photograph, keeping "
+LABEL = "Four views: clay or photo → rendering (FLUX.3 Klein edit)"
+PROMPT = ("Re-render the picture <ref_image_0> of a building as a finished photorealistic architectural photograph, keeping "
           "exactly the same shape, proportions, openings and the same camera view: the main volume is clad in a "
           "perforated copper skin with a pixelated pattern of punched holes of varying sizes, the openings are deep "
           "windows with dark glass, the ground floor is glazed, the base is a light concrete plinth. Plain pure "
@@ -93,7 +93,7 @@ bad = [lk for lk in tree.links if not lk.is_valid]
 kinds = sorted({socket_kind(s) for n in tree.nodes if n.bl_idname == WORKFLOW_NODE for s in n.inputs if s.is_linked})
 print(f"BUILT {len(tree.nodes)} nodes, {len(tree.links)} links ({len(bad)} invalid), linked input kinds {kinds}", flush=True)
 data = preset_ops.serialize(tree, LABEL, "Four views of one building (front, left, back, right) — clay renders of "
-                            "your 3D model or real photos — rendered as finished photographs by Flux2 Klein image edit, "
+                            "your 3D model or real photos — rendered as finished photographs by FLUX.3 Klein image edit, "
                             "one shared prompt and the same seed so the materials match across the views. "
                             "No 3D step: the four pictures are saved next to the .blend.")
 OUT.parent.mkdir(parents=True, exist_ok=True)

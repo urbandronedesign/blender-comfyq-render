@@ -30,9 +30,16 @@ GROUPS = {                         # ComfyQ category -> submenu of Presets
     "image-edit": "Image edit",
     "i2v": "Image → video",
     "video-edit": "Video → video",
+    "i2i": "Upscale",              # picture upscalers (SeedVR2 4K / 7B, PiD, Qwen unblur)
+    "preprocessor": "Upscale",     # video tools: only the upscalers (RelayVSR, SeedVR2 HD / 3B, LTX 2×)
 }
+UPSCALE_CATEGORIES = ("i2i", "preprocessor")
 if len(argv) > 1:
     GROUPS = {k: v for k, v in GROUPS.items() if k in argv[1].split(",")}
+
+
+def wanted(w) -> bool:
+    return w.category in GROUPS and (w.category not in UPSCALE_CATEGORIES or "upscale" in w.id)
 FILE_SAFE = str.maketrans({c: "-" for c in '<>:"/\\|?*→'})
 
 
@@ -49,7 +56,7 @@ def pump_until(pred, timeout):
 SESSION.connect("", "preset-library")
 if not pump_until(lambda: SESSION.connected and SESSION.workflows, 30):
     sys.exit(f"Cannot connect to ComfyQ: {SESSION.error or SESSION.status}")
-wfs = [w for w in SESSION.workflows if w.category in GROUPS and not w.unavailable]
+wfs = [w for w in SESSION.workflows if wanted(w) and not w.unavailable]
 for w in wfs:
     request_specs(w.id)
 if not pump_until(lambda: all(w.id in SESSION.specs for w in wfs), 120):
@@ -74,6 +81,12 @@ def source_for(kind: str, nth: int, category: str, spec):
     for videos); optional extra images stay free."""
     label = spec.label.lower() if spec is not None else ""
     required = spec is None or spec.required
+    if category in UPSCALE_CATEGORIES:
+        # an upscaler enlarges a finished picture / video (a render, an AI result) the student picks, not the clay
+        if kind == "video":
+            return ("ComfyQVideoFileNode", "Video to upscale", {}) if nth == 0 else (None, "", {})
+        if kind == "image":
+            return ("ComfyQImageNode", "Picture to upscale", {}) if nth == 0 and required else (None, "", {})
     if kind == "video":
         if nth == 0 and "face" not in label:
             return "ComfyQSceneAnimationNode", "Clay animation", {}

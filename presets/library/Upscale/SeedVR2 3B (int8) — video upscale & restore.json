@@ -1,0 +1,85 @@
+{
+ "format": 1,
+ "label": "SeedVR2 3B (int8) — video upscale & restore",
+ "description": "Upload a video and SeedVR2 rebuilds every frame at a larger size, restoring real detail (textures, edges, blocky compression) instead of just stretching the pixels. The original frame rate and audio are kept. It is a…\nFrom: Video to upscale. Viewer + Save",
+ "made": "2026-11-15 18:17",
+ "nodes": [
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "utility_seedvr2_3b_int8_video_upscale",
+   "params": [],
+   "match_scene": true
+  },
+  {
+   "name": "Video File",
+   "type": "ComfyQVideoFileNode",
+   "location": [
+    -820.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "Video to upscale",
+   "parent": "",
+   "filepath": ""
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}",
+   "batch_suffix": "_render"
+  }
+ ],
+ "links": [
+  {
+   "from": "Video File",
+   "from_socket": "Video",
+   "to": "Workflow",
+   "to_socket": "loadvideo_file_73"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Video",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Video",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ],
+ "library": {
+  "workflow_id": "utility_seedvr2_3b_int8_video_upscale",
+  "category": "preprocessor"
+ }
+}

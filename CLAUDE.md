@@ -588,6 +588,11 @@ change that session: the user must reinstall from the UI or restart Blender.
   vase became a Delft porcelain vase (`live_check/mask_demo/vase_result.png`). Limit: the zone = the object's exact
   outline (no grow), so shape-changing prompts get cut. `preset_e2e.py graph:<name>` runs a graph saved in a file.
 - Gotchas 61–63 below.
+- Later the same day: **ComfyQ Mask tool** (3D zone: click / box / lasso, Grow / Feather), **Picture Mask** node (SAM3 on any
+  picture + clicks / shapes), demos `E:\zaki\mask_demo_zone.blend`, `E:\zaki\picture_mask_demo.blend`. **Class presets moved
+  to FLUX.3 Klein distilled** (`tools/presets_to_flux3.py`; same render/prompt/seed: distilled kept the layout best, 18 s vs
+  Flux2 42 s vs FLUX.3 full 83 s, `live_check/flux3_compare/sheet.jpg`); FLUX.3 prompts name the picture `<ref_image_0>`;
+  the built-in Scene render → image role prefers it; inpaint stays Flux2 (no FLUX.3 inpaint workflow).
 
 ## Next steps
 0. **Audit-2 phases 3–5 (the user's current goal):** (3) the **ComfyQ workspace**: author `workspace.blend` once in a

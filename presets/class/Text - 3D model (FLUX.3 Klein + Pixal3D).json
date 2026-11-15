@@ -1,7 +1,7 @@
 {
  "format": 1,
- "label": "Text → 3D model (Flux2 Klein + Pixal3D)",
- "description": "Describe an object: Flux2 Klein 9B makes a clean product picture of it (white background, whole object), Pixal3D (ComfyUI's built-in 3D nodes) turns it into a textured 3D model, imported beside the scene, on the ground, 4.5 m long (change Size on the Import node). Viewer shows the picture.",
+ "label": "Text → 3D model (FLUX.3 Klein + Pixal3D)",
+ "description": "Describe an object: FLUX.3 Klein makes a clean product picture of it (white background, whole object), Pixal3D (ComfyUI's built-in 3D nodes) turns it into a textured 3D model, imported beside the scene, on the ground, 4.5 m long (change Size on the Import node). Viewer shows the picture.",
  "made": "2026-10-04 14:33",
  "nodes": [
   {
@@ -26,7 +26,7 @@
    "width": 380.0,
    "label": "",
    "parent": "",
-   "workflow_id": "image_flux2_klein_9b_t2i",
+   "workflow_id": "image_flux3_klein_distilled_t2i",
    "params": [],
    "match_scene": true
   },
@@ -91,7 +91,7 @@
    "from": "Prompt",
    "from_socket": "Text",
    "to": "Workflow",
-   "to_socket": "primitivestringmultiline_value_76"
+   "to_socket": "prompt"
   },
   {
    "from": "Workflow",

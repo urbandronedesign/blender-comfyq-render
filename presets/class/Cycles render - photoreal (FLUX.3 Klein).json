@@ -1,7 +1,7 @@
 {
  "format": 1,
- "label": "Cycles render → photoreal (Flux2 Klein)",
- "description": "A real Cycles render of the camera view (materials, lights, HDRI, shadow catchers; rendered in a separate Blender so the GPU is free) made photoreal by Flux2 Klein 9B image edit, same composition. Viewer + Save",
+ "label": "Cycles render → photoreal (FLUX.3 Klein)",
+ "description": "A real Cycles render of the camera view (materials, lights, HDRI, shadow catchers; rendered in a separate Blender so the GPU is free) made photoreal by FLUX.3 Klein image edit, same composition. Viewer + Save",
  "made": "2026-10-04 09:32",
  "nodes": [
   {
@@ -14,7 +14,7 @@
    "width": 380.0,
    "label": "",
    "parent": "",
-   "workflow_id": "image_edit_flux2_klein_9b_image_edit",
+   "workflow_id": "image_edit_flux3_klein_distilled_image_edit",
    "params": [],
    "match_scene": true
   },
@@ -42,7 +42,7 @@
    "width": 340.0,
    "label": "Prompt",
    "parent": "",
-   "text": "Turn this 3D render into a photorealistic photograph taken with a full-frame camera: realistic materials and reflections, natural soft shadows, realistic surroundings, natural daylight. Keep exactly the same composition, camera angle, object shapes and background."
+   "text": "Turn the 3D render <ref_image_0> into a photorealistic photograph taken with a full-frame camera: realistic materials and reflections, natural soft shadows, realistic surroundings, natural daylight. Keep exactly the same composition, camera angle, object shapes and background."
   },
   {
    "name": "Viewer",
@@ -89,13 +89,13 @@
    "from": "Scene Render",
    "from_socket": "Image",
    "to": "Workflow",
-   "to_socket": "loadimage_image_76"
+   "to_socket": "image"
   },
   {
    "from": "Prompt",
    "from_socket": "Text",
    "to": "Workflow",
-   "to_socket": "cliptextencode_text_75_74"
+   "to_socket": "prompt"
   },
   {
    "from": "Workflow",

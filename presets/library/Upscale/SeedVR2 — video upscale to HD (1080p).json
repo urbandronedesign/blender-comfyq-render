@@ -1,0 +1,85 @@
+{
+ "format": 1,
+ "label": "SeedVR2 — video upscale to HD (1080p)",
+ "description": "Upscale and restore a video to HD with SeedVR2, a diffusion-based super-resolution model that restores detail frame-by-frame with temporal consistency. Upload a clip and it's re-rendered at the target resolution, keep…\nFrom: Video to upscale. Viewer + Save",
+ "made": "2026-11-15 18:17",
+ "nodes": [
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "utility_seedvr2_hd_upscale",
+   "params": [],
+   "match_scene": true
+  },
+  {
+   "name": "Video File",
+   "type": "ComfyQVideoFileNode",
+   "location": [
+    -820.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "Video to upscale",
+   "parent": "",
+   "filepath": ""
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}",
+   "batch_suffix": "_render"
+  }
+ ],
+ "links": [
+  {
+   "from": "Video File",
+   "from_socket": "Video",
+   "to": "Workflow",
+   "to_socket": "source_video_21"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Video",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Video",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ],
+ "library": {
+  "workflow_id": "utility_seedvr2_hd_upscale",
+  "category": "preprocessor"
+ }
+}

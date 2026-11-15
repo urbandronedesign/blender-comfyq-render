@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Class preset "Batch: folder → rendering (Flux2 Klein edit)": a Media Folder (pictures: photos or clay renders,
+"""Class preset "Batch: folder → rendering (FLUX.3 Klein edit)": a Media Folder (pictures: photos or clay renders,
 subfolders included) → one Prompt → Klein image edit with a fixed seed (a consistent series) → Save with a batch
 suffix. Run Graph renders the files one after the other into `<folder>_renders`, same subfolders.
 
@@ -19,9 +19,9 @@ from bl_ext.user_default.comfyq_bridge.runtime.session import SESSION
 
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 OUT = Path(argv[0] if argv else "batch_folder.json")
-WF = "image_edit_flux2_klein_9b_image_edit"
-LABEL = "Batch: folder → rendering (Flux2 Klein edit)"
-PROMPT = ("Re-render this picture as a finished photorealistic photograph, keeping exactly the same shapes, "
+WF = "image_edit_flux3_klein_distilled_image_edit"
+LABEL = "Batch: folder → rendering (FLUX.3 Klein edit)"
+PROMPT = ("Re-render the picture <ref_image_0> as a finished photorealistic photograph, keeping exactly the same shapes, "
           "proportions, openings and the same camera view. Describe the materials here: for example a perforated "
           "copper skin, deep windows with dark glass, a glazed ground floor, a light concrete plinth. Soft even "
           "daylight, sharp architectural photograph.")
@@ -78,7 +78,7 @@ note.location = (-900.0 - note.width - 60.0, 0.0)
 print(f"BUILT {len(tree.nodes)} nodes, {len(tree.links)} links ({sum(not lk.is_valid for lk in tree.links)} invalid)",
       flush=True)
 data = preset_ops.serialize(tree, LABEL, "A folder of pictures (photos or clay renders, subfolders included) rendered "
-                            "one after the other by Flux2 Klein image edit, one prompt and one seed for a consistent "
+                            "one after the other by FLUX.3 Klein image edit, one prompt and one seed for a consistent "
                             "series. The results go to a new folder next to it, <name>_renders, with the same "
                             "subfolders and each file's name plus the Save node's Batch Suffix.")
 OUT.parent.mkdir(parents=True, exist_ok=True)

@@ -66,7 +66,8 @@ _V2V_START = Role(("video-edit",), needs=("video", "image"),
                           "ltx2_3_3dreal"),
                   avoid=("character_replacement", "animate", "reference", "autoprompt"))
 _STILL = Role(("t2i", "image-edit"), needs=("image",),
-              prefer=("qwen_image_2_1_control_depth", "flux2_klein_ref_control_depth", "qwen_image_2_1_control_canny",
+              prefer=("flux3_klein_distilled_image_edit", "qwen_image_2_1_control_depth", "flux2_klein_ref_control_depth",
+                      "qwen_image_2_1_control_canny",
                       "flux2_klein_9b_image_edit", "qwen_image_2_1_image_edit", "flux2_dev_image_edit",
                       "bernini_r_image_editing"),
               avoid=("inpaint", "character", "quadview", "angles", "style_reference", "edit_ref", "reference"))

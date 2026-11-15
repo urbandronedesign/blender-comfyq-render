@@ -1,0 +1,103 @@
+{
+ "format": 1,
+ "label": "LTX 2.5 — 2× generative video upscale (keeps original audio)",
+ "description": "Enlarge a small video up to 2× with new, sharp detail. Upload a clip and LTX 2.5 re-renders every frame with Lightricks' Pixel Spatial Upscaler IC-LoRA (a generative 2× upscaler — it invents detail, it is not a deblur…\nFrom: Video to upscale, Prompt. Viewer + Save",
+ "made": "2026-11-15 18:17",
+ "nodes": [
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "utility_ltx2_5_video_deblur_upscale",
+   "params": [],
+   "match_scene": true
+  },
+  {
+   "name": "Video File",
+   "type": "ComfyQVideoFileNode",
+   "location": [
+    -820.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "Video to upscale",
+   "parent": "",
+   "filepath": ""
+  },
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -820.0,
+    -330.0
+   ],
+   "width": 340.0,
+   "label": "Prompt",
+   "parent": "",
+   "text": "Sharp, highly detailed footage with clean textures, natural colors and crisp edges."
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}",
+   "batch_suffix": "_render"
+  }
+ ],
+ "links": [
+  {
+   "from": "Video File",
+   "from_socket": "Video",
+   "to": "Workflow",
+   "to_socket": "loadvideo_file_5001"
+  },
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "primitivestringmultiline_value_5508"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Video",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Video",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ],
+ "library": {
+  "workflow_id": "utility_ltx2_5_video_deblur_upscale",
+  "category": "preprocessor"
+ }
+}

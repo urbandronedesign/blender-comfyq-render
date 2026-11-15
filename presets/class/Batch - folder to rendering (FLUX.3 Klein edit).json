@@ -1,7 +1,7 @@
 {
  "format": 1,
- "label": "Batch: folder → rendering (Flux2 Klein edit)",
- "description": "A folder of pictures (photos or clay renders, subfolders included) rendered one after the other by Flux2 Klein image edit, one prompt and one seed for a consistent series. The results go to a new folder next to it, <name>_renders, with the same subfolders and each file's name plus the Save node's Batch Suffix.",
+ "label": "Batch: folder → rendering (FLUX.3 Klein edit)",
+ "description": "A folder of pictures (photos or clay renders, subfolders included) rendered one after the other by FLUX.3 Klein image edit, one prompt and one seed for a consistent series. The results go to a new folder next to it, <name>_renders, with the same subfolders and each file's name plus the Save node's Batch Suffix.",
  "made": "2026-10-06 00:35",
  "nodes": [
   {
@@ -27,7 +27,7 @@
    "width": 340.0,
    "label": "Prompt",
    "parent": "",
-   "text": "Re-render this picture as a finished photorealistic photograph, keeping exactly the same shapes, proportions, openings and the same camera view. Describe the materials here: for example a perforated copper skin, deep windows with dark glass, a glazed ground floor, a light concrete plinth. Soft even daylight, sharp architectural photograph."
+   "text": "Re-render the picture <ref_image_0> as a finished photorealistic photograph, keeping exactly the same shapes, proportions, openings and the same camera view. Describe the materials here: for example a perforated copper skin, deep windows with dark glass, a glazed ground floor, a light concrete plinth. Soft even daylight, sharp architectural photograph."
   },
   {
    "name": "Workflow",
@@ -39,10 +39,10 @@
    "width": 380.0,
    "label": "Rendering",
    "parent": "",
-   "workflow_id": "image_edit_flux2_klein_9b_image_edit",
+   "workflow_id": "image_edit_flux3_klein_distilled_image_edit",
    "params": [
     {
-     "key": "loadimage_image_76",
+     "key": "image",
      "s": "",
      "i": 0,
      "f": 0.0,
@@ -51,16 +51,7 @@
      "text": null
     },
     {
-     "key": "flux2scheduler_steps_75_62",
-     "s": "",
-     "i": 20,
-     "f": 0.0,
-     "b": false,
-     "randomize": false,
-     "text": null
-    },
-    {
-     "key": "randomnoise_noise_seed_75_73",
+     "key": "seed",
      "s": "",
      "i": 7,
      "f": 0.0,
@@ -69,30 +60,12 @@
      "text": null
     },
     {
-     "key": "cliptextencode_text_75_74",
-     "s": "Change the camera angle to a first-person driver's perspective looking through the steering wheel at the dashboard and windshield, maintaining the same minimalist style and lighting",
+     "key": "prompt",
+     "s": "In <ref_image_0>, change the camera angle to a first-person driver's perspective looking through the steering wheel at the dashboard and windshield, maintaining the same minimalist style and lighting",
      "i": 0,
      "f": 0.0,
      "b": false,
      "randomize": true,
-     "text": null
-    },
-    {
-     "key": "cliptextencode_text_75_67",
-     "s": "",
-     "i": 0,
-     "f": 0.0,
-     "b": false,
-     "randomize": true,
-     "text": null
-    },
-    {
-     "key": "emptyflux2latentimage_batch_size_75_66",
-     "s": "",
-     "i": 1,
-     "f": 0.0,
-     "b": false,
-     "randomize": false,
      "text": null
     }
    ]
@@ -131,13 +104,13 @@
    "from": "Media Folder",
    "from_socket": "Image",
    "to": "Workflow",
-   "to_socket": "loadimage_image_76"
+   "to_socket": "image"
   },
   {
    "from": "Prompt",
    "from_socket": "Text",
    "to": "Workflow",
-   "to_socket": "cliptextencode_text_75_74"
+   "to_socket": "prompt"
   },
   {
    "from": "Workflow",
