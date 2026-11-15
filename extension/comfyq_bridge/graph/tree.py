@@ -30,6 +30,17 @@ from ..runtime.session import SESSION
 from ..wording import count
 from . import kinds
 
+
+def draw_status(layout, status: str) -> None:
+    """An output node's last outcome: a check mark when it worked, a red warning when it failed (audit 2, #11:
+    "Failed: …" was drawn with a green check), wrapped to fit a node."""
+    from ..ui.studio import wrap
+    failed = status.startswith(("Failed", "Could not"))
+    col = layout.column(align=True)
+    col.alert = failed
+    for k, line in enumerate(wrap(status, 45, max_lines=4)):
+        col.label(text=line, icon=("ERROR" if failed else "CHECKMARK") if k == 0 else "BLANK1")
+
 TREE = "ComfyQGraphTree"
 WORKFLOW_NODE = "ComfyQWorkflowNode"
 
@@ -999,7 +1010,7 @@ class _OutputNode(_Node):
         target(layout.operator("comfyq.graph_run", text="Generate Upstream, then " + self.verb.title(), icon="PLAY"),
                self)
         if self.status:
-            layout.label(text=self.status, icon="CHECKMARK")
+            draw_status(layout, self.status)
 
     def draw_body(self, context, layout, media) -> None:
         pass
@@ -1153,7 +1164,7 @@ class ComfyQFilmNode(_OutputNode, bpy.types.Node):
         sub.enabled = bpy.data.scenes.get("ComfyQ Film") is not None
         target(sub.operator("comfyq.film_render", text="Render Film...", icon="RENDER_ANIMATION"), self)
         if self.status:
-            layout.label(text=self.status, icon="CHECKMARK")
+            draw_status(layout, self.status)
         if self.last_render:
             layout.label(text=Path(self.last_render).name, icon="FILE_MOVIE")
 

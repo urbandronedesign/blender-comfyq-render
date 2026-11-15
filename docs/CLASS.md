@@ -9,7 +9,8 @@ your own ready-made graphs. Every button is described in [UI.md](UI.md).
    (ComfyQ's own interface). Only served workflows can run; the others are listed but marked
    *Not served (ask the teacher)*. For animation work, serve a video-to-video workflow (e.g.
    *LTX 2.5 IC-LoRA*) and, for AI keyframes, an image workflow too (e.g. *Qwen Image 2.1 control depth*).
-2. **Every student PC**: Blender 5.2 LTS with the *ComfyQ Render* extension installed
+2. **Every student PC**: Blender 5.3 (5.2 LTS works, but Gaussian splats need 5.3: on 5.2 a splat preset brings
+   in the job's mesh instead) with the *ComfyQ Render* extension installed
    (Edit › Preferences › Get Extensions › Install from Disk › `comfyq_bridge-…zip`).
 3. **Connection**: copy one `profiles.toml` to `%APPDATA%\comfyq-bridge\` on each PC with the server
    address, for example:

@@ -533,6 +533,13 @@ def pick_result(files: list[Path], kind: str) -> Path:
     wanted = _EXTS.get(kind, ())
     hits = [f for f in files if f.suffix.lower() in wanted]
     if kind == "splat":
+        from ..importers.media import native_splats
+        if not native_splats():
+            # Blender 5.2 has no splats (a .spz stays in the job folder, a .ply is bare vertices): take the job's
+            # mesh twin instead, so a splat preset still brings something in (audit 2, #10)
+            mesh = [f for f in files if f.suffix.lower() in _EXTS["model"]]
+            if mesh:
+                return mesh[0]
         hits.sort(key=lambda f: f.suffix.lower() != ".ply")
     return hits[0] if hits else files[0]
 

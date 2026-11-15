@@ -17,7 +17,7 @@ from bpy.props import StringProperty
 
 from .. import match as scene_match
 from ..client.params import ParamSpec, is_disabled
-from ..importers.media import IMAGE_EXTS, import_files, import_image
+from ..importers.media import IMAGE_EXTS, import_image, import_report
 from ..passes import animation, mesh, render
 from ..props import INT_MAX, param_item, workflow_items
 from ..runtime.session import SESSION, JobView, cache_dir
@@ -364,8 +364,10 @@ class COMFYQ_OT_import(bpy.types.Operator):
         if view is None or not view.files:
             self.report({"WARNING"}, "Result not downloaded yet")
             return {"CANCELLED"}
-        for msg in import_files(view.files, self.job_id, view.job.workflow_id, context.scene):
-            self.report({"INFO"}, f"Imported {msg}")
+        rep = import_report(view.files, self.job_id, view.job.workflow_id, context.scene)
+        rep.report_to(self)
+        if not rep.imported:
+            return {"CANCELLED"}
         view.imported = True
         _mark_imported(context.scene, self.job_id)
         return {"FINISHED"}
@@ -393,9 +395,11 @@ def on_job_done(view: JobView) -> None:
         # agents import with blender_import when they want to
         if rec is None or rec.imported or rec.purpose in ("keyframe", "graph", "agent") or not sc.comfyq.auto_import:
             continue
-        msgs = import_files(view.files, view.job.id, view.job.workflow_id, sc)
-        rec.imported, view.imported = True, True
-        SESSION.status_note = "Imported " + "; ".join(msgs)
+        rep = import_report(view.files, view.job.id, view.job.workflow_id, sc)
+        if rep.imported:
+            rec.imported, view.imported = True, True
+        SESSION.status_note = "; ".join([*(["Imported " + "; ".join(rep.imported)] if rep.imported else []),
+                                         *rep.kept, *rep.failed])
 
 
 classes = (COMFYQ_OT_generate, COMFYQ_OT_generate_keyframe, COMFYQ_OT_clear_keyframe, COMFYQ_OT_cancel,

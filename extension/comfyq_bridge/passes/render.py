@@ -192,10 +192,13 @@ def scene_fingerprint(scene: bpy.types.Scene, style: str) -> str:
     r = scene.render
     add(style, scene.frame_start, scene.frame_end, r.fps, r.fps_base, r.resolution_x, r.resolution_y,
         r.pixel_aspect_x, r.pixel_aspect_y, scene.camera.name if scene.camera else None)
+    from ..importers.media import untouched_import
     actions, datas = set(), set()
     for ob in sorted(scene.objects, key=lambda o: o.name):
         if ob.hide_render:
             add(ob.name, "hidden")
+            continue
+        if untouched_import(ob):       # an AI result where the import put it (out of view): not part of the shot
             continue
         ad = ob.animation_data
         animated = ad is not None and ad.action is not None

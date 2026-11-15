@@ -276,7 +276,7 @@ def _save(node, media: Media) -> str:
         shutil.copy2(media.path, dst)
     else:
         dst.write_text(media.text or "", encoding="utf-8")
-    return f"Saved {dst}"
+    return f"Saved {dst.name}"
 
 
 def save_batch(node, media: Media, root: Path, file: Path) -> str:
@@ -291,7 +291,7 @@ def save_batch(node, media: Media, root: Path, file: Path) -> str:
         shutil.copy2(media.path, dst)
     else:
         dst.write_text(media.text or "", encoding="utf-8")
-    return f"Saved {dst}"
+    return f"Saved {dst.name}"
 
 
 # -- the timer -----------------------------------------------------------------------------------------------

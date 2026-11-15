@@ -23,7 +23,7 @@ from ..wording import count
 PHASE_TEXT = {
     "scheduled": "Waiting in queue", "uploading-inputs": "Preparing inputs", "submitted": "Starting",
     "executing": "Generating", "collecting-outputs": "Collecting result", "completed": "Done",
-    "failed": "Failed", "cancelled": "Cancelled",
+    "failed": "Failed", "cancelled": "Cancelled", "lost": "Not on the server any more",
 }
 MEDIA_ICON = {"video": "FILE_MOVIE", "audio": "SOUND", "image": "IMAGE_DATA", "mask": "SELECT_SET",
               "model": "MESH_DATA"}
@@ -115,6 +115,15 @@ def draw_studio(layout: bpy.types.UILayout, context, columns: int = 2, dialog: b
         return
 
     _who(layout)
+    lost = SESSION.lost_for()
+    if lost > 2:                     # audit 2, #3: a dropped connection looked like "connected, greyed out"
+        col = layout.column(align=True)
+        col.alert = True
+        m, s = divmod(int(lost), 60)
+        for n, line in enumerate(wrap(f"Connection to the class server lost: reconnecting by itself… {m}:{s:02d}",
+                                      _CHARS[0], max_lines=2)):
+            col.label(text=line, icon="ERROR" if n == 0 else "BLANK1")
+        col.operator("comfyq.connect", text="Reconnect", icon="FILE_REFRESH")
     wf = next((w for w in SESSION.workflows if w.id == cq.workflow_id), None)
     served = SESSION.served_ids()
     box = layout.box()
@@ -429,6 +438,11 @@ def _messages(layout) -> None:
         col.alert = True
         for n, line in enumerate(wrap(SESSION.error, _CHARS[0])):
             col.label(text=line, icon="ERROR" if n == 0 else "BLANK1")
+        # the way out, next to the problem (audit 2, #1–2)
+        if SESSION.need_password:
+            layout.operator("comfyq.access_password", icon="LOCKED")
+        elif SESSION.client is None:
+            layout.operator("comfyq.server_address", icon="URL")
     elif SESSION.status_note:
         for n, line in enumerate(wrap(SESSION.status_note, _CHARS[0], max_lines=3)):
             layout.label(text=line, icon="INFO" if n == 0 else "BLANK1")
@@ -524,14 +538,23 @@ def _draw_sent(box, rec) -> None:
     for key, path in sent.items():
         p = _Path(path)
         spec = specs.get(key)
-        label = scene_match.short_label(spec.label, 28) if spec else key
-        kind = "animation" if p.suffix.lower() in (".mp4", ".mov", ".webm") else "image"
+        label = scene_match.short_label(spec.label, 28) if spec else "input"     # never a raw parameter key
+        kind, icon = _SENT_KIND.get(p.suffix.lower(), ("file", "FILE"))
         row = col.row(align=True)
-        row.label(text=f"Sent · {label} ({kind})", icon="FILE_MOVIE" if kind == "animation" else "IMAGE_DATA")
-        if p.is_file():
-            row.operator("comfyq.show_media", text="Show", icon="HIDE_OFF").path = str(p)
-        else:
+        row.label(text=f"Sent · {label} ({kind})", icon=icon)
+        if not p.is_file():
             row.label(text="(cleared)")
+        elif p.suffix.lower() in _VIEWABLE:
+            row.operator("comfyq.show_media", text="Show", icon="HIDE_OFF").path = str(p)
+        else:                    # a 3D model or a sound cannot be shown in the viewer (audit 2, #7)
+            row.operator("comfyq.open_media", text="Open", icon="URL").path = str(p)
+
+
+_SENT_KIND = {**{e: ("animation", "FILE_MOVIE") for e in (".mp4", ".mov", ".webm", ".gif", ".mkv")},
+              **{e: ("image", "IMAGE_DATA") for e in (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".exr", ".tif",
+                                                     ".tiff")},
+              **{e: ("3D model", "MESH_DATA") for e in (".glb", ".gltf", ".obj", ".fbx", ".stl", ".ply")},
+              **{e: ("sound", "SOUND") for e in (".wav", ".mp3", ".flac", ".ogg", ".m4a")}}
 
 
 def _draw_file(box, rec, path) -> None:

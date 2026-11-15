@@ -448,8 +448,15 @@ class COMFYQ_OT_graph_save_preset(bpy.types.Operator):
     bl_options = {"REGISTER", "INTERNAL"}
     name: StringProperty(name="Name", default="My class preset")
     description: StringProperty(name="Description", default="")
-    shared: BoolProperty(name="Save in the shared folder", default=False,
-                         description="Save in the shared presets folder (Preferences › Student, or the profile's presets_dir)")
+    shared: BoolProperty(name="Save in Shared Folder", default=False,
+                         description="Save in the Shared Presets Folder (Preferences › Student, or the class profile)")
+    replace: BoolProperty(name="Replace the Existing Preset", default=False, options={"SKIP_SAVE"},
+                          description="Write over the preset that already has this name")
+
+    def _path(self) -> Path:
+        folders = preset_folders()
+        folder = folders[1] if self.shared and len(folders) > 1 else folders[0]
+        return folder / f"{_slug(self.name)}.json"
 
     @classmethod
     def poll(cls, context):
@@ -471,14 +478,25 @@ class COMFYQ_OT_graph_save_preset(bpy.types.Operator):
         if len(folders) > 1:
             col.prop(self, "shared")
         col.label(text=str(folders[1] if self.shared and len(folders) > 1 else folders[0]), icon="FILE_FOLDER")
+        if self._path().exists():               # audit 2, #12: it was overwritten without a word
+            box = col.column(align=True)
+            box.alert = not self.replace
+            box.label(text=f"A preset named “{self.name}” is already there", icon="ERROR")
+            box.prop(self, "replace")
 
     def execute(self, context):
-        folders = preset_folders()
-        folder = folders[1] if self.shared and len(folders) > 1 else folders[0]
-        folder.mkdir(parents=True, exist_ok=True)
-        path = folder / f"{_slug(self.name)}.json"
+        path = self._path()
+        if path.exists() and not self.replace:
+            self.report({"ERROR"}, f"A preset named “{self.name}” already exists: choose another name, or tick "
+                                   f"Replace the Existing Preset")
+            return {"CANCELLED"}
         data = serialize(context.space_data.edit_tree, self.name, self.description)
-        path.write_text(json.dumps(data, indent=1, ensure_ascii=False), encoding="utf-8")
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(data, indent=1, ensure_ascii=False), encoding="utf-8")
+        except OSError as e:                      # a read-only or unreachable shared folder
+            self.report({"ERROR"}, f"Could not save the preset in {path.parent}: {e.strerror or e}")
+            return {"CANCELLED"}
         self.report({"INFO"}, f"Saved {path}")
         return {"FINISHED"}
 

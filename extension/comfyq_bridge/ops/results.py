@@ -9,7 +9,7 @@ import bpy
 from bpy.props import BoolProperty, StringProperty
 from bpy_extras.io_utils import ExportHelper
 
-from ..importers.media import import_files
+from ..importers.media import import_report
 from ..runtime.session import SESSION
 from ..wording import count
 
@@ -72,8 +72,10 @@ class COMFYQ_OT_import_file(bpy.types.Operator):
     def execute(self, context):
         view = SESSION.jobs.get(self.job_id)
         wf = view.job.workflow_id if view else ""
-        for msg in import_files([Path(self.path)], self.job_id, wf, context.scene):
-            self.report({"INFO"}, f"Imported {msg}")
+        rep = import_report([Path(self.path)], self.job_id, wf, context.scene)
+        rep.report_to(self)
+        if not rep.imported:
+            return {"CANCELLED"}
         for r in context.scene.comfyq.jobs:
             if r.job_id == self.job_id:
                 r.imported = True
@@ -184,5 +186,36 @@ class COMFYQ_OT_remove_job(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class COMFYQ_OT_remove_finished_jobs(bpy.types.Operator):
+    bl_idname = "comfyq.remove_finished_jobs"
+    bl_label = "Remove Finished Jobs"
+    bl_description = ("Remove every finished, failed, cancelled job, and those no longer on the server, from this "
+                      "file's list (downloaded files stay on disk)")
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+
+    @classmethod
+    def poll(cls, context):
+        if not any(_finished(r.job_id) for r in context.scene.comfyq.jobs):
+            cls.poll_message_set("No finished job in the list")
+            return False
+        return True
+
+    def execute(self, context):
+        jobs = context.scene.comfyq.jobs
+        gone = [r.job_id for r in jobs if _finished(r.job_id)]
+        for job_id in gone:                                # re-find each time: never keep references (gotcha 7)
+            idx = next((n for n, r in enumerate(jobs) if r.job_id == job_id), None)
+            if idx is not None:
+                jobs.remove(idx)
+            SESSION.jobs.pop(job_id, None)
+        self.report({"INFO"}, f"Removed {len(gone)} finished job{'s' if len(gone) != 1 else ''} from the list")
+        return {"FINISHED"}
+
+
+def _finished(job_id: str) -> bool:
+    view = SESSION.jobs.get(job_id)
+    return view is not None and view.job.done
+
+
 classes = (COMFYQ_OT_save_result, COMFYQ_OT_import_file, COMFYQ_OT_download, COMFYQ_OT_cleanup,
-           COMFYQ_OT_remove_job)
+           COMFYQ_OT_remove_job, COMFYQ_OT_remove_finished_jobs)

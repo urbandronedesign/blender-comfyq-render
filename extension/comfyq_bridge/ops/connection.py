@@ -71,6 +71,67 @@ class COMFYQ_OT_set_student_name(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class COMFYQ_OT_server_address(bpy.types.Operator):
+    bl_idname = "comfyq.server_address"
+    bl_label = "Server Address..."
+    bl_description = ("Type the address of the class server (shown in ComfyQ's window on the teacher's PC), "
+                      "then connect")
+
+    address: StringProperty(name="Address", options={"SKIP_SAVE"},
+                            description="Set the class server's address, for example http://192.168.1.20:3000")
+
+    def invoke(self, context, event):
+        self.address = prefs(context).url or "http://"
+        return context.window_manager.invoke_props_dialog(self, title="Class Server Address", confirm_text="Connect")
+
+    def draw(self, context):
+        col = self.layout.column()
+        col.prop(self, "address", text="")
+        col.label(text="The teacher's PC shows it in ComfyQ's window", icon="INFO")
+
+    def execute(self, context):
+        url = self.address.strip().rstrip("/")
+        if url and "://" not in url:
+            url = "http://" + url
+        if len(url) <= len("http://"):
+            self.report({"ERROR"}, "Type the server's address first")
+            return {"CANCELLED"}
+        p = prefs(context)
+        p.url = url                       # the student's own choice, typed here (Preferences › Server › Advanced)
+        if not _name_ok(p.student_name):
+            return bpy.ops.comfyq.connect("INVOKE_DEFAULT")
+        SESSION.connect(p.profile, p.student_name.strip(), url)
+        self.report({"INFO"}, f"Connecting to {url}")
+        return {"FINISHED"}
+
+
+class COMFYQ_OT_access_password(bpy.types.Operator):
+    bl_idname = "comfyq.access_password"
+    bl_label = "Access Password..."
+    bl_description = "Type the class server's access password (kept until Blender closes, never saved), then connect"
+
+    password: StringProperty(name="Access Password", subtype="PASSWORD", options={"SKIP_SAVE"})
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self, title="Class Server Access Password",
+                                                          confirm_text="Connect")
+
+    def draw(self, context):
+        col = self.layout.column()
+        col.prop(self, "password", text="")
+        col.label(text="Ask the teacher. Not saved in the file", icon="INFO")
+
+    def execute(self, context):
+        if not self.password:
+            self.report({"ERROR"}, "Type the access password first")
+            return {"CANCELLED"}
+        SESSION.access_password = self.password
+        p = prefs(context)
+        SESSION.connect(p.profile, p.student_name.strip(), p.url.strip())
+        self.report({"INFO"}, "Connecting with the access password")
+        return {"FINISHED"}
+
+
 class COMFYQ_OT_disconnect(bpy.types.Operator):
     bl_idname = "comfyq.disconnect"
     bl_label = "Disconnect"
@@ -124,4 +185,5 @@ class COMFYQ_OT_copy_agent_command(bpy.types.Operator):
         return {"FINISHED"}
 
 
-classes = (COMFYQ_OT_copy_agent_command, COMFYQ_OT_connect, COMFYQ_OT_set_student_name, COMFYQ_OT_disconnect, COMFYQ_OT_refresh)
+classes = (COMFYQ_OT_copy_agent_command, COMFYQ_OT_connect, COMFYQ_OT_set_student_name, COMFYQ_OT_server_address,
+           COMFYQ_OT_access_password, COMFYQ_OT_disconnect, COMFYQ_OT_refresh)

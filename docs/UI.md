@@ -1,6 +1,6 @@
 # ComfyQ Render — user interface reference
 
-Every place the extension appears in Blender 5.2 LTS, every button, what it does, and how it
+Every place the extension appears in Blender 5.3 (5.2 LTS works too; Gaussian splats need 5.3), every button, what it does, and how it
 is checked. The checks run in a visible Blender on a copy of a real scene:
 
 ```powershell
@@ -8,7 +8,7 @@ is checked. The checks run in a visible Blender on a copy of a real scene:
 .\tools\smoke_test.ps1 -Ui -Book    # also Generate (booked, cancelled) and a live graph chain A → B (2 short jobs)
 ```
 
-Last full runs, 2026-10-03, on `testV2V_clean` in **Blender 5.2.2 LTS**: **92 / 92** without GPU (after N5) and,
+Last run 2026-11-15 in **Blender 5.3.0**: 112 checks, no drawing errors (`-Ui -Version 5.3`). Earlier runs, 2026-10-03, on `testV2V_clean` in **Blender 5.2.2 LTS**: **92 / 92** without GPU (after N5) and,
 with `-Book`, the live part (graph chain A → B, B given A's result, *Generate again* reuses A, ✕ cancels);
 no drawing errors.
 
@@ -47,6 +47,9 @@ become icons (hover for the name), long lines wrap and **Generate** gets its own
 | **?** (bar top row and graph header) | Opens the student quickstart in the web browser (`help/student.html`, shipped with the extension; source of truth, see [STUDENT.md](STUDENT.md)) | `F3: ? opens the student quickstart` |
 | ⟳ (panel header) | **Refresh**: reloads the workflow list and what is served. The chosen workflow's settings reload by themselves | `Refresh button`, `settings still loaded after Refresh`, `Generate enabled after Refresh` |
 | ⛓ (panel header) | **Disconnect** | `Disconnect` |
+| **Server Address...** (under a connection error) | Shown when Connect fails without a class server set: no profiles file, so it tried this PC itself. Types the server's address (kept in Preferences › Server › Advanced), then connects | GUI `connect problem: Server Address...` (`11b_server_main.png`) |
+| **Access Password...** (under a connection error) | Shown when the class server is locked. The password is kept until Blender closes, never written to a file or the .blend | GUI `connect problem: Access Password...` (`11b_access_main.png`) |
+| *Connection to the class server lost: reconnecting by itself… 0:12* + **Reconnect** | Shown while the socket is down (ComfyQ restarted, the network dropped); it reconnects by itself, Reconnect forces it | — (needs a real drop) |
 | **Connect** (when not connected) | The first time, asks for the **student name** (a dialog: lab PCs share Windows logins, so no default name), then connects with the preferences' profile / URL / name. Auto-connect waits until a name was typed once. The scene's chosen workflow (and AI-keyframe workflow) load their settings automatically — also after reconnecting or opening a file | `Connect button`, `connected`, `saved workflow's settings load after Connect`, `reconnect: settings load again`, `reopened file: settings load by themselves` |
 
 **Warning box** (red) — *“AI results sit in this scene's sequencer…”*: shown when ComfyQ result strips
@@ -120,9 +123,11 @@ One card per job of this scene, newest first.
 | Element | Does | Check |
 |---|---|---|
 | Title `Workflow (job id)` | — | — |
-| **Sent · Source video (animation) ▶ Show** | The exact file that was sent (clay video, start image…). *(cleared)* once Clean up removed it | `card › Sent · Show` |
+| **Sent · Source video (animation) ▶ Show** | The exact file that was sent (clay video, start image, 3D model, sound…). Pictures and videos: **Show**; a 3D model or a sound: **Open** in the PC's own app (it cannot be shown in the viewer). *(cleared)* once Clean up removed it | `card › Sent · Show` |
 | Progress bar / queue place | While waiting: **"3rd in line · now running: Tom"** (same model's lane, from the jobs ComfyQ sends everyone); then the progress bar | unit `test_queue` |
 | Job card 🗑 **Remove from List** | Removes a finished / failed / cancelled job from the list (files stay on disk); a running job must be cancelled first | smoke `Job card › Remove from List` |
+| *Not on the server any more* | A job recorded in the file that ComfyQ no longer knows (history cleared, another server): finished, removable. It used to stay *Waiting in queue* for ever | smoke `a job the server does not know becomes 'lost'…` |
+| Queue popover › 🗑 **Remove Finished Jobs** | Removes every finished, failed, cancelled and lost job from the list (files stay on disk) | smoke `Queue › Remove Finished Jobs removes it` |
 | Failed / cancelled card ⟳ **Retry** | Books the same model again with the same settings and the same files (uploaded again, no new render). Greyed out, with the reason in its tooltip, when the model is not served, a file was deleted (Clean Up), the job is still on the server, or it was sent before Retry existed | smoke `Job card › Retry books the same…`, `Retry refused…`; ui `failed card › Retry drawn` (`07b_failed_job_card.png`) |
 | Connection errors | Plain words + what to do ("The ComfyQ server at … is not answering. Check that the server PC is on…") | unit `test_unreachable_server_message_is_plain_words` |
 | ✕ (running job) | Cancels it (own jobs only) | `card › ✕ cancels the job` |
@@ -131,7 +136,7 @@ One card per job of this scene, newest first.
 | **Show** | Result in the ComfyQ viewer (videos play there) | `card › Show → ComfyQ viewer` |
 | **Open** | In the system viewer / player | `card › Open → system player/viewer` |
 | **Save As...** | Copy anywhere (default: `comfyq` folder next to the .blend) | `card › Save as… opens the file browser`, `… copies the file` |
-| **Import** (pressed + ✓ once in the scene; pressing again replaces) | Image → Image Editor; video / audio → separate **ComfyQ Results** scene (never the 3D scene's sequencer); GLB / PLY / SPZ (Gaussian splats: native in Blender 5.3, upright) → a `ComfyQ <job>` collection, set **beside the scene, on the ground** (generators put models at the origin, inside the scene). *In scene* asks before importing a second copy | `card › Import (video → ComfyQ Results scene, not the 3D scene)` |
+| **Import** (pressed + ✓ once in the scene; pressing again replaces) | Image → Image Editor; video / audio → separate **ComfyQ Results** scene (never the 3D scene's sequencer); GLB / PLY / SPZ (Gaussian splats: native in Blender 5.3, upright) → a `ComfyQ <job>` collection, set **beside the scene, on the ground, out of the camera's view** (generators put models at the origin, inside the scene; in the shot, the next render would send the AI result back to ComfyQ). Until it is moved, an imported result does not make scene-fed graph results out of date; once moved it counts as part of the shot. A file Blender cannot import is reported as *kept in the job folder*, a failure as a warning (never as *Imported*). *In scene* asks before importing a second copy | `card › Import (video → ComfyQ Results scene, not the 3D scene)` |
 | **Jobs shown** | How many cards to list | — |
 | **Import results** | Import finished results automatically (off: use Import) | — |
 
@@ -139,7 +144,7 @@ One card per job of this scene, newest first.
 
 ## 4. Player (ComfyQ window → viewer sidebar, above the bar)
 
-Plays videos in the viewer **without moving the scene's timeline**.
+Plays videos in the viewer **without moving the scene's timeline**. Every new picture is fitted to the view. Results only go to the ComfyQ window's viewer, or to an Image Editor showing nothing or a ComfyQ picture: never one in Paint or Mask mode, pinned, or showing someone's own image (GUI `results never go to an Image Editor in Paint mode`).
 
 | Control | Does | Check |
 |---|---|---|
@@ -192,7 +197,6 @@ collection* first, so it never reached ComfyQ.
 - The **dialog** does not redraw live progress (Blender redraws dialogs only on input); use the
   sidebar or the ComfyQ window to follow a job.
 - The AI-keyframe chain has not run end to end on the server yet.
-- Job cards cannot be removed from the list yet (lower **Jobs shown** instead).
 
 ## Layout (UX phase D)
 | Control | Does | Check |
@@ -253,7 +257,7 @@ the window opens if needed). Saved with the file.
 | **Film** node (Output menu) | Shot 1 … Shot 6 video inputs + Soundtrack. **Assemble** puts the linked shots' clips end to end in the **ComfyQ Film** scene's sequencer (its own scene: the 3D scene's sequencer stays empty, gotcha 1), at the first clip's rate and size; *Keep Clip Sound* (off: each clip's generated sound would jump at the cuts), the Soundtrack trimmed to the film. *Assemble when ready*. **Render Film...** (asks first: Blender is busy) writes `film_<date>_<time>.mp4` (H.264 + AAC) into *Folder* | smoke `Film: two shots back to back…`, `Film › Render Film writes an MP4` |
 | Header **Image · Video · 3D · Splats · Audio · Tools** | Adds a workflow node (served first, VRAM badge). Same entries in Shift+A | `toolbar › Video › … adds a node with its inputs as sockets` |
 | Header 🔍 (and Shift+A › *Any Model...*) | Search every workflow by name and add it | — |
-| Header **Presets** | Class presets: *Scene render → image*, *Clay animation → video*, *AI keyframe → video*, *Image → 3D model*, *Image → upscale* — built from the workflows ComfyQ serves now (served first, then the best match), added right of the graph, each with a **How to use** note (a Frame showing numbered steps; saved presets keep their notes, the class presets have one too); then saved presets in two sections, **Saved on This PC** and **Shared** (the Shared Presets Folder preference, the profile's `presets_dir`, `COMFYQ_BRIDGE_PRESETS`; subfolders = submenus, e.g. the 48-preset workflow library: Image / Image edit / Image → video / Video → video); **Save Graph as Preset…**, **Open Presets Folder** (Explorer on `%APPDATA%\comfyq-bridge\presets`, path + count in the status bar), **Open Shared Presets Folder** (when one is set). Teacher guide: [CLASS.md](CLASS.md) | `N5: Presets › AI keyframe → video builds the graph…`, `N5/F4: Save Graph as Preset writes into the Shared Presets Folder…`, `F4: Presets menu draws…` (`09i_presets_menu_shared.png`); smoke `Shared Presets Folder (preference + profile presets_dir) listed…`, `preset “…”: built from …`, `saved preset rebuilds the same graph`, `F3: preset “…” has a How to use note` |
+| Header **Presets** | Class presets: *Scene render → image*, *Clay animation → video*, *AI keyframe → video*, *Image → 3D model*, *Image → upscale* — built from the workflows ComfyQ serves now (served first, then the best match), added right of the graph, each with a **How to use** note (a Frame showing numbered steps; saved presets keep their notes, the class presets have one too); then saved presets in two sections, **Saved on This PC** and **Shared** (the Shared Presets Folder preference, the profile's `presets_dir`, `COMFYQ_BRIDGE_PRESETS`; subfolders = submenus, e.g. the 67-preset workflow library: Image / Image edit / Image → video / Video → video); **Save Graph as Preset…** (a preset of the same name is never overwritten silently: the dialog says so and **Replace the Existing Preset** must be ticked; a read-only shared folder gives a message, not a traceback), **Open Presets Folder** (Explorer on `%APPDATA%\comfyq-bridge\presets`, path + count in the status bar), **Open Shared Presets Folder** (when one is set). Teacher guide: [CLASS.md](CLASS.md) | `N5: Presets › AI keyframe → video builds the graph…`, `N5/F4: Save Graph as Preset writes into the Shared Presets Folder…`, `Save Graph as Preset refuses to overwrite a preset of the same name unless Replace is ticked`, `F4: Presets menu draws…` (`09i_presets_menu_shared.png`); smoke `Shared Presets Folder (preference + profile presets_dir) listed…`, `preset “…”: built from …`, `saved preset rebuilds the same graph`, `F3: preset “…” has a How to use note` |
 | Header **Output** | Adds a **Viewer**, **Import to Scene** or **Save** node, or Blender's **Frame** (notes / groups) and **Reroute** | `N4: toolbar › Output adds Viewer, Save, Import to Scene, Reroute and Frame` |
 | **Viewer** node | Shows what is linked (thumbnail; text as text) and, with *Show When Ready* (on), plays each new result in the ComfyQ viewer. **Show** shows it now | `N4: Viewer fed by Scene Animation shows the clay video…`; live `N4 live: the Viewer shows B's result` |
 | **Import to Scene** node | **Import**: image → Image Editor, video/audio → *ComfyQ Results* scene, GLB/PLY/SPZ (splats native in Blender 5.3) → collection, text → a Text. *Replace previous import* (on) removes the strips/objects it imported last time. For a 3D model or splat: **Place** *Beside the scene* (default) / *At the 3D cursor* / *At the origin* / *As made*, **On the ground** (on), **Size** = longest side (0 = as made, e.g. 4.5 m for a car). *Import When Ready* (off) | smoke `Import to Scene: imports, and Replace replaces`, `an imported model is placed beside the scene…`, `Place at the 3D cursor, size 4.5…`; live `Import when ready brought B's result…` |

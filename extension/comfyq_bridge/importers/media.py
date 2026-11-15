@@ -58,13 +58,15 @@ def tag(idblock: bpy.types.ID, job_id: str, workflow_id: str) -> None:
 
 
 def show_in_image_editor(img: bpy.types.Image) -> bool:
-    for window in bpy.context.window_manager.windows:
-        for area in window.screen.areas:
-            if area.type == "IMAGE_EDITOR":
-                area.spaces.active.image = img
-                area.tag_redraw()
-                return True
-    return False
+    """Show it in the ComfyQ viewer, or an Image Editor free for results (never one being painted, masked,
+    pinned, or showing someone's own picture: audit 2, #6). False = nowhere to show it (it waits on its card)."""
+    from ..ui import player
+    area = player.viewer_area()
+    if area is None:
+        return False
+    player.show_media(area, img)
+    area.tag_redraw()
+    return True
 
 
 def import_image(path: Path, job_id: str, workflow_id: str, show: bool = True) -> bpy.types.Image:
@@ -190,12 +192,63 @@ def place(scene: bpy.types.Scene, new: list, placement: Placement) -> str:
             target = Vector((ohi.x + margin + dims.x * f / 2, (olo.y + ohi.y) / 2, 0.0))
         if not placement.on_ground:
             target.z = dims.z * f / 2
+        if placement.where == "BESIDE":
+            # never inside the camera's view: the next scene render would send the AI result back to ComfyQ
+            target = _out_of_view(scene, target, dims * f, placement.on_ground, margin=max(0.5, 0.25 * max(dims * f)))
     m = Matrix.Translation(target) @ Matrix.Scale(f, 4) @ Matrix.Translation(-anchor)
     roots = [o for o in new if o.parent not in new]
     for o in roots:
         o.matrix_world = m @ o.matrix_world
-    where = {"BESIDE": "beside the scene", "CURSOR": "at the 3D cursor", "ORIGIN": "at the origin"}[placement.where]
+    bpy.context.view_layer.update()
+    for o in new:                      # where the import put it: moved by the student later = meant for the shot
+        o[PLACED_KEY] = matrix_key(o)
+    where = {"BESIDE": "beside the scene, out of the camera's view", "CURSOR": "at the 3D cursor",
+             "ORIGIN": "at the origin"}[placement.where]
     return f", placed {where}" + (f", {max(dims) * f:.2f} long" if f != 1.0 else "")
+
+
+PLACED_KEY = "comfyq_placed"
+
+
+def matrix_key(obj) -> str:
+    """The object's placement, rounded: compared with PLACED_KEY to tell whether the student moved it."""
+    return ",".join(f"{x:.4f}" for row in obj.matrix_world for x in row)
+
+
+def untouched_import(obj) -> bool:
+    """An imported result still where the import put it. Such objects do not change the scene fingerprint, so
+    importing a result does not make every scene-fed graph result out of date (audit 2, #4)."""
+    return bool(obj.get("comfyq_job")) and obj.get(PLACED_KEY) == matrix_key(obj)
+
+
+def _box_in_view(scene, centre: Vector, dims: Vector, on_ground: bool) -> bool:
+    """Is any corner of the box (centre x/y, bottom on the ground or centred) in the scene camera's frame?"""
+    from bpy_extras.object_utils import world_to_camera_view
+    cam = scene.camera
+    if cam is None:
+        return False
+    z0 = centre.z if on_ground else centre.z - dims.z / 2
+    for dx in (-0.5, 0.5):
+        for dy in (-0.5, 0.5):
+            for dz in (0.0, 1.0):
+                p = Vector((centre.x + dx * dims.x, centre.y + dy * dims.y, z0 + dz * dims.z))
+                v = world_to_camera_view(scene, cam, p)
+                if v.z > 0 and -0.05 <= v.x <= 1.05 and -0.05 <= v.y <= 1.05:
+                    return True
+    return False
+
+
+def _out_of_view(scene, target: Vector, dims: Vector, on_ground: bool, margin: float) -> Vector:
+    """The nearest spot to `target` (moving along ±X / ±Y) where the box is not in the camera's view."""
+    if not _box_in_view(scene, target, dims, on_ground):
+        return target
+    step = max(dims.x, dims.y) + margin
+    for k in range(1, 60):
+        for d in (Vector((1, 0, 0)), Vector((0, 1, 0)), Vector((0, -1, 0)), Vector((-1, 0, 0))):  # -X: over the scene
+            cand = target + d * step * k
+            if not _box_in_view(scene, cand, dims, on_ground):
+                return cand
+    return target
 
 
 def _import_objects(scene, op, path: Path, job_id: str, workflow_id: str,
@@ -225,33 +278,61 @@ def _import_objects(scene, op, path: Path, job_id: str, workflow_id: str,
     return f"{what} in collection “{coll.name}”" + place(scene, new, placement)
 
 
-def import_files(files: list[Path], job_id: str, workflow_id: str, scene: bpy.types.Scene | None = None,
-                 placement: Placement = DEFAULT_PLACEMENT) -> list[str]:
-    """Import what we can; return a short description per file."""
+@dataclass
+class ImportReport:
+    """What an import did, per file: brought in, kept in the job folder (nothing to import it with), failed."""
+    imported: list[str]
+    kept: list[str]
+    failed: list[str]
+
+    @property
+    def all(self) -> list[str]:
+        return [*self.imported, *self.kept, *self.failed]
+
+    def report_to(self, op) -> None:
+        """Operator reports: failures as warnings, kept files as info (audit 2, #8: failures read "Imported")."""
+        for m in self.imported:
+            op.report({"INFO"}, f"Imported {m}")
+        for m in self.kept:
+            op.report({"INFO"}, m)
+        for m in self.failed:
+            op.report({"WARNING"}, m)
+
+
+def import_report(files: list[Path], job_id: str, workflow_id: str, scene: bpy.types.Scene | None = None,
+                  placement: Placement = DEFAULT_PLACEMENT) -> ImportReport:
+    """Import what we can, saying for each file whether it came in, stayed in the job folder, or failed."""
     scene = scene or bpy.context.scene
-    done: list[str] = []
+    rep = ImportReport([], [], [])
     for f in pick_files(files):
         ext = f.suffix.lower()
         try:
             if ext in IMAGE_EXTS:
-                done.append(f"image “{import_image(f, job_id, workflow_id).name}”")
+                rep.imported.append(f"image “{import_image(f, job_id, workflow_id).name}”")
             elif ext in VIDEO_EXTS:
-                done.append(import_video(scene, f, job_id, workflow_id))
+                rep.imported.append(import_video(scene, f, job_id, workflow_id))
             elif ext in MODEL_EXTS:
-                done.append(_import_objects(scene, bpy.ops.import_scene.gltf, f, job_id, workflow_id,
-                                            placement))
+                rep.imported.append(_import_objects(scene, bpy.ops.import_scene.gltf, f, job_id, workflow_id,
+                                                    placement))
             elif ext in PLY_EXTS:
-                done.append(_import_objects(scene, bpy.ops.wm.ply_import, f, job_id, workflow_id, placement))
+                rep.imported.append(_import_objects(scene, bpy.ops.wm.ply_import, f, job_id, workflow_id, placement))
             elif ext in SPZ_EXTS:
                 if hasattr(bpy.ops.wm, "spz_import") and native_splats():
-                    done.append(_import_objects(scene, bpy.ops.wm.spz_import, f, job_id, workflow_id, placement,
-                                                rotate=SPZ_FIX))
+                    rep.imported.append(_import_objects(scene, bpy.ops.wm.spz_import, f, job_id, workflow_id,
+                                                        placement, rotate=SPZ_FIX))
                 else:
-                    done.append(f"{f.name} (Gaussian splat kept in the job folder: Blender 5.3 or later imports it)")
+                    rep.kept.append(f"{f.name} is kept in the job folder: Blender 5.3 or later imports Gaussian "
+                                    f"splats")
             elif ext in AUDIO_EXTS:
-                done.append(import_audio(scene, f, job_id, workflow_id))
+                rep.imported.append(import_audio(scene, f, job_id, workflow_id))
             else:
-                done.append(f"{f.name} (kept in the job folder; no importer for {ext})")
+                rep.kept.append(f"{f.name} is kept in the job folder (Blender cannot import {ext} files)")
         except (RuntimeError, AttributeError) as e:
-            done.append(f"{f.name}: import failed ({e})")
-    return done
+            rep.failed.append(f"Could not import {f.name}: {e}")
+    return rep
+
+
+def import_files(files: list[Path], job_id: str, workflow_id: str, scene: bpy.types.Scene | None = None,
+                 placement: Placement = DEFAULT_PLACEMENT) -> list[str]:
+    """Import what we can; return a short description per file (`import_report` says which kind each is)."""
+    return import_report(files, job_id, workflow_id, scene, placement).all

@@ -76,14 +76,16 @@ class COMFYQ_PT_image_jobs(_Jobs, bpy.types.Panel):
 
 
 class COMFYQ_PT_queue(bpy.types.Panel):
-    """Popover behind the bar's Queue button."""
+    # the popover behind the bar's Queue button (a class docstring would become its tooltip)
     bl_space_type = "VIEW_3D"
     bl_region_type = "HEADER"
     bl_label = "Queue"
+    bl_description = "Show the jobs of this file and where they are in the class queue"
     bl_ui_units_x = 18
 
     def draw(self, context):
         draw_jobs(self.layout, context, limit=8)
+        self.layout.operator("comfyq.remove_finished_jobs", icon="TRASH")
 
 
 class COMFYQ_OT_studio(bpy.types.Operator):

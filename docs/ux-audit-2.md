@@ -194,6 +194,28 @@ Most of it is in code added since October: the Server panel, 3D-model and splat 
 17. **Graph and agent parity:** Sketch, Paint Frame and Mask Zone as nodes and as MCP tools.
 18. **Version checks at run time:** greyed with the reason when this Blender lacks the tool (Grease Pencil v3, Mask, splats). CLASS.md says which Blender the class PCs need (#10).
 
+## Severity-3 fixes done (2026-11-15, step 3)
+Verified: smoke PASSED on 5.3 and 5.2; GUI `-Ui -Version 5.3` passed with no draw errors; screenshots looked at
+(`11b_access`, `11b_server`, lost job card, fitted render).
+
+| # | Fix |
+|---|---|
+| 1 | No profiles file and the default address: the error says "No class server is set on this PC…", and the bar offers **Server Address...** (writes the Preferences URL, then connects). |
+| 2 | A locked server: **Access Password...** (kept in the session only, never in a file). |
+| 3 | Socket down while connected: a red line "Connection to the class server lost: reconnecting by itself… m:ss", plus **Reconnect**. |
+| 4 | **Changed from the proposal.** Leaving imports out of every render would break classes that import a result on purpose to render it (the supercar scene). Instead, *Beside the scene* also stays **out of the camera's view** (`_out_of_view`). An import still where the import put it is left out of the scene fingerprint (`untouched_import`); once moved, it counts. |
+| 5 | Every new picture is fitted to the viewer (`player.fit_view_soon`). |
+| 6 | Results go only to the ComfyQ viewer, or to an Image Editor that shows nothing or a ComfyQ picture. Never one in Paint or Mask mode, pinned, or showing the student's own image (`player.free_for_results`). |
+| 7 | Sent files are labelled by kind (image, animation, 3D model, sound). A 3D model or sound gets **Open**, not Show. Show never crashes on a non-picture. |
+| 8 | `import_report`: imported / kept / failed. Failures are warnings, and the card is marked imported only when something came in. |
+| 9 | Unknown jobs (404) become **lost** ("Not on the server any more", finished, removable). New Queue popover button **Remove Finished Jobs**; the popover got a real tooltip. |
+| 10 | **Changed from the proposal.** On Blender 5.2 a splat node's result is the job's `.glb` mesh twin, so the splat presets still bring something in. The docs say the class PCs need 5.3 for splats. |
+| 11 | Output nodes show a failure in red with ERROR, wrapped. *Saved* shows the file name. |
+| 12 | Save Graph as Preset refuses to overwrite unless **Replace the Existing Preset** is ticked. An OSError is reported, not raised. |
+| 17 | Inpaint preset descriptions say "select the objects", in the generator and in the 2 committed presets. |
+
+Left for phases 3–5 (the workspace, Draw and Mask): 13, 14, 15, 16, 18, 19.
+
 ## Phase 2b results — spikes on Blender 5.3 (2026-11-15, `tools/draw_mask_spikes.py`, `live_check/draw_mask_spikes/`)
 | Spike | Result | Consequence for the build |
 |---|---|---|

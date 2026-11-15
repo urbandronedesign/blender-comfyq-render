@@ -115,9 +115,12 @@ def show_media(area, img: bpy.types.Image) -> None:
     sp = _space(area)
     if sp is None:
         return
+    changed = sp.image != img
     sp.image = img
     if is_movie(img):
         set_frame(area, 1)
+    if changed or img.name.startswith("ComfyQ"):     # a new picture, or a pass preview reloaded with new pixels
+        fit_view_soon(area)
 
 
 def _tick():
@@ -223,21 +226,29 @@ class COMFYQ_OT_player(bpy.types.Operator):
 class COMFYQ_OT_show_media(bpy.types.Operator):
     bl_idname = "comfyq.show_media"
     bl_label = "Show"
-    bl_description = "Show this result in the ComfyQ window's viewer"
+    bl_description = "Show this file in the ComfyQ viewer (in the PC's own viewer when none is free)"
     bl_options = {"INTERNAL"}
     image: StringProperty()
     path: StringProperty()
 
     def execute(self, context):
-        area = context.area if _space(context.area) else viewer_area()
+        from ..ops.workflow import open_file
+        here = context.area if _space(context.area) and free_for_results(context.area, comfyq_viewer=True) else None
+        area = here or viewer_area()
         if area is None and self.path:
-            from ..ops.workflow import open_file
-            open_file(self.path)          # no Image Editor open: the system viewer/player
+            open_file(self.path)          # no free Image Editor: the system viewer/player
+            self.report({"INFO"}, "Opened in the PC's own viewer (no free Image Editor)")
             return {"FINISHED"}
         img = bpy.data.images.get(self.image) if self.image else None
         if img is None and self.path:
-            img = bpy.data.images.load(self.path, check_existing=True)
+            try:
+                img = bpy.data.images.load(self.path, check_existing=True)
+            except RuntimeError:          # not a picture or video (a 3D model, a sound): audit 2, #7
+                open_file(self.path)
+                self.report({"INFO"}, f"{Path(self.path).name} cannot be shown here: opened in the PC's own app")
+                return {"FINISHED"}
         if img is None or area is None:
+            self.report({"WARNING"}, "Nothing to show: the file is gone or no Image Editor is free")
             return {"CANCELLED"}
         _PLAY["on"] = False
         _PLAY["area"] = area.as_pointer()
@@ -245,16 +256,60 @@ class COMFYQ_OT_show_media(bpy.types.Operator):
         return {"FINISHED"}
 
 
+def _is_ours(img) -> bool:
+    return img is None or bool(img.get("comfyq_job")) or img.name.startswith("ComfyQ")
+
+
+def free_for_results(area, comfyq_viewer: bool = False) -> bool:
+    """May ComfyQ show a result here? Never in an Image Editor someone works in: painting or masking (a frame being
+    drawn, a zone being cut) or a pinned image; outside the ComfyQ window, also not over a picture that is not
+    ComfyQ's (UV / Texture Paint work)."""
+    sp = _space(area)
+    if sp is None:
+        return False
+    if getattr(sp, "mode", "VIEW") != "VIEW" or getattr(sp, "use_image_pin", False):
+        return False
+    return comfyq_viewer or _is_ours(sp.image)
+
+
 def viewer_area():
-    """The Image Editor of the ComfyQ window if open, else any Image Editor."""
+    """Where ComfyQ shows results: the ComfyQ window's Image Editor, else an Image Editor free for results
+    (`free_for_results`). None when there is no such place: the result waits on its job card (audit 2, #6)."""
     from ..ops.workflow import comfyq_window
     win = comfyq_window()
     windows = [win] if win else list(bpy.context.window_manager.windows)
     for w in windows:
         for a in w.screen.areas:
-            if a.type == "IMAGE_EDITOR":
+            if a.type == "IMAGE_EDITOR" and free_for_results(a, comfyq_viewer=w == win):
                 return a
     return None
+
+
+def _window_of(area):
+    for w in bpy.context.window_manager.windows:
+        if any(a.as_pointer() == area.as_pointer() for a in w.screen.areas):
+            return w
+    return None
+
+
+def fit_view_soon(area) -> None:
+    """Zoom the Image Editor so the whole picture shows (audit 2, #5: a 1920×1080 render showed at 1:1, a corner
+    only). From a timer: the editor needs one draw with the new image first."""
+    ptr = area.as_pointer()
+
+    def fit():
+        a = _find_area(ptr)
+        win = _window_of(a) if a is not None else None
+        region = next((r for r in a.regions if r.type == "WINDOW"), None) if a is not None else None
+        if win is None or region is None or _space(a) is None or _space(a).image is None:
+            return
+        try:
+            with bpy.context.temp_override(window=win, area=a, region=region):
+                bpy.ops.image.view_all(fit_view=True)
+        except RuntimeError:
+            pass                            # closed meanwhile
+        return
+    bpy.app.timers.register(fit, first_interval=0.05)
 
 
 def media_items() -> list[bpy.types.Image]:

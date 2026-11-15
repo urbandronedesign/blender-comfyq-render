@@ -152,7 +152,17 @@ for wf in sorted(wfs, key=lambda w: (list(GROUPS).index(w.category), w.name.lowe
     if len(desc) > 220:
         desc = desc[:217].rstrip() + "…"
     sources = ", ".join(dict.fromkeys(used)) or "a prompt only"
-    data = preset_ops.serialize(tree, wf.name, f"{desc}\nFrom: {sources}. Viewer + Save")
+    how = ""
+    if any(s.kind == "mask" for s in SESSION.specs[wf.id]):
+        # ComfyQ's text says "paint over the part to replace", written for its web page; in Blender the zone is
+        # the SELECTED OBJECTS until the Mask Zone tool ships (audit 2, #17)
+        desc = (desc.replace("Upload an image, paint over the part you want to replace", "Select the objects to "
+                             "replace in the scene")
+                .replace("Upload a scene, paint where new content should go", "Select the objects where new "
+                         "content should go")
+                .replace("painted area", "selected area").replace("paint over", "select"))
+        how = " In Blender: select the objects to repaint; the scene render with them cut out is sent."
+    data = preset_ops.serialize(tree, wf.name, f"{desc}\nFrom: {sources}. Viewer + Save" + (f".{how}" if how else ""))
     for d in data["nodes"]:
         if d["type"] == WORKFLOW_NODE:
             d["params"] = []                           # the workflow's defaults…

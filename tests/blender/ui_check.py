@@ -756,7 +756,16 @@ def _graph_n5(tree):
         res = bpy.ops.comfyq.graph_save_preset("EXEC_DEFAULT", name="UI check class", shared=True)
     listed = {h["label"]: h["shared"] for _f, h in gpo.saved_presets()}
     check("N5/F4: Save Graph as Preset writes into the Shared Presets Folder; the menu lists it as shared",
-          res == {"FINISHED"} and listed.get("UI check class") is True and (OUT / "presets").is_dir(), listed)
+          res == {"FINISHED"} and listed.get("UI check class") is True and (OUT / "presets").is_dir(),
+          sorted(k for k, v in listed.items() if v))
+    with ctx(graph_area):
+        try:
+            again = bpy.ops.comfyq.graph_save_preset("EXEC_DEFAULT", name="UI check class", shared=True)
+        except RuntimeError:            # an ERROR report raises in scripted calls
+            again = {"CANCELLED"}
+        forced = bpy.ops.comfyq.graph_save_preset("EXEC_DEFAULT", name="UI check class", shared=True, replace=True)
+    check("Save Graph as Preset refuses to overwrite a preset of the same name unless Replace is ticked",
+          again == {"CANCELLED"} and forced == {"FINISHED"}, f"{again} then {forced}")
     p.presets_dir = ""
     # the menu itself is opened by the last step (an open menu would cover every later screenshot)
 
@@ -1002,10 +1011,31 @@ def step_disconnect_reconnect():
     check("Disconnect", res == {"FINISHED"} and S().client is None, res)
     yield 0.5
     shot("11_disconnected")
+    # audit 2, #1–2: the way out is drawn next to the problem (state set as Connect would leave it)
+    s = S()
+    for flags, op, name in (((True, False), "comfyq.access_password", "Access Password..."),
+                            ((False, True), "comfyq.server_address", "Server Address...")):
+        s.need_password, s.no_server_set = flags
+        s.error = "test: " + name
+        yield 0.3
+        shot(f"11b_{name.split()[0].lower()}")      # the button is checked by looking (gotcha 23: draw cannot be spied)
+        check(f"connect problem: {name} is registered for the bar", hasattr(bpy.ops.comfyq, op.split(".")[1]))
+    s.need_password = s.no_server_set = False
+    s.error = ""
     res = click("connect", v3d)
     yield lambda: S().connected
     yield (lambda: specs_ready(wf)), 10
     check("reconnect: settings load again", specs_ready(wf))
+    # audit 2, #6: an Image Editor being painted is never taken over by a result
+    _w, area = img()
+    sp = area.spaces.active
+    saved = sp.ui_mode
+    sp.ui_mode = "PAINT"
+    try:
+        check("results never go to an Image Editor in Paint mode (audit 2, #6)",
+              ext("ui.player").viewer_area() is None or ext("ui.player").viewer_area() != area)
+    finally:
+        sp.ui_mode = saved
 
 
 def step_reload_file():

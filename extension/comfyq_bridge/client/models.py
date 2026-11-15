@@ -19,8 +19,10 @@ COLLECTING_OUTPUTS = "collecting-outputs"
 COMPLETED = "completed"
 FAILED = "failed"
 CANCELLED = "cancelled"
+# Not a ComfyQ phase: a job recorded in a .blend that the server no longer knows (history cleared, other server).
+LOST = "lost"
 
-TERMINAL = frozenset({COMPLETED, FAILED, CANCELLED})
+TERMINAL = frozenset({COMPLETED, FAILED, CANCELLED, LOST})
 
 
 @dataclass(frozen=True)

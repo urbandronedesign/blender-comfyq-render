@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from ..client import ComfyQClient, ComfyQError, Job, ParamSpec, Workflow, load_profile
+from ..client.models import LOST
 
 PUMP_INTERVAL_S = 0.2
 
@@ -49,6 +50,11 @@ class Session:
         self._main: queue.SimpleQueue[Callable[[], None]] = queue.SimpleQueue()
         self.on_job_done: Callable[[JobView], None] | None = None
         self.on_connected: Callable[[], None] | None = None
+        # What the last Connect ran into, so the bar can offer the way out (audit 2, #1–2):
+        self.need_password = False            # ComfyQ is locked and this PC has no access password
+        self.no_server_set = False            # no profiles file: it tried this PC itself (127.0.0.1)
+        self.access_password = ""             # typed in Access Password...; memory only, never in a file
+        self.lost_since = 0.0                 # when the socket was first seen down (0 = connected)
 
     # -- threading ---------------------------------------------------------------
     def run(self, work: Callable[[], Any], done: Callable[[Any], None] | None = None,
@@ -110,11 +116,24 @@ class Session:
             profile = _replace(profile, url=url_override.rstrip("/"))
         if user:
             profile = _replace(profile, user=user)
+        if self.access_password:
+            profile = _replace(profile, password=self.access_password, token="")
         client = ComfyQClient(profile)
         self.error = ""
+        self.need_password = False
+        self.no_server_set = False
+        self.lost_since = 0.0
+        from ..client.profile import DEFAULT_URL, config_path
+        default_address = profile.url == DEFAULT_URL and not config_path().is_file()
+
+        why = {"need": False, "unset": False}
 
         def work():
-            client.connect()
+            try:
+                client.connect()
+            except ComfyQError as e:
+                why.update(need=e.access_required, unset=default_address and e.status is None)
+                raise
             return client.workflows(), client.gpu()
 
         def done(result):
@@ -129,7 +148,27 @@ class Session:
                 self.on_connected()
 
         self.status = f"Connecting to {profile.url}…"
-        self.run(work, done, label="Connecting")
+        self.run(work, done, label="Connecting",
+                 on_error=lambda _msg: self._connect_problem(why["need"], why["unset"]))   # after the raw error
+
+    def _connect_problem(self, need_password: bool, no_server_set: bool) -> None:
+        self.need_password = need_password
+        self.no_server_set = no_server_set and not need_password
+        if self.no_server_set:
+            self.error = ("No class server is set on this PC, so it tried this PC itself. Ask the teacher for the "
+                          "class profiles file, or type the server's address (Server Address...)")
+        elif need_password:
+            self.error = "This class server is locked: type its access password (Access Password...)"
+
+    def lost_for(self) -> float:
+        """Seconds the socket has been down while a client exists (0 when connected or not connecting)."""
+        import time
+        if self.client is None or self.client.transport.connected:
+            self.lost_since = 0.0
+            return 0.0
+        if not self.lost_since:
+            self.lost_since = time.monotonic()
+        return time.monotonic() - self.lost_since
 
     def close(self) -> None:
         if self.client is not None:
@@ -221,17 +260,21 @@ class Session:
 
         def work():
             found = []
-            for job_id, _ in todo:
+            for job_id, wf_id in todo:
                 try:
                     found.append(client.job(job_id))
-                except ComfyQError:
-                    pass          # deleted on the server: leave it as "not found"
-            return found
+                except ComfyQError as e:
+                    if e.status in (404, 410):
+                        # deleted on the server: a "lost" job, finished and removable (audit 2, #9: these
+                        # stayed "Waiting in queue" for ever, could not be cancelled nor removed)
+                        found.append(Job(id=job_id, workflow_id=wf_id, user_id="", phase=LOST,
+                                         error="Not on the server any more"))
+            return found                      # other errors (network): keep waiting, a later reattach retries
 
         def done(jobs):
             for j in jobs:
                 self.jobs[j.id].job = j
-            self._jobs_changed(jobs)
+            self._jobs_changed([j for j in jobs if j.phase != LOST])
 
         self.run(work, done, label="Reconnecting jobs")
 

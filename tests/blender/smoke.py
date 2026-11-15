@@ -222,9 +222,28 @@ bpy.context.view_layer.update()
 _glb_objs = [o for o in coll.objects if o.type == "MESH" and o.get("comfyq_job")] if coll else []
 _rest = [o for o in scene.objects if o.type == "MESH" and o not in _glb_objs and o.get("comfyq_job") is None]
 _b, _r = _media._bbox(_glb_objs[:1]), _media._bbox(_rest)
-check(_b is not None and _r is not None and _b[0].x > _r[1].x and abs(_b[0].z) < 1e-4,
-      f"an imported model is placed beside the scene, on the ground (x {_b and round(_b[0].x, 2)} > "
-      f"{_r and round(_r[1].x, 2)}, z {_b and round(_b[0].z, 4)})")
+_outside = _b is not None and _r is not None and any(
+    (_b[0][i] > _r[1][i] or _b[1][i] < _r[0][i]) for i in range(2))
+_seen = _b is not None and _media._box_in_view(
+    scene, _media.Vector(((_b[0].x + _b[1].x) / 2, (_b[0].y + _b[1].y) / 2, _b[0].z)), _b[1] - _b[0], True)
+check(_outside and abs(_b[0].z) < 1e-4 and not _seen,
+      f"an imported model is placed beside the scene, on the ground, OUT of the camera's view (audit 2, #4) "
+      f"(box {_b and [round(v, 2) for v in _b[0]]}…, in view: {_seen})")
+from bl_ext.user_default.comfyq_bridge.passes import render as _render
+
+_fp0 = _render.scene_fingerprint(scene, "CLAY")
+check(all(_media.untouched_import(o) for o in _glb_objs),
+      "a freshly imported result is marked as where the import put it")
+_glb_objs[0].location.x += 1.0
+bpy.context.view_layer.update()
+_fp1 = _render.scene_fingerprint(scene, "CLAY")
+_glb_objs[0].location.x -= 1.0
+bpy.context.view_layer.update()
+check(_fp1 != _fp0 and _render.scene_fingerprint(scene, "CLAY") == _fp0,
+      "an untouched import does not change the scene fingerprint; moving it does (it is now meant for the shot)")
+_rep = _media.import_report([tmp / "notes.xyz"], "smoketest-rep", "smoke_workflow", scene)
+check(not _rep.imported and _rep.kept and "kept in the job folder" in _rep.kept[0],
+      f"import report: a file Blender cannot import is 'kept', not 'imported' ({_rep.kept})")
 scene.cursor.location = (0.0, -6.0, 1.0)
 before_objs = set(bpy.data.objects)
 import_files([glb], "smoketest-0001", "smoke_workflow", scene, _media.Placement("CURSOR", True, 4.5))
@@ -420,6 +439,18 @@ if pick:
     res = bpy.ops.comfyq.download(job_id=pick["id"])
     check(res == {"FINISHED"} and pump_until(lambda: SESSION.jobs[pick["id"]].files, 30, "download again"),
           "Download fetches the result again")
+
+# -- a job the server no longer knows (audit 2, #9: it stayed "Waiting in queue" for ever) --------------------
+_ghost = "00000000-dead-4bad-8000-000000000000"
+_grec = scene.comfyq.jobs.add()
+_grec.job_id, _grec.workflow_id, _grec.label = _ghost, wf, "ghost"
+SESSION.reattach([(_ghost, wf)])
+check(pump_until(lambda: SESSION.jobs[_ghost].job.phase == "lost", 30, "lost job"),
+      f"a job the server does not know becomes 'lost' (finished), not 'Waiting in queue' "
+      f"({SESSION.jobs[_ghost].job.phase})")
+res = bpy.ops.comfyq.remove_finished_jobs()
+check(res == {"FINISHED"} and not any(r.job_id == _ghost for r in scene.comfyq.jobs),
+      "Queue › Remove Finished Jobs removes it")
 
 bpy.ops.comfyq.set_workflow(workflow_id=wf)
 check(wait_params(wf, "served params") and scene.comfyq.workflow_id == wf, f"back on the served workflow {wf}")
