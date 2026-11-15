@@ -1101,6 +1101,25 @@ check(len(lib_back.links) == len(keep_tree.links) and all(abs(_got[k] - float(v)
       f"library preset: same links, workflow defaults, matched to the scene {_got}")
 for t in (keep_tree, back, lib_back):
     bpy.data.node_groups.remove(t)
+# ... and choices too: an "Aspect ratio" list follows the camera (the 2026-11-15 series got square / portrait
+# pictures on a 16:9 scene because only numbers were applied). Ideogram's default is 9:16.
+_ideo = next((Path(__file__).resolve().parents[2] / "presets" / "library" / "Image").glob("Ideogram*.json"), None)
+if _ideo is not None and any(w.id == "image_ideogram4_t2i" for w in SESSION.workflows):
+    from bl_ext.user_default.comfyq_bridge.ops.workflow import request_specs as _rq_ideo
+    _rq_ideo("image_ideogram4_t2i")
+    pump_until(lambda: "image_ideogram4_t2i" in SESSION.specs, 30, "Ideogram specs")
+    _rx0, _ry0 = scene.render.resolution_x, scene.render.resolution_y
+    scene.render.resolution_x, scene.render.resolution_y = 1920, 1080
+    _it_tree = bpy.data.node_groups.new("smoke aspect", gtree_mod.TREE)
+    gpo.build_saved(json.loads(_ideo.read_text(encoding="utf-8")), _it_tree, scene)
+    _iw = next(n for n in _it_tree.nodes if n.bl_idname == "ComfyQWorkflowNode")
+    _asp = _iw.item("aspect_ratio_37")
+    check(_asp is not None and _asp.s.startswith("16:9") and _asp.e == _asp.s,
+          f"library preset on a 16:9 scene: Aspect ratio list matched ({_asp.s if _asp else None})")
+    bpy.data.node_groups.remove(_it_tree)
+    scene.render.resolution_x, scene.render.resolution_y = _rx0, _ry0
+else:
+    print("  skip  aspect-ratio match: no Ideogram workflow on this ComfyQ")
 shutil.rmtree(shared, ignore_errors=True)
 del os.environ["COMFYQ_BRIDGE_PRESETS"]
 

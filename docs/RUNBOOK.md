@@ -272,7 +272,13 @@ Measured: 4 pictures ≈ 100 s with Klein edit; 2 clips ≈ 60 s with FILM inter
      5 s 848×480 clip, twice, alone on the 5090;
    - `image_ideogram4_t2i` returns a grey "Image blocked by safety filter" picture when the prompt is plain text
      instead of its JSON caption: the job "succeeds", so the student is not told why. A check (or a clear error)
-     before booking would help; the bridge's preset now carries a How to use note.
+     before booking would help; the bridge's preset now carries a How to use note;
+   - `3d_mesh_uv_unwrap` returns a GLB that keeps the model's OLD texture on the NEW UVs:
+     a textured AI character comes back with scrambled camouflage patches; only the AO bake matches. Dropping the old
+     material (or re-baking it onto the new UVs) would make the result usable;
+   - `video_ltx2_3_ic_lora_ingredients` pads the reference sheet to the video size: a square sheet gives black side
+     bars with white specks on a 16:9 video (the bridge sends 1280×720). Saying "use a sheet of the video's shape"
+     in the description, or cropping instead of padding, would help.
 3. **Calibration inputs missing:** `comfyq__bench-vi__sports_car.png` and `comfyq__bench-im__sports_car.png`
    are not in ComfyUI/input, so calibrating LTX 2.5 union and Qwen 2.1 control depth fails.
 4. **Names that don't match ids:**
@@ -282,7 +288,8 @@ Measured: 4 pictures ≈ 100 s with Klein edit; 2 clips ≈ 60 s with FILM inter
    - `utility_seedvr2_hd_upscale` still labels its size "longest edge" while SeedVR2 uses it as the SHORTEST edge
      (1080 → 1908×1080 on a 16:9 clip): the fix made to the 4K bundle in `9f8bacb` should go to the HD video one too;
    - which parameters are **width / height / duration / frames / fps**: today the bridge guesses from the
-     labels and misses Qwen, Krea and Ideogram sizes, which come out square or portrait on a 16:9 scene;
+     labels (its *Aspect ratio* lists were dropped when a preset was added until 2026-11-16, so Qwen, Krea and
+     Ideogram came out square or portrait on a 16:9 scene; fixed in the bridge, but declared fields would be safer);
    - the **output kind** (image, video, model…), which the bridge infers from category, tags and id;
    - an example prompt for every workflow.
 6. **Server API (phase 2):**

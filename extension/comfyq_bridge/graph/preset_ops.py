@@ -69,16 +69,12 @@ def choose(preset: presets.Preset) -> dict[str, str | None]:
 
 
 def _match_scene(node, specs, scene) -> None:
-    from ..ops.workflow import scene_facts
+    from ..ops.workflow import scene_facts, set_value
     m = scene_match.match(specs, scene_facts(scene))
     for key, v in m.values.items():
         it = node.item(key)
-        if it is None:
-            continue
-        if it.kind in ("int", "seed"):
-            it.i = int(v)
-        elif it.kind == "float":
-            it.f = float(v)
+        if it is not None:          # enums too: the aspect ratio was dropped (square / portrait on a 16:9 scene)
+            set_value(it, v, node.workflow_id)
 
 
 def _input(node, kind: str, nth: int):

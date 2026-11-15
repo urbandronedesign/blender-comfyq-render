@@ -601,6 +601,12 @@ change that session: the user must reinstall from the UI or restart Blender.
 - Library generator `OVERRIDES` (2026-11-16): Wan 2.2 key-frames (one Prompt feeds all 3 motion prompts), Qwen
   relight (object → Image 2, Image 3 free), Ideogram (How to use: keep the JSON caption). GPU-checked
   (`--results=fixcheck_2026-11-16.json`): orbit without the capoeira dancer, chair sent as Image 2, poster ok.
+- **Aspect ratio fix (extension):** `preset_ops._match_scene` applied only numbers, so a preset's *Aspect ratio* list
+  stayed at the workflow default (square / portrait on a 16:9 scene). Now `ops.workflow.set_value` (shared with the
+  bar's Match Scene) also sets enums; smoke checks Ideogram → 16:9. GPU: Qwen t2i / Fix / depth / canny 1376×768,
+  Krea 1368×768, FastH3 t2v 1280×736 (`aspectcheck_2026-11-16.json`). Needs an install in the user's Blender.
+- Remaining series warnings are model behaviour (morphing, cuts, CG look) or ComfyQ-side (RUNBOOK §7.1 2d: UV unwrap
+  keeps the old texture, LTX ingredients pads a square sheet).
 
 ## Next steps
 0. **Audit-2 phases 3–5 (the user's current goal):** (3) the **ComfyQ workspace**: author `workspace.blend` once in a

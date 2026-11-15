@@ -69,7 +69,7 @@ def test_every_builtin_role_finds_a_workflow_in_the_comfyq_catalogue():
                 assert wf, (p.id, n.name)
                 picked[(p.id, n.name)] = wf
     assert picked[("clay_v2v", "Video")] == "video_edit_ltx2_5_iclora_union_control"
-    assert picked[("keyframe_v2v", "Keyframe")] == "image_qwen_image_2_1_control_depth"
+    assert picked[("keyframe_v2v", "Keyframe")] == "image_edit_flux3_klein_distilled_image_edit"   # b842210: FLUX.3 first
     assert picked[("image_3d", "3D model")] == "3d_pixal3d_trellis2_image_to_model"   # TRELLIS2 alone removed upstream
     assert picked[("image_upscale", "Upscale")] == "utility_seedvr2_4k_upscale"   # int8 left a grid (arch tests)
     # what this classroom serves right now wins

@@ -82,20 +82,24 @@ def sync_items(coll, wf_id: str, specs: list[ParamSpec]) -> None:
             it.source = DEFAULT_SOURCE.get(s.kind, "FILE")
 
 
+def set_value(it, v, wf_id: str) -> None:
+    """Put a value into a parameter item (the bar's or a graph node's), whatever its kind."""
+    if it.kind in ("int", "seed"):
+        it.i = int(v)
+    elif it.kind == "float":
+        it.f = float(v)
+    elif it.kind == "enum":
+        it.s = str(v)
+        it.e = str(v)
+    elif it.kind == "camera":
+        set_camera(it, v, next((s for s in SESSION.specs.get(wf_id, ()) if s.key == it.key), None))
+
+
 def apply_values(scene: bpy.types.Scene, wf_id: str, values: dict) -> None:
     for key, v in values.items():
         it = param_item(scene, key, wf_id)
-        if it is None:
-            continue
-        if it.kind in ("int", "seed"):
-            it.i = int(v)
-        elif it.kind == "float":
-            it.f = float(v)
-        elif it.kind == "enum":
-            it.s = str(v)
-            it.e = str(v)
-        elif it.kind == "camera":
-            set_camera(it, v, next((s for s in SESSION.specs.get(wf_id, ()) if s.key == key), None))
+        if it is not None:
+            set_value(it, v, wf_id)
 
 
 def set_camera(it, value, spec: ParamSpec | None) -> None:
