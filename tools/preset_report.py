@@ -27,7 +27,7 @@ import requests
 ROOT = Path(__file__).resolve().parents[1]
 SERVER = os.environ.get("COMFYQ_URL", "http://127.0.0.1:3000")
 CACHE = Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "comfyq-bridge" / "cache"
-GROUPS = ["Image", "Image edit", "Image → video", "Video → video", "Chains"]   # Chains: multi-step class presets
+GROUPS = ["Image", "Image edit", "Image → video", "Video → video", "Upscale", "Chains"]   # Chains: class presets
 IMG = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 VID = {".mp4", ".webm", ".mov", ".mkv"}
 AUD = {".wav", ".mp3", ".flac", ".ogg", ".m4a"}
@@ -42,7 +42,11 @@ OUT = Path(sys.argv[1]).resolve()
 RESULTS = Path(arg("--results", str(ROOT / "live_check/presets/results.json"))).resolve()
 SHOTS = Path(arg("--shots", str(ROOT / "live_check/presets/shots"))).resolve()
 NOTES = Path(arg("--notes", str(ROOT / "live_check/presets/notes.json"))).resolve()
-BASE = Path(arg("--baseline")).resolve() if arg("--baseline") else None
+BASES = [Path(b).resolve() for b in (arg("--baseline") or "").split(",") if b]   # newest first
+BASE = BASES[0] if BASES else None
+TITLE = arg("--title", "Preset library run — baseline")
+INTRO = arg("--intro", "Scene: Blender default cube (nothing animated), 1920×1080 · 24 fps; videos capped at 2 s; each "
+            "workflow's own example prompt; models loaded by solo mode. Details: docs/preset-run.md.")
 ASSETS = RESULTS.parent / "assets"
 
 
@@ -87,7 +91,7 @@ def main() -> None:
     records = json.loads(RESULTS.read_text(encoding="utf-8"))
     notes = json.loads(NOTES.read_text(encoding="utf-8")) if NOTES.is_file() else {}
     wfs = {w["id"]: w for w in requests.get(f"{SERVER}/workflows?includeUnavailable=1", timeout=30).json()["workflows"]}
-    base = json.loads((BASE / "manifest.json").read_text(encoding="utf-8")) if BASE else {}
+    bases = [(bd, json.loads((bd / "manifest.json").read_text(encoding="utf-8"))) for bd in BASES]
     labels: dict[str, dict[str, str]] = {}
     manifest, cards, assets_html = {}, {g: [] for g in GROUPS}, []
     counts = {"ok": 0, "warn": 0, "fail": 0}
@@ -180,19 +184,21 @@ def main() -> None:
         shot = SHOTS / f"{n:02d}.png"
         shot_html = (f'<a href="{esc(copy(shot, mdir, "blender"))}" target="_blank"><img loading="lazy" class="shot" '
                      f'src="{esc((mdir / "blender.png").relative_to(OUT).as_posix())}" alt="Blender graph"></a>'
-                     if shot.is_file() else '<p class="missing">no screenshot</p>')
+                     if shot.is_file() else "")
         verdict, note = notes.get(rec["key"]) or notes.get(wf_id) or ["ok" if rec.get("ok") else "fail", ""]
         counts[verdict] = counts.get(verdict, 0) + 1
         w = wfs.get(wf_id, {})
         desc = (w.get("description") or "").strip()
         vram = w.get("vramPeakGb") or (w.get("runtime") or {}).get("vramPeakGb")
-        b = base.get(rec["key"]) or (base.get(wf_id) if rec["group"] != "Chains" else None)
         base_html = ""
-        if b and BASE:
-            bp = BASE / b["output"]
+        for bd, base in bases:
+            b = base.get(rec["key"]) or (base.get(wf_id) if rec["group"] != "Chains" else None)
+            if not b:
+                continue
+            bp = bd / b["output"]
             rel = os.path.relpath(bp, OUT).replace("\\", "/")
-            base_html = (f'<div class="col"><h4>Baseline · {esc(b.get("date"))} · {esc(b.get("seconds"))} s</h4>'
-                         f'{media(bp, rel) if bp.is_file() else "<p class=missing>missing</p>"}</div>')
+            base_html += (f'<div class="col"><h4>Earlier run · {esc(b.get("date"))} · {esc(b.get("seconds"))} s</h4>'
+                          f'{media(bp, rel) if bp.is_file() else "<p class=missing>missing</p>"}</div>')
         if out_rel and result.suffix.lower() not in IMG | VID | AUD and rec.get("preview"):
             pv = (ROOT / rec["preview"]) if not Path(rec["preview"]).is_absolute() else Path(rec["preview"])
             out_html = (media(pv, copy(pv, mdir, "preview")) + f'<p class="dim">Rendered views of the result · '
@@ -204,14 +210,15 @@ def main() -> None:
         meta = (f'{esc(rec.get("seconds"))} s total · model loaded in {esc(rec.get("load_seconds"))} s · '
                 f'job <code>{esc((rec.get("job_id") or "—")[:8])}</code> · {esc(rec.get("started"))}'
                 + (f' · VRAM peak {vram:.1f} GB' if isinstance(vram, (int, float)) else ""))
-        cards[rec["group"]].append(f'''
+        cards.setdefault(rec["group"], []).append(f'''
 <article class="card v-{verdict}" id="{esc(rec["key"])}" data-verdict="{verdict}">
  <header><span class="badge {verdict}">{ {"ok": "OK", "warn": "Check", "fail": "Failed"}.get(verdict, verdict)}</span>
   <h3>{esc(rec["label"])}</h3><code>{esc(wf_id)}</code></header>
  {f'<p class="note">{esc(note)}</p>' if note else ""}
+ {f'<p class="dim">Inputs: {esc(", ".join(f"{k}: {v}" for k, v in rec["inputs"].items()))}' + (f" · scene {esc(rec['scene'])}" if rec.get("scene") else "") + "</p>" if rec.get("inputs") else ""}
  <details><summary>What this workflow does</summary><p class="desc">{esc(desc)}</p></details>
  <div class="row">
-  <div class="col"><h4>Blender graph</h4>{shot_html}</div>
+  {f'<div class="col"><h4>Blender graph</h4>{shot_html}</div>' if shot_html else ""}
   <div class="col"><h4>Inputs sent</h4>{"".join(ins) or '<p class="dim">none (prompt only)</p>'}</div>
   {steps_html}
   <div class="col out"><h4>Output</h4>{out_html}</div>
@@ -227,7 +234,7 @@ def main() -> None:
     body = "".join(f'<section id="g{i}"><h2>{esc(g)}</h2>{"".join(cards[g])}</section>' for i, g in enumerate(GROUPS))
     page = f'''<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Preset Run Baseline</title>
+<title>{esc(TITLE)}</title>
 <style>
 :root{{--bg:#f6f6f4;--fg:#1d1f1e;--dim:#6b6f6c;--card:#fff;--line:#dcdcd6;--ok:#2f7d4f;--warn:#b07a12;--fail:#b3352f;--accent:#3d4640}}
 @media (prefers-color-scheme:dark){{:root:not([data-theme="light"]){{--bg:#151716;--fg:#e8e9e6;--dim:#9a9e9a;--card:#1f2220;--line:#333833;--ok:#5fbf86;--warn:#e0aa45;--fail:#ec6f67;--accent:#8fa596}}}}
@@ -255,12 +262,11 @@ table{{border-collapse:collapse;font-size:12px}} td{{border-top:1px solid var(--
 .assets img,.assets video{{width:100%;border-radius:4px}} figcaption{{font-size:12px}}
 .hide-ok .v-ok{{display:none}}
 </style></head><body><div class="wrap">
-<h1>Preset library run — baseline</h1>
+<h1>{esc(TITLE)}</h1>
 <p class="summary">{total} presets · <b style="color:var(--ok)">{counts.get("ok", 0)} OK</b> ·
 <b style="color:var(--warn)">{counts.get("warn", 0)} to check</b> · <b style="color:var(--fail)">{counts.get("fail", 0)} failed</b> ·
-generated {time.strftime("%Y-%m-%d %H:%M")}{f" · compared with <code>{esc(BASE.name)}</code>" if BASE else ""}.
-Scene: Blender default cube (nothing animated), 1920×1080 · 24 fps; videos capped at 2 s; each workflow's own example prompt;
-models loaded by solo mode. Details: docs/preset-run.md.</p>
+generated {time.strftime("%Y-%m-%d %H:%M")}{" · compared with " + ", ".join(f"<code>{esc(b.name)}</code>" for b in BASES) if BASES else ""}.
+{esc(INTRO)}</p>
 <nav>{nav}<a href="#assets">Test assets</a>
 <label><input type="checkbox" onchange="document.body.classList.toggle('hide-ok',this.checked)"> hide OK</label></nav>
 {body}

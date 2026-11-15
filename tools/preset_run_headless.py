@@ -20,8 +20,7 @@ import bpy
 ARGS = sys.argv[sys.argv.index("--") + 1:]
 OUT = Path(ARGS[0])
 MOD = "bl_ext.user_default.comfyq_bridge"
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import preset_run  # tools/ (on sys.path above)
+sys.path.insert(0, str(Path(__file__).resolve().parent))   # tools/: the runner module is imported below
 
 
 def ext(name):
@@ -86,11 +85,13 @@ def tool(name: str, **args):
         return False, {"error": f"{type(e).__name__}: {e}"}
 
 
-preset_run.tool = tool
-preset_run.OUT = OUT
-preset_run.ASSETS = OUT / "assets"
-preset_run.RESULTS = OUT / "results.json"
-sys.argv = [sys.argv[0], *ARGS[1:]]                        # --only / --fresh for preset_run.main
+MODULE = next((a.split("=", 1)[1] for a in ARGS[1:] if a.startswith("--module=")), "preset_run")
+runner = importlib.import_module(MODULE)                   # preset_run, or preset_series (cards per preset)
+runner.tool = tool
+runner.OUT = OUT
+runner.ASSETS = OUT / "assets"
+runner.RESULTS = OUT / "results.json"
+sys.argv = [sys.argv[0], *[a for a in ARGS[1:] if not a.startswith("--module=")]]   # --only / --fresh / --scene
 
 S.connect(prefs.profile, "preset-run", prefs.url.strip())
 box = {}
@@ -98,7 +99,7 @@ box = {}
 
 def work():
     try:
-        preset_run.main()
+        runner.main()
     except BaseException as e:  # noqa: BLE001
         box["error"] = repr(e)
         import traceback
