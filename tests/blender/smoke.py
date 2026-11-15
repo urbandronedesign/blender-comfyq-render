@@ -132,6 +132,56 @@ hole = float((px.reshape(-1, 4)[:, 3] < 0.5).mean())
 check(0.02 < hole < 0.6, f"mask pass: {hole:.1%} of pixels transparent (the cube)")
 check(tuple(cube.color) == (1.0, 1.0, 1.0, 1.0), "object color restored")
 
+
+# -- the mask ZONE (ComfyQ Mask tool): picked objects + drawn shapes, grow, feather, invert ---------------------------
+def _alpha(path):
+    im = bpy.data.images.load(str(path))
+    a = np.empty(im.size[0] * im.size[1] * 4, dtype=np.float32)
+    im.pixels.foreach_get(a)
+    bpy.data.images.remove(im)
+    return a.reshape(-1, 4)[:, 3]
+
+
+from bl_ext.user_default.comfyq_bridge import zone as zmod
+from bl_ext.user_default.comfyq_bridge.passes import zone_scene
+
+cq = scene.comfyq
+zone_scene.clear(scene)
+check(not zone_scene.active(scene), "no zone: the Mask uses the selected objects, as before")
+bpy.ops.comfyq.zone_add_shape(points="[[0.1, 0.1], [0.3, 0.1], [0.3, 0.3], [0.1, 0.3]]")
+a = _alpha(zone_scene.mask(scene, [], "CLAY", 640))
+check(abs(float((a < 0.5).mean()) - 0.04) < 0.004 and zone_scene.describe(scene) == "1 shape",
+      f"a drawn box covering 4 % of the frame repaints {float((a < 0.5).mean()):.2%} of the picture")
+bpy.ops.comfyq.zone_add_shape(points="[[0.15, 0.15], [0.25, 0.15], [0.25, 0.25], [0.15, 0.25]]", op="SUB")
+a = _alpha(zone_scene.mask(scene, [], "CLAY", 640))
+check(abs(float((a < 0.5).mean()) - 0.03) < 0.004, f"a cut inside it leaves 3 % ({float((a < 0.5).mean()):.2%})")
+# the numpy raster agrees with zone.contains (the unit-tested reference)
+_z = zone_scene.shapes(scene)
+_cov = render.zone_coverage(_z, 64, 36)
+_agree = np.mean([_cov[j, i] == float(zmod.contains(_z, (i + 0.5) / 64, (j + 0.5) / 36))
+                  for j in range(36) for i in range(64)])
+check(_agree > 0.999, f"zone raster = zone.contains on every pixel ({_agree:.2%})")
+zone_scene.clear(scene)
+bpy.ops.comfyq.zone_pick(object_name="Cube")
+check([o.name for o in zone_scene.objects(scene)] == ["Cube"], "Mask tool › click picks the cube into the zone")
+a0 = float((_alpha(zone_scene.mask(scene, [], "CLAY", 640)) < 0.5).mean())
+cq.zone_grow = 3.0
+a1 = float((_alpha(zone_scene.mask(scene, [], "CLAY", 640)) < 0.5).mean())
+cq.zone_grow, cq.zone_feather = 0.0, 2.0
+af = _alpha(zone_scene.mask(scene, [], "CLAY", 640))
+cq.zone_feather, cq.zone_invert = 0.0, True
+ai = float((_alpha(zone_scene.mask(scene, [], "CLAY", 640)) < 0.5).mean())
+cq.zone_invert = False
+check(abs(a0 - hole) < 0.02 and a1 > a0 * 1.2 and float(((af > 0.05) & (af < 0.95)).mean()) > 0.005
+      and abs(ai - (1 - a0)) < 0.01,
+      f"picked object = the selection mask ({a0:.1%}); Grow 3 % widens it ({a1:.1%}); Feather softens the edge; "
+      f"Invert repaints the rest ({ai:.1%})")
+_sig = zone_scene.signature(scene)
+bpy.ops.comfyq.zone_pick(object_name="Cube")
+check(not zone_scene.active(scene) and zone_scene.signature(scene) != _sig,
+      "clicking it again takes it out; the zone's signature changes (graph results go out of date)")
+cube.select_set(False)
+
 # mesh input (ComfyQ `model3d`): the selected objects as one GLB, selection and visibility restored
 from bl_ext.user_default.comfyq_bridge.passes import mesh as mesh_pass
 

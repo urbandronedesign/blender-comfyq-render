@@ -116,6 +116,21 @@ If the keyframe is missing, **Generate** makes it first and then sends the main 
 
 ---
 
+### 2.8 The mask zone: the ComfyQ Mask tool (inpaint inputs)
+What an inpaint workflow repaints. One **zone per scene**, used by the bar's *Render + Mask Zone* source and the
+graph's **Mask Zone** node. With no zone, they use the objects selected when Generate / Run Graph starts (older
+files and presets keep working).
+
+| Control | Does | Check |
+|---|---|---|
+| **ComfyQ Mask** tool (3D View toolbar, after the select tools; Object Mode) / **Mask Tool** button (bar mask input, Mask Zone node) | Click an object: adds it to the zone, click again: takes it out. Drag: a box. Shift+drag: a free shape (lasso). Ctrl+drag / Ctrl+Shift+drag: cut a box / a free shape out. Shapes are drawn through the scene camera (the tool switches to the camera view) and kept in frame coordinates (any render size) | smoke `Mask tool › click picks the cube…`, GUI `Mask Tool button: the ComfyQ Mask tool is active, looking through the camera` |
+| Red overlay (3D View) | Picked objects (seen through what is in front) and drawn shapes in red; cuts as dark outlines | GUI `16_mask_zone_main.png` |
+| Tool header: *Zone: 1 object · 2 shapes*, **Grow**, **Feather**, **Invert**, 👁 **Show Zone**, 🗑 **Clear Zone** | Grow widens the zone (% of the picture width: room for new content bigger than the object, e.g. flowers above a vase); Feather softens its edge; Invert repaints everything else; Clear empties it (Undo works) | smoke `picked object = the selection mask…; Grow…; Feather…; Invert…`, `a drawn box covering 4 % of the frame…`, `a cut inside it leaves 3 %`, `zone raster = zone.contains on every pixel` |
+
+Tested on the GPU (2026-11-15, `E:\zaki\mask_demo_zone.blend`): the vase + a free shape above it, Grow 1.5 %, Feather
+0.8 % → Flux2 Klein inpaint drew a sunflower bouquet in a glass vase filling the zone, the room unchanged
+(`live_check/mask_demo/zone/`).
+
 ## 3. Jobs (sidebar list, Queue popover)
 
 One card per job of this scene, newest first.

@@ -52,6 +52,10 @@ extension/comfyq_bridge/
   runtime/session.py     SESSION: worker pool + main-thread queue (pump), connect, specs cache, JobView, reattach, download
   passes/render.py       Workbench passes: structure (clay = true grayscale), mask (RGBA alpha = repaint area), image
   passes/animation.py    clay animation MP4 (frame range through scene camera), cache + depsgraph staleness
+  zone.py                bpy-free mask ZONE (shapes in camera-frame coords, box / lasso, contains, describe)
+  passes/zone_scene.py   the scene's zone (picked objects + shapes, Grow / Feather / Invert) → mask pass
+  ui/zone_tool.py        ComfyQ Mask tool (3D View toolbar): click picks, drag box, Shift lasso, Ctrl cuts;
+                         red gpu overlay; header settings
   passes/mesh.py         3D-model inputs: selected objects → one GLB (modifiers applied), size warning (remesh
                          returns an empty mesh at ~80 units), fingerprint for the graph's Scene Objects node
   ops/generate.py        start_job (render inputs -> upload -> book), AI-keyframe chain, cancel/import/open folder

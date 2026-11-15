@@ -66,7 +66,11 @@ def _own_hash(node, scene) -> str:
     if idn in SCENE_SOURCES:
         # an edit of what the camera sees (objects, meshes, camera, animation…) makes what it feeds out of date
         frame = frame_number(scene, node.frame) if hasattr(node, "frame") else (scene.frame_start, scene.frame_end)
-        sel = sorted(o.name for o in scene.objects if o.select_get()) if idn == "ComfyQMaskNode" else []
+        sel = []
+        if idn == "ComfyQMaskNode":       # the scene's zone (ComfyQ Mask tool), else the objects selected now
+            from ..passes import zone_scene
+            sel = (["zone", zone_scene.signature(scene)] if zone_scene.active(scene)
+                   else sorted(o.name for o in scene.objects if o.select_get()))
         samples = node.cycles_samples if getattr(node, "style", "") == "CYCLES" else None
         return engine.settings_hash(idn, node.style, frame, render.scene_fingerprint(scene, node.style), sel, samples,
                                     shots.signature(scene, getattr(node, "shot", "")))
@@ -463,7 +467,8 @@ class Run:
         elif idn == "ComfyQMaskNode":
             sel = [o for o in scene.objects if o.name in self.selected]
             with shots.apply(scene, src.shot):
-                p = render.mask_pass(scene, sel, src.style, edge, frame_number(scene, src.frame))
+                from ..passes import zone_scene
+                p = zone_scene.mask(scene, sel, src.style, edge, frame_number(scene, src.frame))
         elif idn == "ComfyQSceneAnimationNode":
             with shots.apply(scene, src.shot):
                 p = animation.animation_pass(scene, src.style, edge, force=True).path

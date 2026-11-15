@@ -302,7 +302,7 @@ def draw_media(layout, context, wf_id: str, visible: list[ParamSpec], columns: i
         elif it.source == "FILE":
             col.prop(it, "path", text="")
         elif it.source == "MASK":
-            col.label(text="Selected objects mark the area to repaint")
+            draw_zone_source(col, context)
         elif it.source == "STRUCTURE":
             col.label(text=f"Camera view at frame {scene_match.frame_for(s, wfops.scene_facts(scene))}")
         elif it.source == "SELECTION":
@@ -428,6 +428,25 @@ def _same(a, b) -> bool:
         except (TypeError, ValueError):
             return False
     return a == b
+
+
+def draw_zone_source(col, context) -> None:
+    """What a mask input repaints: the scene's zone (ComfyQ Mask tool), else the objects selected now."""
+    from ..passes import zone_scene
+    scene = context.scene
+    if zone_scene.active(scene):
+        col.label(text=f"Zone: {zone_scene.describe(scene)}", icon="SELECT_SET")
+        row = col.row(align=True)
+        row.prop(scene.comfyq, "zone_grow")
+        row.prop(scene.comfyq, "zone_feather")
+    else:
+        n = len(context.selected_objects)
+        col.label(text=f"No zone: the {n} selected object{'s' if n != 1 else ''} are repainted" if n else
+                  "No zone yet: use the Mask Tool", icon="INFO" if n else "ERROR")
+    row = col.row(align=True)
+    row.operator("comfyq.zone_tool", icon="RESTRICT_SELECT_OFF")
+    if zone_scene.active(scene):
+        row.operator("comfyq.zone_clear", text="", icon="TRASH")
 
 
 def _messages(layout) -> None:

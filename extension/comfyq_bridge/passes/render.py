@@ -424,35 +424,142 @@ def structure_pass(scene: bpy.types.Scene, style: str = "CLAY", max_edge: int | 
 
 
 def mask_pass(scene: bpy.types.Scene, selected: list[bpy.types.Object], style: str = "CLAY",
-              max_edge: int | None = None, frame: int | None = None) -> Path:
-    """Structure RGB + alpha 0 where `selected` objects are visible (occlusion-correct)."""
-    if not selected:
-        raise RuntimeError("Select the object(s) to repaint")
+              max_edge: int | None = None, frame: int | None = None, shapes=None, grow: float = 0.0,
+              feather: float = 0.0, invert: bool = False) -> Path:
+    """Structure RGB + alpha 0 in the area to repaint: where `selected` objects are visible (occlusion-correct),
+    plus the zone `shapes` (a zone.Zone drawn with the ComfyQ Mask tool, frame coordinates), widened by `grow` and
+    softened by `feather` (fractions of the picture width), optionally inverted."""
+    has_shapes = shapes is not None and not shapes.empty
+    if not selected and not has_shapes:
+        raise RuntimeError("No zone to repaint: pick objects or draw a zone with the ComfyQ Mask tool "
+                           "(3D View toolbar), or select the objects to repaint")
     size = fit_size(scene_aspect(scene), max_edge)
     rgb_path = _out_path("mask_rgb")
-    matte_path = _out_path("mask_matte")
+    matte_path = _out_path("mask_matte") if selected else None
     with own_changes(), _at_frame(scene, frame), _workbench(scene, size, style):
         _render_to(scene, rgb_path)
-        sh, r = scene.display.shading, scene.render
-        colors = {o.name: tuple(o.color) for o in scene.objects}
-        chosen = {o.name for o in selected}
-        try:
-            # Flat object colors: selection white, everything else black, so an
-            # occluder in front of the selection stays black. A transparent film
-            # makes the (world-colored) background black in RGB too.
-            sh.light, sh.color_type = "FLAT", "OBJECT"
-            r.film_transparent = True
-            r.image_settings.color_mode = "RGBA"
-            for o in scene.objects:
-                o.color = (1, 1, 1, 1) if o.name in chosen else (0, 0, 0, 1)
-            _render_to(scene, matte_path)
-        finally:
-            for o in scene.objects:
-                if o.name in colors:
-                    o.color = colors[o.name]
+        if selected:
+            sh, r = scene.display.shading, scene.render
+            colors = {o.name: tuple(o.color) for o in scene.objects}
+            chosen = {o.name for o in selected}
+            try:
+                # Flat object colors: selection white, everything else black, so an
+                # occluder in front of the selection stays black. A transparent film
+                # makes the (world-colored) background black in RGB too.
+                sh.light, sh.color_type = "FLAT", "OBJECT"
+                r.film_transparent = True
+                r.image_settings.color_mode = "RGBA"
+                for o in scene.objects:
+                    o.color = (1, 1, 1, 1) if o.name in chosen else (0, 0, 0, 1)
+                _render_to(scene, matte_path)
+            finally:
+                for o in scene.objects:
+                    if o.name in colors:
+                        o.color = colors[o.name]
     out = _out_path("mask")
-    _merge_alpha(rgb_path, matte_path, out)
+    _merge_alpha(rgb_path, matte_path, out, shapes if has_shapes else None, grow, feather, invert)
     return out
+
+
+def zone_coverage(shapes, w: int, h: int, base: np.ndarray | None = None) -> np.ndarray:
+    """0..1 coverage (h × w, row 0 = bottom, as Blender stores pixels) of the zone's shapes over `base` (the picked
+    objects' matte), applied in order: an "add" shape sets, a "sub" shape clears. Same rule as zone.contains."""
+    cover = np.zeros((h, w), np.float32) if base is None else base.astype(np.float32).copy()
+    py = (np.arange(h, dtype=np.float32) + 0.5) / h
+    px = (np.arange(w, dtype=np.float32) + 0.5) / w
+    for s in shapes.shapes:
+        pts = np.asarray(s.points, np.float32)
+        x0, y0 = pts[:, 0], pts[:, 1]
+        x1, y1 = np.roll(x0, -1), np.roll(y0, -1)
+        ys0, ys1 = int(max(0, np.floor(pts[:, 1].min() * h))), int(min(h, np.ceil(pts[:, 1].max() * h) + 1))
+        if ys1 <= ys0:
+            continue
+        yy = py[ys0:ys1, None]                                   # rows the shape touches
+        inside = np.zeros((ys1 - ys0, w), bool)
+        for ax, ay, bx, by in zip(x0, y0, x1, y1, strict=True):  # even-odd, one edge at a time
+            cross = (ay > yy) != (by > yy)
+            if not cross.any():
+                continue
+            xint = ax + (yy - ay) * (bx - ax) / ((by - ay) or 1e-12)
+            inside ^= cross & (px[None, :] < xint)
+        rows = cover[ys0:ys1]
+        if s.op == "add":
+            rows[inside] = 1.0
+        else:
+            rows[inside] = 0.0
+    return cover
+
+
+def _dilate(m: np.ndarray, r: int) -> np.ndarray:
+    """Grow a coverage mask by r pixels (square neighbourhood, separable max)."""
+    if r <= 0:
+        return m
+    out = m.copy()
+    for axis in (0, 1):
+        cur = out.copy()
+        for d in range(1, r + 1):
+            a = np.roll(out, d, axis=axis)
+            b = np.roll(out, -d, axis=axis)
+            if axis == 0:
+                a[:d, :] = 0
+                b[-d:, :] = 0
+            else:
+                a[:, :d] = 0
+                b[:, -d:] = 0
+            np.maximum(cur, a, out=cur)
+            np.maximum(cur, b, out=cur)
+        out = cur
+    return out
+
+
+def _blur(m: np.ndarray, r: int) -> np.ndarray:
+    """Soften edges: a box blur of radius r run twice (close to a Gaussian), edges clamped."""
+    if r <= 0:
+        return m
+    out = m
+    for _ in range(2):
+        for axis in (0, 1):
+            pad = [(0, 0), (0, 0)]
+            pad[axis] = (r + 1, r)
+            p = np.pad(out, pad, mode="edge")
+            c = np.cumsum(p, axis=axis, dtype=np.float64)
+            n = out.shape[axis]
+            hi = np.take(c, np.arange(2 * r + 1, 2 * r + 1 + n), axis=axis)
+            lo = np.take(c, np.arange(0, n), axis=axis)
+            out = ((hi - lo) / (2 * r + 1)).astype(np.float32)
+    return out
+
+
+def finish_zone(cover: np.ndarray, w: int, grow: float, feather: float, invert: bool) -> np.ndarray:
+    """Grow, feather and invert a 0..1 coverage (fractions of the picture width w)."""
+    from .. import zone as zmod
+    cover = _dilate(cover, zmod.grow_px(grow, w))
+    cover = _blur(cover, zmod.grow_px(feather, w))
+    cover = np.clip(cover, 0.0, 1.0)
+    return 1.0 - cover if invert else cover
+
+
+def _merge_alpha(rgb_path: Path, matte_path: Path | None, out: Path, shapes=None, grow: float = 0.0,
+                 feather: float = 0.0, invert: bool = False) -> None:
+    rgb, w, h = _pixels(rgb_path)
+    base = None
+    if matte_path is not None:
+        matte, _, _ = _pixels(matte_path)
+        base = np.clip(matte[..., 0] * matte[..., 3], 0.0, 1.0)
+    cover = zone_coverage(shapes, w, h, base) if shapes is not None else (
+        base if base is not None else np.zeros((h, w), np.float32))
+    rgb[..., 3] = 1.0 - finish_zone(cover, w, grow, feather, invert)
+    img = bpy.data.images.new("comfyq_mask_tmp", w, h, alpha=True)
+    try:
+        img.pixels.foreach_set(rgb.ravel())
+        img.filepath_raw = str(out)
+        img.file_format = "PNG"
+        img.save()
+    finally:
+        bpy.data.images.remove(img)
+    rgb_path.unlink(missing_ok=True)
+    if matte_path is not None:
+        matte_path.unlink(missing_ok=True)
 
 
 def _pixels(path: Path) -> tuple[np.ndarray, int, int]:
@@ -464,23 +571,6 @@ def _pixels(path: Path) -> tuple[np.ndarray, int, int]:
         return buf.reshape(h, w, 4), w, h
     finally:
         bpy.data.images.remove(img)
-
-
-def _merge_alpha(rgb_path: Path, matte_path: Path, out: Path) -> None:
-    rgb, w, h = _pixels(rgb_path)
-    matte, _, _ = _pixels(matte_path)
-    selected = np.clip(matte[..., 0] * matte[..., 3], 0.0, 1.0)
-    rgb[..., 3] = 1.0 - selected
-    img = bpy.data.images.new("comfyq_mask_tmp", w, h, alpha=True)
-    try:
-        img.pixels.foreach_set(rgb.ravel())
-        img.filepath_raw = str(out)
-        img.file_format = "PNG"
-        img.save()
-    finally:
-        bpy.data.images.remove(img)
-    rgb_path.unlink(missing_ok=True)
-    matte_path.unlink(missing_ok=True)
 
 
 def image_pass(image: bpy.types.Image, max_edge: int | None = None) -> Path:

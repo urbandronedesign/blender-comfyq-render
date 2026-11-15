@@ -21,7 +21,7 @@ from . import graph, mcp, prefs, props
 from .ops import connection, generate, results, workflow
 from .passes import animation
 from .runtime.session import PUMP_INTERVAL_S, SESSION
-from .ui import panel, player, server
+from .ui import panel, player, server, zone_tool
 
 _CLASSES = (*connection.classes, *workflow.classes, *generate.classes, *results.classes, *panel.classes,
             *graph.classes, *server.classes)
@@ -103,6 +103,7 @@ def register() -> None:
     finally:
         graph.tree.REGISTERING[0] = False
     player.register()
+    zone_tool.register()                       # the ComfyQ Mask tool + red zone overlay
     panel.register_extras()
     graph.register_extras()
     animation.register()
@@ -124,6 +125,7 @@ def unregister() -> None:
     panel.unregister_extras()
     graph.unregister_extras()
     player.unregister()
+    zone_tool.unregister()
     if _on_load in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.remove(_on_load)
     SESSION.close()

@@ -18,8 +18,8 @@ from mathutils import Vector
 OUT = Path(sys.argv[sys.argv.index("--") + 1])
 PRESET = (Path(__file__).resolve().parents[1] / "presets" / "library" / "Image edit"
           / "Flux2 Klein 9B — inpaint (paint & prompt).json")
-# The zone is the object's exact outline: ask for something of the same shape (a bouquet would spill outside it)
-PROMPT = ("a glossy white porcelain vase hand-painted with blue Delft flowers, photorealistic, soft daylight, same "
+# The zone (below) is the vase + a free shape above it, grown: room for a bouquet. GPU-checked 2026-11-15.
+PROMPT = ("a glass vase with a big bouquet of yellow sunflowers and green leaves, photorealistic, soft daylight, same "
           "perspective and lighting as the room")
 
 # ---------------------------------------------------------------- the room
@@ -152,21 +152,28 @@ for n in tree.nodes:
         n.auto = True
 left = min(n.location.x for n in tree.nodes)
 note = preset_ops.steps_note(tree, (
-    "1. Select the object to replace (the Vase",
-    "   is selected; try the Armchair, the",
-    "   Floor lamp or the Painting too)",
-    "2. Prompt: what should be there instead",
-    "3. Run Graph (Solo loads Flux2 Klein",
+    "1. Mask node › Mask Tool (or the toolbar):",
+    "   click objects to add them to the zone,",
+    "   drag a box, Shift+drag a free shape,",
+    "   Ctrl+drag cuts. The zone shows in red",
+    "2. Grow: room for bigger new content",
+    "   (flowers above a vase); Feather: soft",
+    "3. Prompt: what should be in the zone",
+    "4. Run Graph (Solo loads Flux2 Klein",
     "   inpaint, about a minute the first time)",
-    "4. Viewer: only the selected area changed",
-    "5. Mask node › Render Frame shows the",
-    "   zone before sending (transparent =",
-    "   repainted)"), "How to use · masking test")
+    "5. Viewer: only the zone changed",
+    "No zone: the selected objects are used"), "How to use · masking test")
 note.location = (left - note.width - 60.0, 0.0)
 bpy.ops.object.select_all(action="DESELECT")
 vase = bpy.data.objects["Vase"]
 vase.select_set(True)
 bpy.context.view_layer.objects.active = vase
+# the zone (ComfyQ Mask tool): the vase + room above it for flowers, a little Grow and Feather
+from bl_ext.user_default.comfyq_bridge.passes import zone_scene
+
+zone_scene.toggle_object(sc, vase)
+bpy.ops.comfyq.zone_add_shape(points="[[0.41, 0.50], [0.52, 0.50], [0.56, 0.72], [0.47, 0.80], [0.37, 0.72]]")
+sc.comfyq.zone_grow, sc.comfyq.zone_feather = 1.5, 0.8
 SESSION.close()
 OUT.parent.mkdir(parents=True, exist_ok=True)
 bpy.ops.wm.save_as_mainfile(filepath=str(OUT))

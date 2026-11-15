@@ -404,10 +404,12 @@ def blender_render(args: dict) -> dict:
                 sc.frame_end = keep
             return {"path": str(p.path), "frames": p.frames, "seconds": round(p.seconds, 2), "size": list(p.size)}
         if kind == "mask":
+            from ..passes import zone_scene
             sel = list(bpy.context.selected_objects)
-            if not sel:
-                raise ToolError("Select the object(s) to repaint first (blender_select)")
-            return {"path": str(render.mask_pass(sc, sel, style, edge, frame))}
+            if not sel and not zone_scene.active(sc):
+                raise ToolError("Select the object(s) to repaint first (blender_select), or draw a zone with "
+                                "the ComfyQ Mask tool")
+            return {"path": str(zone_scene.mask(sc, sel, style, edge, frame))}
         return {"path": str(render.structure_pass(sc, style, edge, frame, int(args.get("samples", 64))))}
 
     def go():

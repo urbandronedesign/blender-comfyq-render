@@ -83,7 +83,8 @@ def _media(scene, selected, it, spec, rendered, style, frame, keyframe_ok) -> Pa
         cache_key = f"{src}:{spec.max_input_edge}:{f}"
         if cache_key not in rendered:
             if src == "MASK":
-                rendered[cache_key] = render.mask_pass(scene, selected, style, spec.max_input_edge, f)
+                from ..passes import zone_scene
+                rendered[cache_key] = zone_scene.mask(scene, selected, style, spec.max_input_edge, f)
             else:
                 rendered[cache_key] = render.structure_pass(scene, style, spec.max_input_edge, f)
         return rendered[cache_key]

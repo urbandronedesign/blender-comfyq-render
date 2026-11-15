@@ -317,9 +317,9 @@ class ComfyQSceneRenderNode(_Node, bpy.types.Node):
 
 
 class ComfyQMaskNode(_Node, bpy.types.Node):
-    """The scene camera with the selected objects cut out: the area an inpaint workflow repaints"""
+    """The scene camera with the zone cut out (ComfyQ Mask tool, else the selected objects): what inpaint repaints"""
     bl_idname = "ComfyQMaskNode"
-    bl_label = "Selection Mask"
+    bl_label = "Mask Zone"
     bl_icon = "SELECT_SET"
     bl_width_default = 300
 
@@ -331,9 +331,8 @@ class ComfyQMaskNode(_Node, bpy.types.Node):
         self.outputs.new(SOCKET_IDNAME["mask"], "Mask")
 
     def draw_buttons(self, context, layout):
-        n = len(context.selected_objects)
-        layout.label(text=f"Selected objects mark the area to repaint ({n} selected)",
-                     icon="CHECKMARK" if n else "ERROR")
+        from ..ui.studio import draw_zone_source
+        draw_zone_source(layout.column(align=True), context)
         row = layout.row(align=True)
         row.prop(self, "style", text="")
         row.prop(self, "frame", text="")

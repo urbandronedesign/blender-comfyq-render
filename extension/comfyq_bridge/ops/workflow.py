@@ -313,7 +313,8 @@ class COMFYQ_OT_preview_pass(bpy.types.Operator):
         frame = self.frame if self.frame >= 0 else None
         try:
             if self.mask:
-                path = render.mask_pass(scene, list(context.selected_objects), style, None, frame)
+                from ..passes import zone_scene
+                path = zone_scene.mask(scene, list(context.selected_objects), style, None, frame)
             elif style == "CYCLES":
                 # its own Blender process: Blender stays responsive; the node shows the samples and a ✕
                 job = render.CyclesRender(scene, None, frame, _samples(self.tag), tag=self.tag)

@@ -37,7 +37,8 @@ REL_PATH = _relative_ok()
 # Fixed numbers so the stored value means the same source whatever list a kind shows.
 _SRC = {
     "STRUCTURE": ("Scene Render", "Workbench render of the scene camera", "SCENE", 0),
-    "MASK": ("Render + Selection Mask", "Scene render; the selected objects are the area to repaint", "SELECT_SET", 1),
+    "MASK": ("Render + Mask Zone", ("Scene render; the zone picked with the ComfyQ Mask tool (else the selected "
+                                    "objects) is the area to repaint"), "SELECT_SET", 1),
     "ANIMATION": ("Scene Animation", "The frame range rendered through the scene camera, as a video",
                   "RENDER_ANIMATION", 2),
     "IMAGE": ("Blender Image", "An image loaded in this file", "IMAGE_DATA", 3),
@@ -150,7 +151,34 @@ class ComfyQJobRecord(bpy.types.PropertyGroup):
     values: StringProperty()           # JSON {param key: value sent} (not the files) — what Retry books again
 
 
+class ComfyQZoneObject(bpy.types.PropertyGroup):
+    obj: PointerProperty(type=bpy.types.Object)
+
+
+def _redraw_views(self, context):
+    for win in getattr(context.window_manager, "windows", ()):
+        for area in win.screen.areas:
+            if area.type in ("VIEW_3D", "NODE_EDITOR"):
+                area.tag_redraw()
+
+
 class ComfyQSceneProps(bpy.types.PropertyGroup):
+    # -- the mask ZONE (ComfyQ Mask tool): what inpaint workflows repaint. zone.py has the shapes' format.
+    zone_objects: CollectionProperty(type=ComfyQZoneObject)
+    zone_shapes: StringProperty(name="Zone Shapes", default="", options={"HIDDEN"})
+    zone_grow: FloatProperty(name="Grow", default=0.0, min=0.0, max=20.0, subtype="PERCENTAGE", precision=1,
+                             update=_redraw_views,
+                             description="Widen the zone around its edges (in % of the picture width), so the new "
+                                         "content can be bigger than the object it replaces")
+    zone_feather: FloatProperty(name="Feather", default=0.3, min=0.0, max=10.0, subtype="PERCENTAGE", precision=1,
+                                update=_redraw_views,
+                                description="Soften the zone's edge (in % of the picture width), so the new content "
+                                            "blends in")
+    zone_invert: BoolProperty(name="Invert", default=False, update=_redraw_views,
+                              description="Repaint everything except the zone")
+    zone_show: BoolProperty(name="Show Zone", default=True, update=_redraw_views,
+                            description="Show the zone in red over the 3D View")
+
     tab: EnumProperty(name="Category", items=TABS, default="IMAGE")
     workflow_id: StringProperty(name="Workflow")
     keyframe_workflow_id: StringProperty(name="Keyframe Model",
@@ -177,7 +205,7 @@ def workflow_items(scene: bpy.types.Scene, workflow_id: str) -> list[ComfyQParam
     return [it for it in scene.comfyq.params if it.workflow_id == workflow_id]
 
 
-classes = (ComfyQParamValue, ComfyQJobRecord, ComfyQSceneProps)
+classes = (ComfyQParamValue, ComfyQJobRecord, ComfyQZoneObject, ComfyQSceneProps)
 
 
 def register() -> None:

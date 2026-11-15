@@ -1299,10 +1299,43 @@ def step_presets_menu():
     p.presets_dir = ""
 
 
+def step_mask_zone():
+    """The ComfyQ Mask tool: toolbar tool + camera view, picked object and drawn shape in red, header settings."""
+    zs = ext("passes.zone_scene")
+    zt = ext("ui.zone_tool")
+    sc = bpy.context.scene
+    zs.clear(sc)
+    res = click("zone_tool", v3d)
+    yield 0.5
+    w, area = v3d()
+    tool = bpy.context.workspace.tools.from_space_view3d_mode("OBJECT", create=False)
+    rv3d = area.spaces.active.region_3d
+    check("Mask Tool button: the ComfyQ Mask tool is active, looking through the camera",
+          res == {"FINISHED"} and tool is not None and tool.idname == "comfyq.mask_zone"
+          and rv3d.view_perspective == "CAMERA", f"{res} tool={tool and tool.idname} view={rv3d.view_perspective}")
+    mesh_obj = next((o for o in sc.objects if o.type == "MESH" and o.visible_get()), None)
+    with ctx(v3d):
+        bpy.ops.comfyq.zone_pick(object_name=mesh_obj.name)
+        bpy.ops.comfyq.zone_add_shape(points="[[0.05, 0.6], [0.3, 0.6], [0.3, 0.9], [0.05, 0.9]]")
+        bpy.ops.comfyq.zone_add_shape(points="[[0.55, 0.15], [0.75, 0.1], [0.8, 0.35], [0.6, 0.4]]")
+    region = next(r for r in area.regions if r.type == "WINDOW")
+    with bpy.context.temp_override(window=w, area=area, region=region):
+        rect = zt.frame_rect(bpy.context)
+    yield 0.5
+    shot("16_mask_zone")
+    check("Mask tool: the camera frame is found in the 3D View (shapes are drawn through it)",
+          rect is not None and 0 <= rect[0][0] < rect[1][0] <= region.width + 1, rect)
+    check("Mask tool: one object and two shapes in the zone; the overlay and the tool header draw without error",
+          zs.describe(sc) == "1 object · 2 shapes" and not any("zone" in e for e in draw_errors), zs.describe(sc))
+    zs.clear(sc)
+    with ctx(v3d):
+        bpy.ops.wm.tool_set_by_id(name="builtin.select_box", space_type="VIEW_3D")
+
+
 STEPS = [step_start, step_connect, step_refresh, step_tabs_and_menu, step_chips, step_prompt, step_match,
          step_render_scene, step_animation, step_player, step_library, step_cleanup, step_finished_job_card,
          step_failed_job_card,
-         step_keyframe, step_graph, step_cycles_render, step_graph_run, step_generate, step_disconnect_reconnect, step_reload_file, step_new_inputs, step_extras, step_preferences, step_media_folder, step_queue_popover, step_server_panel,
+         step_keyframe, step_graph, step_cycles_render, step_graph_run, step_generate, step_disconnect_reconnect, step_reload_file, step_new_inputs, step_mask_zone, step_extras, step_preferences, step_media_folder, step_queue_popover, step_server_panel,
          step_presets_menu]
 
 

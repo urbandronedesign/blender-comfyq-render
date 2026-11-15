@@ -216,6 +216,21 @@ Verified: smoke PASSED on 5.3 and 5.2; GUI `-Ui -Version 5.3` passed with no dra
 
 Left for phases 3–5 (the workspace, Draw and Mask): 13, 14, 15, 16, 18, 19.
 
+**Mask tool (2026-11-15, asked by the user before the workspace: "selection in 3D and also a mask tool in the toolbar").** The **ComfyQ Mask** tool (`ui/zone_tool.py`):
+- click picks objects;
+- drag draws a box, Shift+drag a free shape;
+- Ctrl cuts.
+
+It draws through the scene camera, with a red overlay and header settings Grow / Feather / Invert / Show / Clear. There is one zone per scene (`zone.py` bpy-free + unit tests, `passes/zone_scene.py`, the raster in `render.zone_coverage`). This solves **#19**: the zone no longer follows the current selection. It also covers requirements 10–11 for objects and shapes, and 'grow'.
+
+The Mask node became **Mask Zone**. The source became *Render + Mask Zone*. GPU-verified on `mask_demo_zone.blend` (sunflowers spilling above the old vase).
+
+Still open for masking:
+- a zone on any picture (#18: the zone applies to scene renders only);
+- Paint Zone in the Image Editor;
+- SAM3 picking;
+- one thumbnail per node (#39).
+
 ## Phase 2b results — spikes on Blender 5.3 (2026-11-15, `tools/draw_mask_spikes.py`, `live_check/draw_mask_spikes/`)
 | Spike | Result | Consequence for the build |
 |---|---|---|
