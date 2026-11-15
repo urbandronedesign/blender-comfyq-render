@@ -19,6 +19,7 @@ no drawing errors.
 | Place | How to open it | What it shows |
 |---|---|---|
 | **3D View sidebar** | `N` in the 3D View → **ComfyQ** tab | The generation bar + the **Jobs** list |
+| **ComfyQ workspace** | Workspace icon (bar top row) — added to the file the first time, then a tab like Layout | **Camera view** (3D View, bar in its sidebar) · **the frame** (Image Editor, Player + bar) · **the graph** (Node Editor) · Timeline; the bar's **mode strip** (§1.1) |
 | **ComfyQ window** | Window icon (bar, or 3D View header) | Its own window: **viewer** (top), **Player** + bar + Jobs in the viewer's sidebar, **prompt editor** (bottom) |
 | **Dialog** | **ComfyQ** button in the 3D View header, or **Ctrl+Shift+Q** (3D View, Image Editor) | The bar as a floating dialog; its **Generate** button sends the job |
 | **Queue popover** | **Queue** button of the bar | The last 8 jobs of this scene |
@@ -28,6 +29,30 @@ The ComfyQ window is saved with the file. When the file is opened again it is re
 ComfyQ window (players, previews and the prompt editor use it) and its sidebar is put back on the ComfyQ tab.
 Pressing the window icon while it is open closes it and opens a fresh one in front (Blender cannot
 raise a window). The icon is hidden inside the ComfyQ window itself.
+
+### 1.1 The ComfyQ workspace and its mode strip (audit 2, phase 3)
+
+```
+┌──────────────────────────────┬──────────────────────────┐
+│ 3D Viewport (camera view)    │ Image Editor: the FRAME  │
+│  sidebar = the ComfyQ bar    │  view / paint, the bar   │
+├──────────────────────────────┴──────────────┬───────────┤
+│ Node Editor: the ComfyQ graph               │ Timeline  │
+└─────────────────────────────────────────────┴───────────┘
+```
+The layout ships in the extension (`workspace.blend`, authored by `tools/make_workspace_blend.py` in a visible
+Blender); the editors are pointed at ComfyQ when it opens. The window and workspace icons are hidden inside it; the
+bar shows the **mode strip** instead, with a one-line hint under it. The current mode is read from the editors.
+
+| Mode | Does | Check |
+|---|---|---|
+| **Frame** | Image Editor back to View, Select Box tool, camera view: the frame shows renders and results | `Mode strip: Frame switches the editors` |
+| **Draw** | Image Editor › Paint on **ComfyQ Frame**: a copy of the shown render / result (the next render would overwrite the preview itself), or a white canvas at the camera's shape; a picture of the student's own is painted as it is. Send it as a *Blender Image* input | `Mode strip: Draw switches the editors` (paints on ComfyQ Frame) |
+| **Mask** | The ComfyQ Mask tool in the camera view (§ Mask tool) | `Mode strip: Mask switches the editors` |
+| **Graph** | Maximizes the graph; *Back to Previous* (top bar) or Graph again returns | `Mode strip: Graph switches the editors`, `Graph again goes back` |
+
+Pressing the workspace icon again (from another workspace) switches to the same workspace, never a second copy
+(`ComfyQ Workspace button again`). Screenshots `18_workspace` … `22_ws_frame`.
 
 ---
 
@@ -257,6 +282,9 @@ collection* first, so it never reached ComfyQ.
 | FILE_REFRESH | do again | Refresh, Regenerate, ⟳ re-run, random seed, Retry |
 | NODETREE | the graph | graph icon, Open as Graph |
 | WINDOW | the ComfyQ window | window button |
+| WORKSPACE | the ComfyQ workspace | workspace button |
+| IMAGE_DATA / TPAINT_HLT | the frame / painting it | mode strip Frame / Draw |
+| RESTRICT_SELECT_OFF | the ComfyQ Mask tool | Mask Tool button, mode strip Mask |
 | HELP | the student quickstart | ? (bar, graph header) |
 | USER | a person | name · server row, Server panel queue and Connected |
 | VIEW_CAMERA | a camera position setting | camera block heading |

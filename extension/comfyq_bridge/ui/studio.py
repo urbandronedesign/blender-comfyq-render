@@ -19,6 +19,7 @@ from ..passes import animation
 from ..props import param_item, workflow_items
 from ..runtime.session import SESSION
 from ..wording import count
+from . import workspace
 
 PHASE_TEXT = {
     "scheduled": "Waiting in queue", "uploading-inputs": "Preparing inputs", "submitted": "Starting",
@@ -72,6 +73,8 @@ def draw_studio(layout: bpy.types.UILayout, context, columns: int = 2, dialog: b
     scene = context.scene
     cq = scene.comfyq
     _CHARS[0] = 110 if dialog else _chars_for(context)
+    if not dialog:
+        workspace.draw_strip(layout, context)      # Frame · Draw · Mask · Graph, in the ComfyQ workspace only
 
     # -- tabs · window · library · queue ------------------------------------------------
     narrow = columns == 1
@@ -82,7 +85,9 @@ def draw_studio(layout: bpy.types.UILayout, context, columns: int = 2, dialog: b
     right = top.row(align=True)
     right.alignment = "RIGHT"
     in_window = not dialog and context.window == wfops.comfyq_window()
-    if not dialog and not in_window:
+    in_workspace = not dialog and workspace.workspace_of(context) is not None
+    if not dialog and not in_window and not in_workspace:
+        right.operator("comfyq.workspace", text="", icon="WORKSPACE")
         right.operator("comfyq.open_window", text="", icon="WINDOW")
     if in_window:                    # the ComfyQ window: Bar / Graph switch
         graph_on = wfops.graph_pane(context.window) is not None

@@ -608,10 +608,16 @@ change that session: the user must reinstall from the UI or restart Blender.
 - Remaining series warnings are model behaviour (morphing, cuts, CG look) or ComfyQ-side (RUNBOOK §7.1 2d: UV unwrap
   keeps the old texture, LTX ingredients pads a square sheet).
 
+- **ComfyQ workspace (audit 2, phase 3, 2026-11-16):** `extension/comfyq_bridge/workspace.blend` (authored by
+  `tools/make_workspace_blend.py` in a visible factory Blender; `workspace.delete` under temp_override deletes the
+  ACTIVE workspace, so the other factory workspaces stay in the file), `ui/workspace.py`: **ComfyQ Workspace**
+  button (bar top row, `comfyq.workspace`: append_activate once, then switch) + editors set up from a timer, and
+  the bar's **mode strip** Frame · Draw (paints on a copy "ComfyQ Frame", never the render preview) · Mask (ComfyQ
+  Mask tool) · Graph (maximized; Back to Previous). Mode read from the editors. GUI `step_workspace` (9 checks,
+  shots 18–22), smoke checks the .blend. docs/UI.md §1.1.
+
 ## Next steps
-0. **Audit-2 phases 3–5 (the user's current goal):** (3) the **ComfyQ workspace**: author `workspace.blend` once in a
-   visible Blender (`tools/make_workspace_blend.py`, timers), ship it in the extension, `workspace.append_activate`,
-   mode strip Frame · Draw · Mask · Graph; (4) **Draw**: Sketch source/node (GP object parented to the camera,
+0. **Audit-2 phases 4–5 (the user's current goal; phase 3 workspace DONE 2026-11-16):** (4) **Draw**: Sketch source/node (GP object parented to the camera,
    white-background option in the clay pass, GP strokes in the fingerprint), Paint Frame (canvas at the job's size,
    start from render/keyframe/result, pixel hash); (5) **Mask**: Mask Zone source/node (Compositor raster at upload
    size, numpy fallback + unit tests, feather, invert, **grow**), Paint Zone (Erase/Add Alpha), red overlay, one

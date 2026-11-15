@@ -1389,10 +1389,71 @@ def step_picture_mask():
     tree.nodes.remove(pm)
 
 
+def step_workspace():
+    """The ComfyQ workspace (audit 2, phase 3): appended from the extension's workspace.blend, the editors pointed
+    at ComfyQ, and the bar's mode strip Frame · Draw · Mask · Graph (Graph again = back)."""
+    wsm = ext("ui.workspace")
+    win = main_win()
+    before = win.workspace
+    with bpy.context.temp_override(window=win):
+        res = bpy.ops.comfyq.workspace()
+
+    def ready():
+        node = next((a for a in win.screen.areas if a.type == "NODE_EDITOR"), None)
+        return (wsm.workspace_of(win) is not None and node is not None
+                and node.spaces.active.tree_type == "ComfyQGraphTree")
+    yield ready, 15
+    yield 1.0
+    types = sorted(a.type for a in win.screen.areas)
+    v = max((a for a in win.screen.areas if a.type == "VIEW_3D"), key=lambda a: a.width * a.height)
+    frame = next(a for a in win.screen.areas if a.type == "IMAGE_EDITOR")
+    tabs = [next(r for r in a.regions if r.type == "UI").active_panel_category for a in (v, frame)]
+    shot("18_workspace")
+    check("ComfyQ Workspace button: the workspace is added and opened (3D View, frame, graph, timeline)",
+          res == {"FINISHED"} and types == ["DOPESHEET_EDITOR", "IMAGE_EDITOR", "NODE_EDITOR", "VIEW_3D"]
+          and win.workspace.get(wsm.MARK), f"{res} {win.workspace.name} {types}")
+    check("ComfyQ workspace: camera view and the ComfyQ tab in the 3D View and the frame",
+          v.spaces.active.region_3d.view_perspective == "CAMERA" and tabs == ["ComfyQ", "ComfyQ"],
+          f"{v.spaces.active.region_3d.view_perspective} {tabs}")
+
+    def mode(m):
+        with bpy.context.temp_override(window=win, screen=win.screen):
+            r = bpy.ops.comfyq.workspace_mode(mode=m)
+            now = wsm.current_mode(bpy.context)
+        return r, now
+    for m, tag in (("DRAW", "19_ws_draw"), ("MASK", "20_ws_mask"), ("GRAPH", "21_ws_graph"), ("FRAME", "22_ws_frame")):
+        r, now = mode(m)
+        yield 0.8
+        shot(tag)
+        extra = ""
+        if m == "DRAW":
+            fr = next((a for a in win.screen.areas if a.type == "IMAGE_EDITOR"), None)
+            extra = f" image={fr.spaces.active.image.name if fr and fr.spaces.active.image else None}"
+        drawn_on_copy = m != "DRAW" or extra.endswith("image=ComfyQ Frame")   # never on a render preview / result
+        check(f"Mode strip: {m.title()} switches the editors", r == {"FINISHED"} and now == m and drawn_on_copy,
+              f"{r} now={now}{extra}")
+    r, now = mode("GRAPH")
+    yield 0.8
+    _r2, back = mode("GRAPH")
+    yield 0.8
+    check("Mode strip: Graph again goes back to the workspace", now == "GRAPH" and back == "FRAME"
+          and len(win.screen.areas) == 4, f"{now} → {back}, {len(win.screen.areas)} areas")
+    with bpy.context.temp_override(window=win):
+        r3 = bpy.ops.comfyq.workspace()
+    yield 0.5
+    check("ComfyQ Workspace button again: switches to the same workspace (not a second copy)",
+          r3 == {"FINISHED"} and sum(1 for w in bpy.data.workspaces if w.get(wsm.MARK)) == 1,
+          [w.name for w in bpy.data.workspaces])
+    check("ComfyQ workspace: bar, strip and graph header draw without error",
+          not any("workspace" in e or "draw_strip" in e for e in draw_errors))
+    win.workspace = before                     # the later steps expect the usual layout
+    yield 1.0
+
+
 STEPS = [step_start, step_connect, step_refresh, step_tabs_and_menu, step_chips, step_prompt, step_match,
          step_render_scene, step_animation, step_player, step_library, step_cleanup, step_finished_job_card,
          step_failed_job_card,
-         step_keyframe, step_graph, step_cycles_render, step_graph_run, step_generate, step_disconnect_reconnect, step_reload_file, step_new_inputs, step_mask_zone, step_picture_mask, step_extras, step_preferences, step_media_folder, step_queue_popover, step_server_panel,
+         step_keyframe, step_graph, step_cycles_render, step_graph_run, step_generate, step_disconnect_reconnect, step_reload_file, step_new_inputs, step_mask_zone, step_picture_mask, step_workspace, step_extras, step_preferences, step_media_folder, step_queue_popover, step_server_panel,
          step_presets_menu]
 
 

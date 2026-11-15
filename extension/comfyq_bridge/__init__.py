@@ -21,10 +21,10 @@ from . import graph, mcp, prefs, props
 from .ops import connection, generate, results, workflow
 from .passes import animation
 from .runtime.session import PUMP_INTERVAL_S, SESSION
-from .ui import panel, player, server, zone_tool
+from .ui import panel, player, server, workspace, zone_tool
 
 _CLASSES = (*connection.classes, *workflow.classes, *generate.classes, *results.classes, *panel.classes,
-            *graph.classes, *server.classes)
+            *graph.classes, *server.classes, *workspace.classes)
 
 
 def _tick() -> float:

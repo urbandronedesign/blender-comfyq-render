@@ -1120,6 +1120,13 @@ if _ideo is not None and any(w.id == "image_ideogram4_t2i" for w in SESSION.work
     scene.render.resolution_x, scene.render.resolution_y = _rx0, _ry0
 else:
     print("  skip  aspect-ratio match: no Ideogram workflow on this ComfyQ")
+# the ComfyQ workspace ships in the extension (audit 2, phase 3; appended in the GUI check, step_workspace)
+from bl_ext.user_default.comfyq_bridge.ui import workspace as _wsm
+
+with bpy.data.libraries.load(str(_wsm.BLEND)) as (_src, _dst):
+    _ws_names = list(_src.workspaces)
+check(_wsm.BLEND.is_file() and _wsm.NAME in _ws_names and hasattr(bpy.ops.comfyq, "workspace_mode"),
+      f"ComfyQ workspace: {_wsm.BLEND.name} holds the '{_wsm.NAME}' workspace, operators registered")
 shutil.rmtree(shared, ignore_errors=True)
 del os.environ["COMFYQ_BRIDGE_PRESETS"]
 
