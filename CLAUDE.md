@@ -19,7 +19,7 @@ Git: branch `main`, remote `origin` = public GitHub `urbandronedesign/blender-co
 ## Environment (this machine)
 | Thing | Where |
 |---|---|
-| **Blender 5.3.0** (Python 3.13.13) — the host since 2026-11-15 | `C:\Program Files\Blender Foundation\Blender 5.3\blender.exe`, installed 2026-11-15 next to 5.2 from the official MSI (`E:\zaki\downloads\blender-5.3.0\`, SHA-256 from `blender-5.3.0.sha256` + Blender Foundation signature checked). Native Gaussian splats (`PointCloud.type` = `GAUSSIAN_SPLAT`, `wm.ply_import` / `wm.spz_import`), Vulkan default. Default of `smoke_test.ps1` (`-Version 5.2` for the LTS) and of the PowerShell helpers. **The user's 5.3 profile** (`%APPDATA%\Blender Foundation\Blender\5.3`) was made by *Load Blender 5.2 Settings* (2026-11-15: online access, MCP ON port 8790, Teacher tools ON, Solo ON, theme, student `b2renger` all kept) and has the build of commit `b96ea4d` |
+| **Blender 5.3.0** (Python 3.13.13) — the host since 2026-11-15 | `C:\Program Files\Blender Foundation\Blender 5.3\blender.exe`, installed 2026-11-15 next to 5.2 from the official MSI (`E:\zaki\downloads\blender-5.3.0\`, SHA-256 from `blender-5.3.0.sha256` + Blender Foundation signature checked). Native Gaussian splats (`PointCloud.type` = `GAUSSIAN_SPLAT`, `wm.ply_import` / `wm.spz_import`), Vulkan default. Default of `smoke_test.ps1` (`-Version 5.2` for the LTS) and of the PowerShell helpers. **The user's 5.3 profile** (`%APPDATA%\Blender Foundation\Blender\5.3`) was made by *Load Blender 5.2 Settings* (2026-11-15: online access, MCP ON port 8790, Teacher tools ON, Solo ON, theme, student `b2renger` all kept) and has the build of commit `6f5b4d1` (audit-2 step 3) |
 | **Blender 5.2.2 LTS** (Python 3.13.13) — the previous host | `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (winget `BlenderFoundation.Blender`, upgraded from 5.1 on 2026-10-03; the old 5.1 folder is still on disk and runs). Plugin installed in `%APPDATA%\Blender Foundation\Blender\5.2` (build of commit `cb6571b`, 2026-10-21: + 3D model / camera inputs, lane-restore wait), Allow Online Access on, **AI agents (MCP server) ON** (port 8790), **Teacher tools ON** (agents may load models; set 2026-10-04 by a startup script + `save_userpref`). Theme = Mixar's **"Mixar Forest"** with Input node colour changed from #ff284d to #3d4640 (calmer graph headers) (exported from `%APPDATA%\Mixar\Mixar\5.2\config\mixar_userpref.blend`, preset `scripts\presets\interface_theme\mixar_forest.xml`; previous prefs backed up as `config\userpref.before_mixar_theme.blend`) Default of `smoke_test.ps1` and `comfyq.ps1` |
 | ComfyQ server (Node, Socket.IO, SQLite) | `F:\ComfyQ`, http://127.0.0.1:3000, started with `npm run dev` (nodemon server + Vite client `--host`) — user works with b2renger, full control of its code |
 | **Node.js 24.22.1 LTS** (npm 11.19.1, OpenSSL 3.5.9) | `C:\Program Files\nodejs`, updated 2026-10-22 from 24.14.0 for the Oct 21 2026 security release (10 CVEs, 4 High: Brotli RCE, TLS hostname bypasses, dns). Official MSI from nodejs.org, SHA-256 + OpenJS Foundation signature checked (`E:\zaki\downloads\nodejs-v24.22.1\`). ComfyQ needs Node ≥22 <25 (`.nvmrc` 24). **Do NOT `winget upgrade`**: the winget id is `OpenJS.NodeJS` (Current line) → 26.x, outside ComfyQ's range; `OpenJS.NodeJS.LTS` lags behind the security releases |
@@ -325,17 +325,30 @@ change that session: the user must reinstall from the UI or restart Blender.
 60. **GUI / smoke checks pick from what is served** (gotcha 32): the GUI check's model menu step now prefers a served
     workflow with a prompt AND a picture/video input; with only text-to-image / audio / 3D models served the graph
     step has nothing to wire (serve an image-edit model first).
+61. **Imported results must stay out of the shot**: "Beside the scene" used to land inside the camera frame, so the
+    next render sent the AI result back. `importers/media._out_of_view` moves the box until no corner is in the
+    camera view (current frame only); `untouched_import` keeps it out of the fingerprint until the student moves it.
+    Do NOT exclude imports from renders: classes import results on purpose to render them (supercar scene).
+62. **Results must never take over an editor someone works in** (Paint / Mask mode, pinned, a non-ComfyQ image):
+    every display goes through `ui/player.viewer_area()` / `free_for_results`. Keep it that way for the Draw &
+    Mask workspace (a result replacing the canvas would lose the student's drawing).
+63. **Blender Mask data-block coordinates**: x is 0..1 across the frame, y is in the SAME units around the centre
+    (`frame_y = 0.5 + (y − 0.5)·W/H`). Rasterize with the Compositor's Mask node (exact, feather) — numpy fill only as
+    a checked fallback. Area types changed in background mode are not applied (workspace .blend: author in a GUI).
 
 
-## Status (2026-10-22 evening, last commit see `git log`, installed build `aa9ee51` = HEAD extension code; ComfyQ at its HEAD, 65 workflows) — **hand-over for b2renger / the teacher: docs/RUNBOOK.md**
-- **Host:** Blender 5.2.2 LTS; the user's profile has the build of `aa9ee51` (multi-shot: shots, Material Board, Join
-  Text, Film; later commits = tools/docs only) (MCP ON port 8790, Teacher tools ON, **Solo ON**, student name
-  `b2renger`). The user's Blender is closed. **ComfyQ was stopped by the user for the Node update (2026-10-22) and
-  must be restarted with `npm run dev` in F:\ComfyQ** before any GPU work.
+## Status (2026-11-15 evening, last commit see `git log`; installed build `6f5b4d1` = HEAD extension code, in the user's **Blender 5.3** profile; ComfyQ of 2026-11-15, 87 workflows) — **hand-over for b2renger / the teacher: docs/RUNBOOK.md**
+- **Host:** **Blender 5.3.0** (since 2026-11-15; 5.2.2 LTS still on disk and supported). The user's 5.3 profile came from
+  *Load Blender 5.2 Settings* (MCP ON port 8790, Teacher tools ON, **Solo ON**, student name `b2renger`, theme) and
+  has the build of `6f5b4d1` (audit-2 severity-3 fixes; later commits = tools/docs). The user restarts Blender to
+  load a build. **ComfyQ runs** (started by us with `npm run dev`, then set serving with the user's OK); after a
+  restart it comes back in ADMIN MODE (not serving) unless serving was on: start serving = `activate-workflow`.
+  Left serving at the end of 2026-11-15: YuE2 (main) + FLUX.3 Klein t2i + FLUX.3 Klein edit + Flux2 Klein inpaint
+  (loaded by Solo for the masking test).
   **This PC is the teacher PC**: `%APPDATA%\comfyq-bridge\profiles.toml` = profile `teacher` (default,
   127.0.0.1:3000). **ComfyQ now HAS an admin password** (the user set it in ComfyQ's admin page on 2026-10-21 and put
   the same one in the profile; check with `POST /admin/verify-password`, never print it). Without it Solo / Load Model
-  / the agents' teacher tools are refused (lanes, downloads); `activate-workflow` is still ungated. Never copy that
+  / the agents' teacher tools are refused (lanes, downloads, and `activate-workflow` since ComfyQ's Nov updates). Never copy that
   file to student PCs. **ComfyQ serves whatever solo mode / the last preset loaded** (after a restart: its configured
   main workflow + remembered lanes) — no fixed "state to restore" (user's choice: the next preset decides; before
   class, serve the lesson's model).
@@ -544,10 +557,43 @@ change that session: the user must reinstall from the UI or restart Blender.
 - Tests: unit + contract 95 (1 skipped); smoke PASSED on 5.3 and 5.2; GUI `-Ui -Version 5.3` 112 ok (screenshots
   looked at). ComfyQ left serving: YuE2 (main) + FLUX.3 Klein t2i + FLUX.3 Klein edit lanes.
 
+## Work of 2026-11-15, part 2: UX/UI audit 2 + Draw & Mask plan (docs/ux-audit-2-plan.md, docs/ux-audit-2.md)
+- The user asked for a complete UI/UX audit, and for **drawing a starting frame** and **selecting a zone to mask** with
+  Blender's native tools, in a **new context UI**. Decisions (asked): D1 a **ComfyQ workspace tab** (detached ComfyQ
+  window kept for second screens), D2 **Grease Pencil sketch in the camera view + Image Editor Paint**, D3 **Mask-mode
+  shapes + painted zone (Erase/Add Alpha) + SAM3 surface picking for students**, D4 audit first. D5 (masks moving
+  over time) later.
+- Phase 1 audit (3 read-only reviewers + own checks, 5.3 screenshots): 19 severity-3, ~45 severity-2, ~140 small;
+  requirements 1–18 for Draw & Mask at the end of docs/ux-audit-2.md.
+- Phase 2 (`61fbfdf`): GUI harness fixes (popover moved last, settle delays, Cycles node framed; T1 "identical
+  shots" was a false alarm; T3 overlap with LTX's long prompt still to check interactively) + spikes
+  (`tools/draw_mask_spikes.py`): GP sketch appears in the clay pass (sketch-only needs a white-background option);
+  Mask → alpha via the Compositor = numpy fill at 99.99 % (mask y is width-normalised: `frame_y = 0.5+(y-0.5)·W/H`);
+  painted alpha survives `image_pass`; workspace .blend must be authored in a VISIBLE Blender (area types do not
+  change in background); pixel hash 4.7 ms.
+- Step 3 (`6f5b4d1`, installed): severity-3 fixes 1–12 + 17 (connect: Server Address... / Access Password... /
+  reconnecting line; imports out of the camera's view + untouched imports out of the fingerprint; viewer fit and
+  never over a painted / masked / pinned / foreign image; sent 3D/sound files opened not shown; import_report;
+  lost jobs + Remove Finished Jobs; red failures on output nodes; preset overwrite guard; 5.2 splat presets take
+  the mesh; honest inpaint descriptions). Smoke 5.3 + 5.2 PASSED, GUI -Ui 5.3 passed.
+- **Masking example** (`e5448b4`): `tools/make_mask_demo_scene.py` → **`E:\zaki\mask_demo.blend`** (living room;
+  Flux2 Klein inpaint graph, Material style, Vase selected, How to use note). GPU-verified headless (36 s): only the
+  vase became a Delft porcelain vase (`live_check/mask_demo/vase_result.png`). Limit: the zone = the object's exact
+  outline (no grow), so shape-changing prompts get cut. `preset_e2e.py graph:<name>` runs a graph saved in a file.
+- Gotchas 61–63 below.
+
 ## Next steps
-0. DONE 2026-11-15: build `b96ea4d` installed into the user's Blender 5.3; presets folder synced (67 library presets,
-   the 3 renamed upstream removed; Class = 13 with the two splat presets). Not yet: a clay / material pass
-   check with splats in the scene; splats as inputs (no ComfyQ workflow takes one).
+0. **Audit-2 phases 3–5 (the user's current goal):** (3) the **ComfyQ workspace**: author `workspace.blend` once in a
+   visible Blender (`tools/make_workspace_blend.py`, timers), ship it in the extension, `workspace.append_activate`,
+   mode strip Frame · Draw · Mask · Graph; (4) **Draw**: Sketch source/node (GP object parented to the camera,
+   white-background option in the clay pass, GP strokes in the fingerprint), Paint Frame (canvas at the job's size,
+   start from render/keyframe/result, pixel hash); (5) **Mask**: Mask Zone source/node (Compositor raster at upload
+   size, numpy fallback + unit tests, feather, invert, **grow**), Paint Zone (Erase/Add Alpha), red overlay, one
+   thumbnail per node, Lock Selection, SAM3 picking for students. Then severity-2 list + mechanical sweep (phase 6),
+   presets *Sketch → image / video*, *Mask a zone → inpaint*, help/student.html, MCP tools (phase 7).
+0b. Wait for the user's feedback on `E:\zaki\mask_demo.blend` (masking test) and the splat presets.
+0c. DONE 2026-11-15: Blender 5.3 + native splats (docs/blender-5.3.md), presets folder synced (67 library + 13 class).
+   Not yet: splats in the clay / material passes; splats as inputs.
 1. Multi-shot (user's goal: long films of several shots), docs/multi-shot.md. DONE 2026-10-22: Shot field from
    camera-bound timeline markers (`passes/shots.py`; Blender's binding then drives scene.camera by itself), Solo /
    Load Model close lanes that would not fit (`serving.make_room_for_main`), Material Board node
@@ -560,16 +606,15 @@ change that session: the user must reinstall from the UI or restart Blender.
    last frame → next shot's start for continuous moves.
 1b. Wait for the user's feedback on the **Multi-shot film** and **Blockout animation → photoreal video** presets and
    on the 4 mesh / camera presets; earlier: Batch and Four views. Film to show: `live_check/cliff_house/multishot_film.mp4`.
-1c. Before GPU work: ComfyQ must be running (`npm run dev` in F:\ComfyQ, stopped for the Node update).
-2. **Library sync with ComfyQ HEAD** (offered, not chosen yet): `make_preset_library.py` per category for the new
-   workflows (FLUX.3 Klein t2i ×2 and edit ×2, Qwen 2.1 relight, YuE2 music cover…); the shipped-preset smoke check
-   only catches removed workflows, not missing ones.
+1c. Before GPU work: ComfyQ must be running AND serving (admin mode after a restart, gotcha 59).
+2. DONE 2026-11-15: library regenerated (67). The shipped-preset smoke check only catches removed workflows, not
+   missing ones: rerun `make_preset_library.py` after each ComfyQ pull.
 3. Candidates the user has not chosen yet: blockout video variants (longer than 5 s: chain clips; Cycles first frame;
    3DReal on a real render); a plugin splat importer (coloured point cloud, as `tools/splat_render.py`); "jobs at once"
    for batches; scale a 3D result back to the blockout's size; the 3 never-run workflows (SeedVR2 3B int8 video,
    Gemma ×2); `blender_graph_describe` filtering; an MCP tool to open a .blend / save the file.
 4. For b2renger (RUNBOOK §7.1): **lane-port race** (1b, with the fix); **LTX slowing over consecutive jobs** (1c);
-   `activate-workflow` ungated; job prompt → negative prompt; missing-LoRA check; SeedVR2 HD size label; meta.json
+   job prompt → negative prompt; missing-LoRA check; SeedVR2 HD size label; meta.json
    size/duration params. (Wan ID-V2V is fixed upstream: both ran on 2026-10-22.)
 5. Rules: follow `.claude/skills/comfyq-workflow-build` for new workflows and `.claude/skills/blender-ui-audit` for UI
    changes; after UI changes `smoke_test.ps1 -Ui` + docs/UI.md, and **look at the screenshots** (gotcha 43); install
