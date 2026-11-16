@@ -195,15 +195,21 @@ class COMFYQ_OT_graph_clear(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return _in_graph(context) and context.space_data.edit_tree is not None
+        if not (_in_graph(context) and context.space_data.edit_tree is not None):
+            cls.poll_message_set("Open the ComfyQ Graph first")
+            return False
+        return True
 
     def invoke(self, context, event):
         return context.window_manager.invoke_confirm(self, event, title="Clear the Graph?",
-                                                     message="Every node of this graph is removed.",
+                                                     message="Every node of this graph is removed",
                                                      confirm_text="Clear")
 
     def execute(self, context):
-        context.space_data.edit_tree.nodes.clear()
+        tree = context.space_data.edit_tree
+        n = len(tree.nodes)
+        tree.nodes.clear()
+        self.report({"INFO"}, f"Removed {count(n, 'node')} (Undo brings them back)")
         return {"FINISHED"}
 
 
@@ -382,7 +388,8 @@ class COMFYQ_OT_graph_run(_NodeOp, bpy.types.Operator):
         if props.node:
             return ("Run this node: render the scene sources it needs, then book its job (nodes before it "
                     "without an up-to-date result run first)")
-        return "Run the graph's last nodes (and what they need)"
+        return ("Run the selected nodes' chains, or every chain of the graph (asks first); results already up to "
+                "date are reused")
     bl_options = {"REGISTER", "INTERNAL"}
     force: BoolProperty(default=False, options={"SKIP_SAVE"})
 

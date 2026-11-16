@@ -79,8 +79,8 @@ def remaining(files: list[Path], root: Path, suffixes: list[str]) -> list[Path]:
 
 
 def eta(durations: list[float], left: int) -> str:
-    """'about 9 min left' from the files done so far ('' before the first one)."""
+    """'about 9 minutes left' from the files done so far ('' before the first one)."""
     if not durations or left <= 0:
         return ""
     secs = sum(durations[-5:]) / len(durations[-5:]) * left
-    return f"about {secs / 60:.0f} min left" if secs >= 90 else f"about {secs:.0f} s left"
+    return f"about {secs / 60:.0f} minutes left" if secs >= 90 else f"about {secs:.0f} seconds left"

@@ -25,7 +25,7 @@ class COMFYQ_OT_connect(bpy.types.Operator):
         if not (p.name_confirmed and _name_ok(p.student_name)):
             # Asked once: lab PCs often share one Windows login, so a default name would mix everyone's jobs
             self.student_name = p.student_name if p.name_confirmed else ""
-            return context.window_manager.invoke_props_dialog(self, title="Name Shown on Your Jobs",
+            return context.window_manager.invoke_props_dialog(self, title="Name Shown on the Jobs",
                                                               confirm_text="Connect")
         return self.execute(context)
 

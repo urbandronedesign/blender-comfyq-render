@@ -59,7 +59,8 @@ _MODEL_EXT = {".glb", ".gltf", ".ply", ".spz", ".obj", ".fbx", ".usdz", ".stl"}
 class COMFYQ_OT_import_file(bpy.types.Operator):
     bl_idname = "comfyq.import_file"
     bl_label = "Import into Scene"
-    bl_description = "Bring this result into the scene (image → Image Editor, video/audio → Sequencer, 3D → collection)"
+    bl_description = ("Bring this result into the file (image → Image Editor, video / sound → the ComfyQ Results "
+                      "scene, 3D → a collection beside the scene)")
     bl_options = {"INTERNAL", "UNDO"}
     job_id: StringProperty()
     path: StringProperty()

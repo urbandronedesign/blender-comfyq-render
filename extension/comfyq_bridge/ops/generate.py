@@ -377,33 +377,17 @@ class COMFYQ_OT_retry(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class COMFYQ_OT_import(bpy.types.Operator):
-    bl_idname = "comfyq.import_result"
-    bl_label = "Import Result"
-    bl_description = "Bring this job's result into the scene"
-    bl_options = {"INTERNAL", "UNDO"}
-    job_id: StringProperty()
-
-    def execute(self, context):
-        view = SESSION.jobs.get(self.job_id)
-        if view is None or not view.files:
-            self.report({"WARNING"}, "Result not downloaded yet")
-            return {"CANCELLED"}
-        rep = import_report(view.files, self.job_id, view.job.workflow_id, context.scene)
-        rep.report_to(self)
-        if not rep.imported:
-            return {"CANCELLED"}
-        view.imported = True
-        _mark_imported(context.scene, self.job_id)
-        return {"FINISHED"}
-
-
 class COMFYQ_OT_open_folder(bpy.types.Operator):
     bl_idname = "comfyq.open_folder"
     bl_label = "Open Folder"
     bl_description = "Open the folder of downloaded results in the file explorer"
     bl_options = {"INTERNAL"}
     job_id: StringProperty()
+
+    @classmethod
+    def description(cls, context, props):
+        return ("Open this job's folder (its downloaded files) in the file explorer" if props.job_id
+                else "Open the folder of every downloaded result in the file explorer")
 
     def execute(self, context):
         folder = cache_dir() / self.job_id[:8] if self.job_id else cache_dir()
@@ -428,4 +412,4 @@ def on_job_done(view: JobView) -> None:
 
 
 classes = (COMFYQ_OT_generate, COMFYQ_OT_generate_keyframe, COMFYQ_OT_clear_keyframe, COMFYQ_OT_cancel,
-           COMFYQ_OT_retry, COMFYQ_OT_import, COMFYQ_OT_open_folder)
+           COMFYQ_OT_retry, COMFYQ_OT_open_folder)

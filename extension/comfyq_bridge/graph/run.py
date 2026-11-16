@@ -274,7 +274,7 @@ class Run:
         secs = int(time.monotonic() - sw["t0"])
         for node in tree.nodes:                        # a counter on the waiting nodes: the wait is 1–2 min
             if node.bl_idname in RUN_NODES and node.workflow_id == wf_id and node.name in self.pending:
-                note = f"Loading its model in ComfyQ… {secs // 60}:{secs % 60:02d} (usually 1 to 2 min)"
+                note = f"Loading its model in ComfyQ… {secs // 60}:{secs % 60:02d} (usually 1 to 2 minutes)"
                 if node.note != note:
                     node.note = note
         if sw["state"] == "loading" and SESSION.connected and wf_id in SESSION.served_ids():

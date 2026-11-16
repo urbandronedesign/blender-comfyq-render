@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import random
 import subprocess
 import sys
 from pathlib import Path
@@ -33,7 +32,7 @@ def current_specs(context) -> list[ParamSpec]:
 def vram_badge(wf, budget_gb: float | None) -> tuple[str, bool]:
     """(text, over_budget). Every workflow is listed; the badge only informs."""
     if not wf.calibrated:
-        return "VRAM ?", False
+        return "Size Unknown", False             # not measured yet (calibration): no "VRAM ?"
     over = budget_gb is not None and wf.vram_peak_gb > budget_gb
     return f"{wf.vram_peak_gb:.0f} GB", over
 
@@ -239,19 +238,6 @@ class COMFYQ_MT_keyframe_workflows(bpy.types.Menu):
     def draw(self, context):
         wfs = [w for w in SESSION.workflows if tab_of(w) in KEYFRAME_TABS]
         _draw_workflow_menu(self.layout, wfs, "keyframe")
-
-
-class COMFYQ_OT_random_seed(bpy.types.Operator):
-    bl_idname = "comfyq.random_seed"
-    bl_label = "Random Seed"
-    bl_options = {"INTERNAL", "UNDO"}
-    key: StringProperty()
-
-    def execute(self, context):
-        it = param_item(context.scene, self.key)
-        if it:
-            it.i = random.randint(0, INT_MAX)
-        return {"FINISHED"}
 
 
 class COMFYQ_OT_match_scene(bpy.types.Operator):
@@ -867,6 +853,6 @@ class COMFYQ_OT_open_window(bpy.types.Operator):
         return {"FINISHED"}
 
 
-classes = (COMFYQ_OT_set_workflow, COMFYQ_MT_workflows, COMFYQ_MT_keyframe_workflows, COMFYQ_OT_random_seed,
+classes = (COMFYQ_OT_set_workflow, COMFYQ_MT_workflows, COMFYQ_MT_keyframe_workflows,
            COMFYQ_OT_match_scene, COMFYQ_OT_preview_pass, COMFYQ_OT_cancel_cycles, COMFYQ_OT_help, COMFYQ_OT_preview_animation, COMFYQ_OT_edit_prompt,
            COMFYQ_OT_unlink_prompt, COMFYQ_OT_camera_from_view, COMFYQ_OT_open_window)

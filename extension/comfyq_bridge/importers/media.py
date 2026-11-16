@@ -274,7 +274,7 @@ def _import_objects(scene, op, path: Path, job_id: str, workflow_id: str,
     tag(coll, job_id, workflow_id)
     splats = sum(is_splat(o) for o in new)
     what = (f"Gaussian splat ({len(new[0].data.points):,} splats)" if splats == len(new) == 1
-            else f"{len(new)} object(s)")
+            else (f"{len(new)} objects" if len(new) != 1 else "1 object"))
     return f"{what} in collection “{coll.name}”" + place(scene, new, placement)
 
 

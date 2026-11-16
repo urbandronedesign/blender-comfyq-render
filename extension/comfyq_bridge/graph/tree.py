@@ -777,7 +777,7 @@ class ComfyQWorkflowNode(_Node, bpy.types.Node):
         if self.relink:
             self._restore_links()
         elif removed:
-            self.note = "Input(s) removed by the workflow update: " + ", ".join(removed)
+            self.note = f"{count(len(removed), 'input')} removed by the model's update: " + ", ".join(removed)
 
     def _restore_links(self) -> None:
         tree = self.id_data
@@ -1233,7 +1233,7 @@ class ComfyQViewerNode(_OutputNode, bpy.types.Node):
     bl_idname = "ComfyQViewerNode"
     bl_label = "Viewer"
     bl_icon = "HIDE_OFF"
-    auto_label = "Show when ready"
+    auto_label = "Show When Ready"
     verb = "show"
 
     auto: BoolProperty(name="Show When Ready", default=True,
@@ -1260,7 +1260,7 @@ class ComfyQImportNode(_OutputNode, bpy.types.Node):
     bl_idname = "ComfyQImportNode"
     bl_label = "Import to Scene"
     bl_icon = "IMPORT"
-    auto_label = "Import when ready"
+    auto_label = "Import When Ready"
     verb = "import"
 
     auto: BoolProperty(name="Import When Ready", default=False,
@@ -1302,7 +1302,7 @@ class ComfyQSaveNode(_OutputNode, bpy.types.Node):
     bl_idname = "ComfyQSaveNode"
     bl_label = "Save"
     bl_icon = "FILE_TICK"
-    auto_label = "Save when ready"
+    auto_label = "Save When Ready"
     verb = "save"
 
     auto: BoolProperty(name="Save When Ready", default=False,
@@ -1323,7 +1323,7 @@ class ComfyQSaveNode(_OutputNode, bpy.types.Node):
             root = Path(bpy.path.abspath(src.folder))
             layout.label(text=f"Batch: into {batch.out_root(root).name}", icon="FOLDER_REDIRECT")
             layout.prop(self, "batch_suffix")
-            layout.label(text=f"e.g. name{self.batch_suffix}.png, same subfolders")
+            layout.label(text=f"For example name{self.batch_suffix}.png, same subfolders")
             return
         col = layout.column(align=True)
         col.prop(self, "folder", text="")
@@ -1338,7 +1338,7 @@ class ComfyQFilmNode(_OutputNode, bpy.types.Node):
     bl_idname = "ComfyQFilmNode"
     bl_label = "Film"
     bl_icon = "SEQUENCE"
-    auto_label = "Assemble when ready"
+    auto_label = "Assemble When Ready"
     verb = "assemble"
     bl_width_default = 300
 
@@ -1405,8 +1405,8 @@ OUTPUT_NODES = ("ComfyQViewerNode", "ComfyQImportNode", "ComfyQSaveNode", "Comfy
 # Source node offered by the "+" of an unlinked input
 SOURCE_FOR = {"image": "ComfyQSceneRenderNode", "video": "ComfyQSceneAnimationNode", "mask": "ComfyQMaskNode",
               "audio": "ComfyQAudioFileNode", "text": "ComfyQPromptNode", "model": "ComfyQSceneObjectsNode"}
-SOURCE_LABEL = {"image": "Scene render", "video": "Scene animation", "mask": "Selection mask",
-                "audio": "Audio file", "text": "Prompt", "model": "Scene objects"}
+SOURCE_LABEL = {"image": "Scene Render", "video": "Scene Animation", "mask": "Mask Zone",      # button text: Title Case
+                "audio": "Audio File", "text": "Prompt", "model": "Scene Objects"}
 
 NODE_CLASSES = (ComfyQImageNode, ComfyQSceneRenderNode, ComfyQMaskNode, ComfyQSketchNode, ComfyQSceneAnimationNode,
                 ComfyQVideoFileNode, ComfyQFolderNode, ComfyQAudioFileNode, ComfyQSceneObjectsNode,

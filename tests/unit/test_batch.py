@@ -65,5 +65,5 @@ def test_batching_the_parent_skips_earlier_results(tmp_path):
 
 def test_eta():
     assert batch.eta([], 5) == ""
-    assert batch.eta([30, 30], 4) == "about 2 min left"
-    assert batch.eta([10], 3) == "about 30 s left"
+    assert batch.eta([30, 30], 4) == "about 2 minutes left"
+    assert batch.eta([10], 3) == "about 30 seconds left"

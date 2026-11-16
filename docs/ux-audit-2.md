@@ -292,4 +292,10 @@ Place / On the Ground / Size (the Import node's options); #40 the graph header a
 (labelled when they fit, else their icons) instead of nine bare icons; #44 Server panel: **Stop Serving...** (X) on extra
 models, a *Solo is on* line, plain error text, names on their own line. GUI -Ui 136, screenshots looked at.
 
-Still open: #46 (phase 7) and the rest of the severity 1/0 sweep (title case, tooltips, nested boxes, icon table).
+Severity 1/0 sweep (same day): no "min", "s", "(s)", "e.g.", "VRAM ?", "Your" in student text; output toggles and
+add-source buttons in Title Case; Clear Graph greyed with a reason and reports what it removed; Run Graph, job / results
+folder and job-card Import tooltips say what they do now; unused operators removed (`comfyq.random_seed`,
+`comfyq.import_result`). GUI -Ui 136.
+
+Still open: #46 (phase 7); nested boxes → sub-panels in the bar and the Server panel (a layout change for its own
+screenshot review); the icon table in docs/UI.md (8 icons missing); icons on every Presets menu entry.
