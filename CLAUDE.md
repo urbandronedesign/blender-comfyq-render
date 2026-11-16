@@ -638,6 +638,9 @@ change that session: the user must reinstall from the UI or restart Blender.
   Not yet: found regions in the 3D View's red overlay; a moving camera needs Find again (masks are of one frame).
 - **Audit 2 phase 6, first pass (2026-11-16):** severity-2 items 20–23, 25–27, 29, 31–37, 39, 41–43, 45 fixed (list in
   docs/ux-audit-2.md § Phase 6); second pass: 24, 30, 40, 44 too. Open: the severity 1/0 sweep, #46 (phase 7). GUI -Ui 136 checks.
+- **Audit 2 phase 7 (2026-11-16):** class presets *Sketch → video (FLUX.3 Klein + LTX 2.5)* (GPU 2.5 min) and *Find and
+  replace an object (SAM3 + Flux2 Klein inpaint)* (`tools/make_phase7_presets.py`; 20 class presets); help/student.html
+  sections Workspace / Draw / Mask / Shots (audit #46); MCP **26 tools** (+ `blender_sketch`, `blender_find_zone`).
 
 ## Next steps
 0. **Audit-2 phases 3–5 DONE 2026-11-16 (workspace, Sketch, Find by Name / Paint Zone); next: phase 6 (severity-2 audit fixes) and 7 (presets, help, MCP tools). Left of 4: Paint Frame at the job's size.** Was (4) **Draw**: Sketch source/node (GP object parented to the camera,

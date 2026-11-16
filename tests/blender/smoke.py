@@ -1311,7 +1311,15 @@ def mcp_tool(name, **args):
 
 check(mcp_rpc("ping", token="wrong") == 401, "MCP: a wrong token is refused")
 names = [t["name"] for t in mcp_rpc("tools/list")["result"]["tools"]]
-check(len(names) == 24 and "blender_camera_shot" in names and "blender_segment" in names and "blender_mask_image" in names and "blender_shadow_catcher" in names and "blender_world" in names and "blender_transform" in names and "comfyq_submit" in names and "blender_graph_run" in names, f"MCP: {len(names)} tools")
+check(len(names) == 26 and "blender_sketch" in names and "blender_find_zone" in names and "blender_camera_shot" in names and "blender_segment" in names and "blender_mask_image" in names and "blender_shadow_catcher" in names and "blender_world" in names and "blender_transform" in names and "comfyq_submit" in names and "blender_graph_run" in names, f"MCP: {len(names)} tools")
+# phase 7: agents sketch in the camera view (frame fractions) and get the pass a Sketch input sends
+err, sk_out = mcp_tool("blender_sketch", strokes=[[[0.2, 0.3], [0.5, 0.2], [0.8, 0.3]], [[0.4, 0.6], [0.6, 0.6]]],
+                       clear=True, only=True)
+check(not err and sk_out.get("strokes") == 2 and Path(sk_out.get("pass", "")).is_file(),
+      f"MCP blender_sketch: two strokes drawn, Sketch Only pass rendered ({err or sk_out.get('message')})")
+from bl_ext.user_default.comfyq_bridge.passes import sketch as _sk_mcp
+
+_sk_mcp.remove(scene)
 err, info = mcp_tool("blender_scene_info")
 check(not err and info["camera"] and info["frames"] == [scene.frame_start, scene.frame_end],
       f"MCP blender_scene_info: {info.get('scene')} {info.get('frames')} camera {info.get('camera')}")

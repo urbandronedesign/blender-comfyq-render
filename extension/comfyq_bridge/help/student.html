@@ -39,6 +39,7 @@
 <h1>ComfyQ in Blender: quickstart</h1>
 <p class="lead">Turn your Blender scene into AI images, videos and 3D models on the class's ComfyQ server.</p>
 <nav><a href="#start">Start</a><a href="#bar">The bar</a><a href="#graph">The graph</a>
+<a href="#workspace">The ComfyQ workspace</a><a href="#draw">Draw</a><a href="#mask">Mask</a><a href="#shots">Shots</a>
 <a href="#results">Results</a><a href="#problems">When something is greyed out</a></nav>
 
 <h2 id="start">1. Start</h2>
@@ -71,7 +72,45 @@
       (<i>Cycles 40/64</i>) and keeps Blender usable; its ✕ stops it.</li>
 </ol></div>
 
-<h2 id="results">4. Results</h2>
+<h2 id="workspace">4. The ComfyQ workspace</h2>
+<div class="card"><ul>
+  <li>The workspace button at the top of the bar adds a <b>ComfyQ</b> tab: the camera view with the bar, the
+      <b>frame</b> (renders and results), the <b>graph</b> and the timeline, side by side.</li>
+  <li>The strip at the top of the bar switches what you do: <b>Frame</b> (look at the render or the result),
+      <b>Draw</b>, <b>Mask</b>, <b>Graph</b> (the graph on the whole screen; <i>Back to Previous</i> returns).
+      The line under it says what to do next.</li>
+</ul></div>
+
+<h2 id="draw">5. Draw what you want</h2>
+<div class="card"><ul>
+  <li><b>Sketch in the camera view</b>: set an image input to <b>Sketch</b> (or add a Sketch node) and press
+      <b>Start Sketch</b>. Draw with Blender's pencil over your scene; <kbd>Tab</kbd> when done. The drawing stays
+      in front of the camera. <b>Sketch Only</b> sends the drawing alone on white, without the scene.</li>
+  <li>Say in the prompt what the lines are: “the circle with a basket in the sky is a hot-air balloon”.</li>
+  <li><b>Paint the frame</b>: in the workspace, <b>Draw</b> opens the frame in Paint mode (a copy, so the next
+      render does not erase it). Send it as a <i>Blender Image</i> input (“ComfyQ Frame”).</li>
+  <li>Presets: <i>Sketch → photoreal</i>, <i>Sketch Only → picture</i>, <i>Sketch → video</i>.</li>
+</ul></div>
+
+<h2 id="mask">6. Change only part of the picture (mask)</h2>
+<div class="card"><ul>
+  <li>Inpaint models repaint a <b>zone</b> and keep the rest. Set the mask input to <b>Render + Mask Zone</b>.</li>
+  <li><b>Find by name</b>: type what to replace (“sofa”) and press ▶. The server finds it in the camera view
+      (about 30 s); untick a name to leave it out.</li>
+  <li><b>Mask Tool</b>: click objects, drag a box, <kbd>Shift</kbd>+drag a free shape, <kbd>Ctrl</kbd> to cut.</li>
+  <li><b>Paint Zone</b> (mask source <i>Painted Zone</i>): paint over what to replace; it turns transparent.</li>
+  <li><b>Grow</b> gives room for a bigger new object, <b>Feather</b> softens the edge. <b>Render Mask</b> shows
+      the zone in red. Prompt: describe only the NEW object. Preset: <i>Find and replace an object</i>.</li>
+</ul></div>
+
+<h2 id="shots">7. Several shots in one scene</h2>
+<div class="card"><ul>
+  <li>Select a camera, go to the frame where its shot starts and press <b>+</b> next to a node's <b>Shot</b>
+      field: a marker bound to that camera. The shot runs to the next shot's marker.</li>
+  <li>The <i>Multi-shot film</i> preset makes one look across every shot.</li>
+</ul></div>
+
+<h2 id="results">8. Results</h2>
 <div class="card"><ul>
   <li>Finished results come back into your file by themselves (pictures in the Image Editor, videos and
       sounds in the “ComfyQ Results” scene, 3D models beside your scene).</li>
@@ -81,13 +120,16 @@
   <li><b>Results Folder</b> opens the folder of everything downloaded.</li>
 </ul></div>
 
-<h2 id="problems">5. When something is greyed out</h2>
+<h2 id="problems">9. When something is greyed out</h2>
 <div class="card">
 <p class="muted">Hover over a greyed-out button: its tooltip says why. The usual reasons:</p>
 <table>
   <tr><td>“Connect to ComfyQ first”</td><td>Press Connect. If it fails, check the network with the teacher.</td></tr>
   <tr><td>“… is not served right now”</td><td>The server runs other models now. Ask the teacher, or pick a model with a ✓.</td></tr>
   <tr><td>“The model's settings are still loading”</td><td>Wait a second.</td></tr>
+  <tr><td>“No model is served right now”</td><td>The server is switching models: wait a minute.</td></tr>
+  <tr><td>“Waiting for the teacher to start serving”</td><td>Nothing to do: Blender connects by itself when the class starts.</td></tr>
+  <tr><td>Find: “Type what to find first”</td><td>Type a name in the Find field (for example: sofa, rug).</td></tr>
   <tr><td>Retry: “… is no longer on disk”</td><td>Clean Up deleted the rendered input: press Generate instead.</td></tr>
   <tr><td>A warning about the Sequencer</td><td>Press <b>Clean Up…</b>: AI results in your scene's Sequencer would replace the camera in renders.</td></tr>
 </table>

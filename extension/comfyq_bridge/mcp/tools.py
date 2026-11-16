@@ -794,6 +794,81 @@ def blender_mask_image(args: dict) -> dict:
     return on_main(go)
 
 
+def blender_sketch(args: dict) -> dict:
+    """Draw on the ComfyQ Sketch (Grease Pencil in front of the scene camera), then render what a Sketch input sends."""
+    strokes = args.get("strokes") or []
+    if not isinstance(strokes, list) or any(len(st) < 2 for st in strokes):
+        raise ToolError("strokes: a list of polylines, each at least 2 points [x, y] (frame fractions)")
+
+    def go():
+        from ..passes import render, sketch
+        scene = bpy.context.scene
+        if args.get("clear"):
+            sketch.remove(scene)
+        try:
+            ob = sketch.ensure(scene)
+        except RuntimeError as e:
+            raise ToolError(str(e)) from e
+        layer = ob.data.layers["Lines"]
+        d = layer.frames[0].drawing
+        pw = sketch.plane_width(scene)
+        r = scene.render
+        aspect = (r.resolution_x * r.pixel_aspect_x) / max(1, r.resolution_y * r.pixel_aspect_y)
+        radius = float(args.get("width", 0.004)) / 2 * pw
+        first = len(d.strokes)
+        if strokes:
+            d.add_strokes([len(st) for st in strokes])
+        for k, st in enumerate(strokes):
+            for pt, (x, y) in zip(d.strokes[first + k].points, st, strict=True):
+                pt.position = ((float(x) - 0.5) * pw, (0.5 - float(y)) * pw / aspect, 0.0)
+                pt.radius, pt.opacity = radius, 1.0
+        if args.get("color"):
+            ink = ob.data.materials[0]
+            ink.grease_pencil.color = (*[float(c) for c in args["color"]][:3], 1.0)
+        out = {"strokes": sum(len(dr.strokes) for _l, _f, dr in sketch._drawings(ob.data)),
+               "message": sketch.describe(scene)}
+        if args.get("render", True) and sketch.has_strokes(scene):
+            out["pass"] = str(render.sketch_pass(scene, bool(args.get("only")), None, scene.frame_current))
+        return out
+    return on_main(go)
+
+
+def blender_find_zone(args: dict) -> dict:
+    """Find by Name (SAM3 on the camera view): what is found joins the scene's mask zone."""
+    words = str(args.get("words") or "").strip()
+    if not words and not args.get("clear"):
+        raise ToolError("words: what to find, commas between names (sofa, rug)")
+    from ..ops import mask as mk
+    from ..passes import zone_scene
+
+    def start():
+        scene = bpy.context.scene
+        if args.get("clear"):
+            zone_scene.clear(scene)
+        if not words:
+            return {"started": False}
+        scene.comfyq.zone_words = words
+        if not bpy.ops.comfyq.zone_find.poll():
+            raise ToolError("Cannot find now: connect to ComfyQ, and the scene needs a camera")
+        bpy.ops.comfyq.zone_find()
+        return {"started": True}
+    if not on_main(start)["started"]:
+        return {"zone": on_main(lambda: zone_scene.describe(bpy.context.scene)), "found": []}
+    t0 = time.monotonic()
+    wait = min(float(args.get("wait_s", MAX_WAIT_S)), MAX_WAIT_S)
+    while mk.FIND["running"] and time.monotonic() - t0 < wait:
+        time.sleep(1.0)
+    if mk.FIND["running"]:
+        return {"running": True, "message": mk.FIND["message"],
+                "next": "Call again with the same words later, or blender_graph_run: the Mask Zone node uses the zone"}
+    info = on_main(lambda: zone_scene.found_info(bpy.context.scene))
+    return {"zone": on_main(lambda: zone_scene.describe(bpy.context.scene)),
+            "found": [{"label": r["label"], "coverage_pct": r.get("coverage_pct"), "picked": r.get("picked")}
+                      for r in info.get("regions", [])],
+            "not_found": sorted(info.get("errors") or {}), "error": SESSION.error if not info else "",
+            "next": "A Mask Zone node (or the bar's Render + Mask Zone source) now repaints this zone"}
+
+
 def _tree():
     from ..graph.ui import ensure_graph
     return ensure_graph()
@@ -1106,6 +1181,21 @@ TOOLS = [
     Tool("blender_task_status", "The background task (segmentation, serve, calibrate): state, message, "
          "result when done. `wait_s` = first wait (≤120 s) for it to end.",
          obj({"wait_s": {"type": "number", "maximum": MAX_WAIT_S}}), blender_task_status),
+    Tool("blender_sketch", "Draw on the ComfyQ Sketch: a drawing in front of the scene camera that a Sketch input "
+         "(bar source or graph Sketch node) sends, over the clay scene or alone on white. `strokes` = polylines of "
+         "[x, y] in frame fractions (x 0 left → 1 right, y 0 top → 1 bottom); `width` = line width as a fraction of "
+         "the frame (0.004); `color` [r, g, b]; `clear` starts a new drawing; returns the rendered pass "
+         "(`only` = alone on white).",
+         obj({"strokes": {"type": "array", "items": {"type": "array", "items": {"type": "array",
+                                                                                 "items": {"type": "number"}}}},
+              "width": {"type": "number"}, "color": {"type": "array", "items": {"type": "number"}},
+              "clear": {"type": "boolean"}, "only": {"type": "boolean"}, "render": {"type": "boolean"}}),
+         blender_sketch),
+    Tool("blender_find_zone", "Find by Name: SAM3 finds each name in the camera view (commas between names) and adds "
+         "it to the scene's mask zone, which Mask Zone nodes and the bar's Render + Mask Zone source repaint. "
+         "`clear` empties the zone first; `wait_s` (≤120) = how long to wait for SAM3 (about 30 s).",
+         obj({"words": _S, "clear": {"type": "boolean"}, "wait_s": {"type": "number", "maximum": MAX_WAIT_S}}),
+         blender_find_zone),
     Tool("blender_mask_image", "Make an inpaint input from a picture and surface masks (blender_segment's "
          "`mask` files): the picture with those surfaces transparent = the area an inpaint workflow repaints "
          "(e.g. Flux2 Klein inpaint: only the floor gets the new material). Masks are resized to the picture; "

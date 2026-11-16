@@ -1,0 +1,306 @@
+{
+ "format": 1,
+ "label": "Sketch → video (FLUX.3 Klein + LTX 2.5)",
+ "description": "Draw over the scene in the camera view (Start Sketch), then FLUX.3 Klein makes it a photoreal start frame and LTX 2.5 animates it with sound, at the scene's length and size. Say what the lines are in the Start frame prompt and how things move in the Motion prompt. About 3 minutes (two models: Solo loads them in turn).",
+ "made": "2026-11-16 02:21",
+ "nodes": [
+  {
+   "name": "Sketch",
+   "type": "ComfyQSketchNode",
+   "location": [
+    -1300.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "Sketch",
+   "parent": "",
+   "only": false,
+   "frame": "START"
+  },
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -850.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "image_edit_flux3_klein_distilled_image_edit",
+   "params": [
+    {
+     "key": "image",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "prompt",
+     "s": "In <ref_image_0>, give her a pair of large gold hoop earrings; keep her face, hair, clothes, pose and the background exactly the same.",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "layout",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "improve_prompt",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "megapixels",
+     "s": "",
+     "i": 0,
+     "f": 1.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "steps",
+     "s": "",
+     "i": 16,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "seed",
+     "s": "",
+     "i": 7,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    }
+   ],
+   "match_scene": true
+  },
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -1300.0,
+    -420.0
+   ],
+   "width": 340.0,
+   "label": "Start frame",
+   "parent": "",
+   "text": "Turn <ref_image_0> into a photograph: keep the scene, the composition and the camera exactly; every black ink line becomes the real object it draws, at the same place and size. Photorealistic, natural light."
+  },
+  {
+   "name": "Workflow.001",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "video_ltx2_5_i2v",
+   "params": [
+    {
+     "key": "loadimage_image_395",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "primitivestringmultiline_value_398_376",
+     "s": "Use the provided start image as the first frame. The cybernetic figure slowly turns his head to the right, his glowing blue eyes scanning the horizon, mechanical joints in his neck whirring faintly. The camera follows his gaze, panning across the rooftop to reveal the city beyond: a river of light winding between dark towers, a flying vehicle gliding past between the buildings, its lights streaking. He watches it pass, then his eyes narrow slightly. The camera settles on his profile against the city glow, distant hover traffic humming, wind gusting across the rooftop. No text, no black frames.",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "primitiveboolean_value_398_383",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "primitiveint_value_410",
+     "s": "",
+     "i": 1280,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "primitiveint_value_411",
+     "s": "",
+     "i": 704,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "primitiveint_value_398_362",
+     "s": "",
+     "i": 5,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "primitiveint_value_398_361",
+     "s": "",
+     "i": 24,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "randomnoise_noise_seed_398_339",
+     "s": "",
+     "i": 7,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    }
+   ],
+   "match_scene": true
+  },
+  {
+   "name": "Prompt.001",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -850.0,
+    -620.0
+   ],
+   "width": 340.0,
+   "label": "Motion",
+   "parent": "",
+   "text": "The camera holds still. What the drawing added comes to life with natural, gentle movement; the building stays perfectly still. Natural ambient sound."
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    -380.0,
+    520.0
+   ],
+   "width": 300.0,
+   "label": "Start frame",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Viewer.001",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}",
+   "batch_suffix": "_render"
+  },
+  {
+   "name": "Frame",
+   "type": "NodeFrame",
+   "location": [
+    -1920.0,
+    0.0
+   ],
+   "width": 560.0,
+   "label": "How to use",
+   "parent": "",
+   "height": 250.0,
+   "text": "1. Sketch › Start Sketch: draw over\n   the scene (Tab when done)\n2. Start frame: say what the lines are\n3. Motion: how things move (not the\n   camera, it holds still)\n4. Run Graph"
+  }
+ ],
+ "links": [
+  {
+   "from": "Sketch",
+   "from_socket": "Image",
+   "to": "Workflow",
+   "to_socket": "image"
+  },
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "prompt"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Workflow.001",
+   "to_socket": "loadimage_image_395"
+  },
+  {
+   "from": "Prompt.001",
+   "from_socket": "Text",
+   "to": "Workflow.001",
+   "to_socket": "primitivestringmultiline_value_398_376"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow.001",
+   "from_socket": "Video",
+   "to": "Viewer.001",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow.001",
+   "from_socket": "Video",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ]
+}

@@ -58,6 +58,12 @@ DRAWINGS["only_flux"] = {"drawing": "only", "preset": "Sketch → photoreal (FLU
                          "set": {"Sketch": {"only": True}},
                          "prompt": ("Turn the pencil drawing <ref_image_0> into a photograph with the same layout: "
                                     + CABIN + ". No drawn lines remain.")}
+DRAWINGS["video"] = {"drawing": "over", "preset": "Sketch → video (FLUX.3 Klein + LTX 2.5)",
+                     "prompt": DRAWINGS["over"]["prompt"],
+                     "set": {"Prompt.001": {"text": (
+                         "The camera holds still. The red and white hot-air balloon drifts slowly to the right and "
+                         "rises a little, its basket swaying gently; the person on the roof waves at it. The house "
+                         "stays perfectly still; the pine trees sway slightly in the wind. Wind and distant birds.")}}}
 
 
 def _poly(points, closed=False):
@@ -104,6 +110,9 @@ def _densify(pts, step=12.0):
 SPEC = DRAWINGS[MODE]
 DRAWING = SPEC.get("drawing", MODE)
 _scene = bpy.context.scene
+for _t in [t for t in bpy.data.node_groups if t.bl_idname == "ComfyQGraphTree"]:
+    for _n in list(_t.nodes):                # the file's own graph: out of the way (predictable node names)
+        _t.nodes.remove(_n)
 sketch.remove(_scene)
 _draw(_scene, DRAWINGS[DRAWING]["strokes"])
 SENT = render.sketch_pass(_scene, DRAWING == "only", 1280, _scene.frame_start)    # what the Sketch node will send
@@ -134,9 +143,10 @@ def main() -> None:
     ok, g = tool("blender_graph_status")
     prompt = next(n for n in names if n.startswith("Prompt"))
     tool("blender_graph_set", node=prompt, key="text", value=SPEC["prompt"])
-    wf = next(n for n in g["nodes"] if n["node"] in names and n.get("workflow_id"))
+    wf = [n for n in g["nodes"] if n["node"] in names and n.get("workflow_id")][-1]   # the last one: its chain runs
     for label, kv in SPEC.get("set", {}).items():
-        node = wf["node"] if label == "Workflow" else next(n for n in names if n.startswith(label))
+        node = wf["node"] if label == "Workflow" else (label if label in names else
+                                                        next(n for n in names if n.startswith(label)))
         for k, v in kv.items():
             log("set", node, k, v, tool("blender_graph_set", node=node, key=k, value=v)[0])
     ok, msg = tool("blender_graph_run", node=wf["node"], force=True)     # not the file's own graph

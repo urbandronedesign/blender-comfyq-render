@@ -175,6 +175,15 @@ Built by `tools/make_new_inputs_presets.py` (headless, sandbox profile) from Com
   other side. FLUX.3 edit on the same drawing kept the tree's side but changed the house's proportions
   (`live_check/sketch/only_compare.jpg`). About 20 s. Both built by `tools/make_sketch_presets.py`; GPU driver
   `tools/sketch_check.py` (draws by script, runs the preset headless).
+- **Sketch → video (FLUX.3 Klein + LTX 2.5)**: the sketch over the scene → FLUX.3 Klein makes it a photoreal start frame
+  (a *Start frame* Viewer shows it) → LTX 2.5 image to video, with sound, at the scene's length / size / fps. Two
+  prompts: the start frame (what the lines are) and the motion. Tested 2026-11-16 on the cliff house (balloon + person
+  sketch, `live_check/sketch/video_sheet.jpg`): 2.5 min with Solo loading both models; the person waves, the balloon
+  floats, sound; the camera pulled back although the prompt said it holds still (LTX does not always obey camera words).
+- **Find and replace an object (SAM3 + Flux2 Klein inpaint)**: the Mask Zone node (its panel has **Find by Name**,
+  the Mask Tool, Grow / Feather) → Flux2 Klein inpaint, Material style. Type the object in *Find*, press ▶, describe
+  the NEW object only, Run Graph. Same chain as the GPU check of Find by Name (sofa → emerald velvet sofa, 30 s + 30 s,
+  `live_check/mask_find/`). Both built by `tools/make_phase7_presets.py`.
 
 ### The workflow library (one preset per image / video workflow)
 `presets\library\` in this repository holds 67 ready-made graphs (regenerated 2026-11-15 for ComfyQ's 87

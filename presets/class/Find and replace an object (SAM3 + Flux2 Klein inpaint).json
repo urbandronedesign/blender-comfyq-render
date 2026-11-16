@@ -1,0 +1,151 @@
+{
+ "format": 1,
+ "label": "Find and replace an object (SAM3 + Flux2 Klein inpaint)",
+ "description": "Replace one object of the scene and keep the rest: type its name in Mask Zone › Find (SAM3 finds it in the camera view; the Mask Tool or Paint Zone also work), describe the new object, Run Graph. Flux2 Klein inpaint repaints only the zone, in the scene's material colours. About 30 s each for Find and inpaint (two models: Solo loads them in turn).",
+ "made": "2026-11-16 02:21",
+ "nodes": [
+  {
+   "name": "Mask Zone",
+   "type": "ComfyQMaskNode",
+   "location": [
+    -850.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "What to replace",
+   "parent": "",
+   "style": "MATERIAL",
+   "frame": "CURRENT",
+   "shot": ""
+  },
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "image_edit_flux2_klein_inpaint_prompt",
+   "params": [
+    {
+     "key": "loadimage_image_1",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "cliptextencode_text_6",
+     "s": "a bunch of colorful flowers",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "cliptextencode_text_7",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "randomnoise_noise_seed_15",
+     "s": "",
+     "i": 7,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    }
+   ],
+   "match_scene": true
+  },
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -850.0,
+    -520.0
+   ],
+   "width": 340.0,
+   "label": "The new object",
+   "parent": "",
+   "text": "a deep emerald green velvet sofa with brass legs, same size and place, soft daylight, photorealistic"
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}",
+   "batch_suffix": "_render"
+  },
+  {
+   "name": "Frame",
+   "type": "NodeFrame",
+   "location": [
+    -1470.0,
+    0.0
+   ],
+   "width": 560.0,
+   "label": "How to use",
+   "parent": "",
+   "height": 220.0,
+   "text": "1. Mask Zone › Find: the object to\n   replace (sofa), press ▶ and wait\n2. Grow: room for a bigger new object\n3. Prompt: the NEW object only\n4. Run Graph"
+  }
+ ],
+ "links": [
+  {
+   "from": "Mask Zone",
+   "from_socket": "Mask",
+   "to": "Workflow",
+   "to_socket": "loadimage_image_1"
+  },
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "cliptextencode_text_6"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ]
+}
