@@ -144,4 +144,9 @@ def _short(label: str) -> str:
 def short_label(label: str, limit: int = 26) -> str:
     """Chip text: 'Clip length used (seconds, max 10 — …)' → 'Clip length used'."""
     s = re.split(r"\s+[—–-]\s+|\s*\(", label, maxsplit=1)[0].strip()
-    return s if len(s) <= limit else s[: limit - 1] + "…"
+    if len(s) <= limit:
+        return s
+    cut = s[: limit - 1]
+    if " " in cut[limit // 2:]:                  # end on a whole word ("Improve the…", not "Improve the instruction w…")
+        cut = cut.rsplit(" ", 1)[0]
+    return cut.rstrip(" ,;:") + "…"

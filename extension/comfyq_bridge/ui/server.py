@@ -15,7 +15,7 @@ import bpy
 from bpy.props import EnumProperty
 
 from ..runtime.session import SESSION
-from ..wording import count
+from ..wording import count, middle
 
 REFRESH_S = 5.0
 SERVER: dict = {"t": 0.0, "drawn": 0.0, "busy": False, "lanes": [], "card": {}, "error": "", "dirty": False}
@@ -42,8 +42,9 @@ def tick() -> bool:
         try:
             info = client.server_lanes()
             SERVER.update(lanes=info.get("lanes") or [], card=info.get("card") or {}, error="")
-        except Exception as e:  # noqa: BLE001 - shown in the panel
-            SERVER["error"] = str(e)
+        except Exception as e:  # noqa: BLE001 - shown in the panel, in plain words
+            first = (str(e).splitlines() or ["no answer"])[0]
+            SERVER["error"] = "Could not read the server's models: " + (first[:90] + "…" if len(first) > 90 else first)
         finally:
             SERVER["busy"], SERVER["dirty"] = False, True
     threading.Thread(target=work, daemon=True, name="comfyq-server-panel").start()
@@ -64,6 +65,11 @@ def draw_server(layout, context) -> None:
     names = {w.id: w.name for w in SESSION.workflows}
 
     card = SERVER["card"]
+    from ..graph.run import solo_on
+    if solo_on():                              # this PC switches the class's model: say it where the models are
+        row = layout.row()
+        row.alert = True
+        row.label(text="Solo is on: Run Graph loads models from this PC", icon="ERROR")
     if SERVER["error"]:
         row = layout.row()
         row.alert = True
@@ -78,12 +84,17 @@ def draw_server(layout, context) -> None:
     box.label(text="Served Models")
     for ln in SERVER["lanes"] or [{"workflowId": la.workflow_id, "name": la.name, "primary": la.primary,
                                    "busy": la.busy} for la in (client.lanes() if client else [])]:
-        row = box.row()
-        row.label(text=ln.get("name") or ln.get("workflowId"), icon="CHECKMARK")
-        sub = row.row()
-        sub.alignment = "RIGHT"
-        sub.label(text=" · ".join(x for x in ("busy" if ln.get("busy") else "", "main" if ln.get("primary") else "",
-                                              f"{ln['vramGb']:.1f} GB" if ln.get("vramGb") else "") if x))
+        row = box.row(align=True)               # name on its own line (a narrow popover cut it), details under it
+        name = ln.get("name") or names.get(ln.get("workflowId"), "") or "Model"
+        row.label(text=middle(name, 26 if ln.get("primary") else 20), icon="CHECKMARK")   # room left by the X
+        if not ln.get("primary"):              # an extra model: the teacher can free its memory
+            row.operator("comfyq.server_stop_model", text="", icon="X").workflow_id = ln.get("workflowId", "")
+        info = " · ".join(x for x in ("running a job" if ln.get("busy") else "", "main" if ln.get("primary") else "",
+                                      f"{ln['vramGb']:.1f} GB" if ln.get("vramGb") else "") if x)
+        if info:
+            sub = box.row()
+            sub.enabled = False
+            sub.label(text=info, icon="BLANK1")
     layout.operator("comfyq.server_load_model", icon="PACKAGE")
 
     jobs = client.active_jobs() if client else []
@@ -97,7 +108,7 @@ def draw_server(layout, context) -> None:
         for j in lane:
             row = box.row()
             row.label(text=j.user_id or "?", icon="USER")
-            row.label(text=names.get(wf_id, wf_id))
+            row.label(text=middle(names.get(wf_id, "a model"), 24))
             row.label(text=_phase(j, waiting))
 
     users = client.users() if client else []
@@ -150,6 +161,46 @@ class COMFYQ_OT_server_load_model(bpy.types.Operator):
         return bpy.ops.comfyq.graph_load_model("INVOKE_DEFAULT", workflow_id=self.workflow_id)
 
 
+class COMFYQ_OT_server_stop_model(bpy.types.Operator):
+    bl_idname = "comfyq.server_stop_model"
+    bl_label = "Stop Serving..."
+    bl_description = "Stop serving this extra model and free its GPU memory (the main model stays)"
+    bl_options = {"INTERNAL"}
+    workflow_id: bpy.props.StringProperty(options={"HIDDEN"})
+
+    @classmethod
+    def poll(cls, context):
+        if not visible():
+            cls.poll_message_set("Only on the teacher's PC")
+            return False
+        return True
+
+    def invoke(self, context, event):
+        name = next((w.name for w in SESSION.workflows if w.id == self.workflow_id), "this model")
+        busy = any(ln.get("workflowId") == self.workflow_id and ln.get("busy") for ln in SERVER["lanes"])
+        msg = ("A job is running on it and will fail" if busy else
+               "Students' jobs on it are refused until it is loaded again")
+        return context.window_manager.invoke_confirm(self, event, title=f"Stop Serving {middle(name, 40)}?",
+                                                     message=msg, confirm_text="Stop Serving", icon="WARNING")
+
+    def execute(self, context):
+        client, wf_id = SESSION.client, self.workflow_id
+        if client is None:
+            self.report({"ERROR"}, "Not connected")
+            return {"CANCELLED"}
+        lane = next((ln for ln in SERVER["lanes"] if ln.get("workflowId") == wf_id), None)
+        if lane is not None and lane.get("primary"):
+            self.report({"ERROR"}, "This is the main model: load another one instead (Load Model...)")
+            return {"CANCELLED"}
+
+        def done(_r):
+            SERVER["t"] = 0.0                      # read the lanes again now
+            SESSION.status_note = "Stopped serving a model: its GPU memory is free"
+        SESSION.run(lambda: client.close_lane(wf_id), done, label="Stopping the model")
+        self.report({"INFO"}, "Stopping the model…")
+        return {"FINISHED"}
+
+
 class _Server:
     bl_region_type = "UI"
     bl_category = "ComfyQ"
@@ -173,4 +224,4 @@ class COMFYQ_PT_image_server(_Server, bpy.types.Panel):
     bl_space_type = "IMAGE_EDITOR"
 
 
-classes = (COMFYQ_OT_server_load_model, COMFYQ_PT_server, COMFYQ_PT_image_server)
+classes = (COMFYQ_OT_server_load_model, COMFYQ_OT_server_stop_model, COMFYQ_PT_server, COMFYQ_PT_image_server)

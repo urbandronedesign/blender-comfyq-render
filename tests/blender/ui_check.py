@@ -489,7 +489,7 @@ def step_finished_job_card():
     check("card › Save as… opens the file browser", res == {"RUNNING_MODAL"}, res)
     yield 0.5
     _close_file_browser()
-    res = click("import_file", v3d, job_id=pick["id"], path=str(f))
+    res = click("import_file", v3d, "EXEC_DEFAULT", job_id=pick["id"], path=str(f))   # a 3D file asks Place / Size first
     rs = bpy.data.scenes.get("ComfyQ Results")
     rec = next(r for r in sc.comfyq.jobs if r.job_id == pick["id"])
     check("card › Import (video → ComfyQ Results scene, not the 3D scene)",

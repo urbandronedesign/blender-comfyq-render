@@ -6,10 +6,10 @@ import shutil
 from pathlib import Path
 
 import bpy
-from bpy.props import BoolProperty, StringProperty
+from bpy.props import BoolProperty, EnumProperty, FloatProperty, StringProperty
 from bpy_extras.io_utils import ExportHelper
 
-from ..importers.media import import_report
+from ..importers.media import Placement, import_report
 from ..runtime.session import SESSION
 from ..wording import count
 
@@ -53,6 +53,9 @@ class COMFYQ_OT_save_result(bpy.types.Operator, ExportHelper):
         return {"FINISHED"}
 
 
+_MODEL_EXT = {".glb", ".gltf", ".ply", ".spz", ".obj", ".fbx", ".usdz", ".stl"}
+
+
 class COMFYQ_OT_import_file(bpy.types.Operator):
     bl_idname = "comfyq.import_file"
     bl_label = "Import into Scene"
@@ -61,18 +64,41 @@ class COMFYQ_OT_import_file(bpy.types.Operator):
     job_id: StringProperty()
     path: StringProperty()
     again: BoolProperty(default=False, options={"SKIP_SAVE"})
+    # 3D models / splats (audit 2, #30: the Import node had these, the job card did not)
+    place: EnumProperty(
+        name="Place", default="BESIDE",
+        items=(("BESIDE", "Beside the Scene", "Place it to the right of the scene's objects, never hidden inside them"),
+               ("CURSOR", "At the 3D Cursor", "Place it at the 3D cursor"),
+               ("ORIGIN", "At the Origin", "Place it at the world origin"),
+               ("ASIS", "As Made", "Keep the position and size stored in the file")))
+    on_ground: BoolProperty(name="On the Ground", default=True,
+                            description="Put its lowest point on the ground (z = 0, or the 3D cursor's height)")
+    size: FloatProperty(name="Size", default=0.0, min=0.0, soft_max=50.0, subtype="DISTANCE",
+                        description="Scale it so its longest side is this long, for example 4.5 m for a car. 0 keeps "
+                                    "the size it was made at")
 
     def invoke(self, context, event):
+        if Path(self.path).suffix.lower() in _MODEL_EXT:      # where and how big: asked in a small dialog
+            title = "Import a Second Copy" if self.again else "Import 3D Model"
+            return context.window_manager.invoke_props_dialog(self, title=title, confirm_text="Import")
         if self.again:
             return context.window_manager.invoke_confirm(
-                self, event, title="Import again?", message="This result is already in the scene; import a second copy?",
-                confirm_text="Import again")
+                self, event, title="Import Again?", message="This result is already in the scene; import a second copy?",
+                confirm_text="Import Again")
         return self.execute(context)
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.prop(self, "place")
+        layout.prop(self, "on_ground")
+        layout.prop(self, "size")
 
     def execute(self, context):
         view = SESSION.jobs.get(self.job_id)
         wf = view.job.workflow_id if view else ""
-        rep = import_report([Path(self.path)], self.job_id, wf, context.scene)
+        rep = import_report([Path(self.path)], self.job_id, wf, context.scene,
+                            Placement(self.place, self.on_ground, self.size))
         rep.report_to(self)
         if not rep.imported:
             return {"CANCELLED"}

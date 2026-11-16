@@ -871,6 +871,7 @@ def _frame_graph_soon(selected: bool = False) -> None:
 _LABELS_NEED = 850          # px at UI scale 1: 8 labelled menus + search + Run Graph + Clear (610 truncated)
 _RUN_LABEL_NEED = 320       # 9 icon menus (~19 px each) + search + labelled Run Graph + Clear
 _ICONS_NEED = 200           # same with an icon-only Run
+_TWO_LABELS_NEED = 420      # "Add" + "Presets" labelled (narrower: their icons; the narrow ComfyQ window cut them)
 
 
 def header_room(context) -> float:
@@ -896,13 +897,17 @@ def _header(self, context):
     row = layout.row(align=True)
     if room < _ICONS_NEED:
         row.menu(COMFYQ_MT_graph_all.bl_idname, text="", icon="ADD")
+    elif room < _LABELS_NEED:            # audit 2, #40: two menus, not nine bare icons; labelled when they fit
+        two = room >= _TWO_LABELS_NEED
+        row.menu(COMFYQ_MT_graph_all.bl_idname, text="Add" if two else "", icon="ADD")
+        row.menu("COMFYQ_MT_graph_presets", text="Presets" if two else "", icon="PRESET")
+        row.operator(COMFYQ_OT_graph_add_search.bl_idname, text="", icon="VIEWZOOM")
     else:
-        labels = room >= _LABELS_NEED
-        row.menu(COMFYQ_MT_graph_scene.bl_idname, text="Scene" if labels else "", icon="SCENE_DATA")
-        row.menu(COMFYQ_MT_graph_output.bl_idname, text="Output" if labels else "", icon="OUTPUT")
-        row.menu("COMFYQ_MT_graph_presets", text="Presets" if labels else "", icon="PRESET")
+        row.menu(COMFYQ_MT_graph_scene.bl_idname, text="Scene", icon="SCENE_DATA")
+        row.menu(COMFYQ_MT_graph_output.bl_idname, text="Output", icon="OUTPUT")
+        row.menu("COMFYQ_MT_graph_presets", text="Presets", icon="PRESET")
         for m in TAB_MENUS:
-            row.menu(m.bl_idname, text=m.bl_label if labels else "", icon=m.comfyq_icon)
+            row.menu(m.bl_idname, text=m.bl_label, icon=m.comfyq_icon)
         row.operator(COMFYQ_OT_graph_add_search.bl_idname, text="", icon="VIEWZOOM")
     layout.separator()
     row = layout.row()

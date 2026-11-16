@@ -217,7 +217,8 @@ def draw_chips(grid, scene, wf_id: str, visible: list[ParamSpec], get=None) -> N
         it = get(s.key) if get else param_item(scene, s.key, wf_id)
         if it is None:
             continue
-        short = scene_match.short_label(s.label)
+        # the bar's two chip columns hold about half its width (audit 2, #24: Blender clipped the rest mid-word)
+        short = scene_match.short_label(s.label, 26 if get else max(12, min(26, _CHARS[0] // 2 - 6)))
         if s.kind == "seed":
             r = grid.row(align=True)
             r.prop(it, "i", text="Seed")
@@ -542,7 +543,7 @@ def draw_jobs(layout, context, limit: int | None = None) -> None:
             box.alert = True
             box.label(text=phase, icon="ERROR")
             error = "" if (job.error or "").strip().lower() == phase.lower() else job.error or ""
-            for line in wrap(error, 60):
+            for line in wrap(error, max(24, _chars_for(context) - 4), max_lines=6):
                 box.label(text=line)
             from ..ops.generate import why_not_retry
             row = box.row()

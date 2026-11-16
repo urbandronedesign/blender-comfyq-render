@@ -286,6 +286,10 @@ Done (smoke + GUI `-Ui` 136 checks, no drawing errors):
   #45 **Add Shot Here** (+ next to Shot).
 - #28 (red mask preview) was done in phase 5.
 
-Still open: #24 cut labels (job-card errors are cut mid-word too), #30 an Import dialog on job cards, #40 the graph
-header's unlabelled icons, #44 the Server panel (close a lane, not-serving state, Solo indicator, raw errors), #46
-(phase 7), and the rest of the severity 1/0 sweep (title case, tooltips, nested boxes, icon table).
+Second pass (same day): #24 job-card errors wrap at the sidebar's real width, chip labels cut at a whole word to the
+width, long model names cut in the MIDDLE (`wording.middle`, unit test); #30 job-card **Import** of a 3D file asks
+Place / On the Ground / Size (the Import node's options); #40 the graph header at middle widths: **Add** + **Presets**
+(labelled when they fit, else their icons) instead of nine bare icons; #44 Server panel: **Stop Serving...** (X) on extra
+models, a *Solo is on* line, plain error text, names on their own line. GUI -Ui 136, screenshots looked at.
+
+Still open: #46 (phase 7) and the rest of the severity 1/0 sweep (title case, tooltips, nested boxes, icon table).

@@ -366,7 +366,7 @@ class COMFYQ_PT_player(bpy.types.Panel):
             if img is not None and not img.size[0]:     # audit 2, #29: a 3D / splat file read as "0×0"
                 ext = Path(img.filepath or "").suffix.lower()
                 kind = "3D model" if ext in (".glb", ".gltf", ".ply", ".spz", ".obj", ".fbx", ".usdz") else "This file"
-                layout.label(text=f"{kind}: no picture here. Import it to see it in the scene", icon="INFO")
+                layout.label(text=f"{kind}: Import it to see it", icon="INFO")
             elif img is not None:
                 layout.label(text=f"Still image · {img.size[0]}×{img.size[1]}")
             return
