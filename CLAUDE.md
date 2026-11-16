@@ -56,6 +56,12 @@ extension/comfyq_bridge/
   passes/zone_scene.py   the scene's zone (picked objects + shapes, Grow / Feather / Invert) → mask pass
   ui/zone_tool.py        ComfyQ Mask tool (3D View toolbar): click picks, drag box, Shift lasso, Ctrl cuts;
                          red gpu overlay; header settings
+  ui/workspace.py        the ComfyQ workspace (button, editors set up from a timer) + the bar's mode strip
+                         Frame · Draw · Mask · Graph; workspace.blend = its layout (tools/make_workspace_blend.py)
+  passes/sketch.py ops/sketch.py  the ComfyQ Sketch (Grease Pencil in front of the camera; visibility per pass),
+                         Start / Render / Delete Sketch, the Sketch source + node
+  ops/mask.py            Find by Name (SAM3 → the zone), Paint Zone (Erase Soft on a copy of the render), red
+                         mask previews
   passes/picture_mask.py  a mask on ANY picture: ticked SAM3 regions + drawn shapes → alpha, preview, region_at
   graph/picture_mask_ui.py  Picture Mask node editing: Edit on Picture, ComfyQ Picture Mask tool (Image Editor),
                          pick / draw / clear operators, make_mask / refresh_preview
@@ -350,14 +356,18 @@ change that session: the user must reinstall from the UI or restart Blender.
     and shows In Front, which also holds in Workbench renders (checked with the sketch 30 m away, behind a cube).
     Scripted strokes: `grease_pencil.brush_stroke` elements take no `pen_flip` in 5.3.
 
-## Status (2026-11-15 evening, last commit see `git log`; installed build `6f5b4d1` = HEAD extension code, in the user's **Blender 5.3** profile; ComfyQ of 2026-11-15, 87 workflows) — **hand-over for b2renger / the teacher: docs/RUNBOOK.md**
+## Status (2026-11-16 ~03:00, HEAD `56a823f` = installed build, in the user's **Blender 5.3** profile; ComfyQ of 2026-11-15, 87 workflows) — **hand-over for b2renger / the teacher: docs/RUNBOOK.md**; **what changed for the user: docs/whats-new-2026-11-16.md**
+- **Audit 2 is COMPLETE (phases 1–7, 2026-11-15/16)**: ComfyQ workspace (layout 2: full-width graph, timeline under it),
+  Sketch, Find by Name / Paint Zone, severity-2 fixes + wording sweep, presets / help / MCP. Details in the "Work of
+  2026-11-15 / 16" section below and docs/ux-audit-2.md. Open UI items: sub-panels instead of nested boxes (bar, Server
+  panel), the icon table in docs/UI.md, a paint canvas at the job's size, found regions in the 3D red overlay.
 - **Host:** **Blender 5.3.0** (since 2026-11-15; 5.2.2 LTS still on disk and supported). The user's 5.3 profile came from
   *Load Blender 5.2 Settings* (MCP ON port 8790, Teacher tools ON, **Solo ON**, student name `b2renger`, theme) and
-  has the build of `6f5b4d1` (audit-2 severity-3 fixes; later commits = tools/docs). The user restarts Blender to
-  load a build. **ComfyQ runs** (started by us with `npm run dev`, then set serving with the user's OK); after a
-  restart it comes back in ADMIN MODE (not serving) unless serving was on: start serving = `activate-workflow`.
-  Left serving at the end of 2026-11-15: YuE2 (main) + FLUX.3 Klein t2i + FLUX.3 Klein edit + Flux2 Klein inpaint
-  (loaded by Solo for the masking test).
+  has the build of `56a823f`. The user restarts Blender to load a build (an open Blender keeps its old code; force-closing
+  the user's Blender is refused: open a second one, or ask). **ComfyQ runs** (started by us with `npm run dev`, set
+  serving with the user's OK); after a restart it comes back in ADMIN MODE (not serving) unless serving was on: start
+  serving = `activate-workflow` (the bridge now waits and connects by itself, #42). Solo switched models many times on
+  2026-11-16: whatever the last check loaded is served (SAM3, Flux2 Klein inpaint, FLUX.3 Klein edit, LTX 2.5 i2v…).
   **This PC is the teacher PC**: `%APPDATA%\comfyq-bridge\profiles.toml` = profile `teacher` (default,
   127.0.0.1:3000). **ComfyQ now HAS an admin password** (the user set it in ComfyQ's admin page on 2026-10-21 and put
   the same one in the profile; check with `POST /admin/verify-password`, never print it). Without it Solo / Load Model
@@ -600,7 +610,7 @@ change that session: the user must reinstall from the UI or restart Blender.
   Flux2 42 s vs FLUX.3 full 83 s, `live_check/flux3_compare/sheet.jpg`); FLUX.3 prompts name the picture `<ref_image_0>`;
   the built-in Scene render → image role prefers it; inpaint stays Flux2 (no FLUX.3 inpaint workflow).
 
-## Work of 2026-11-15 / 16: preset series (commit `c2bc873` + fixes)
+## Work of 2026-11-15 / 16: preset series, then audit 2 phases 3–7 (commits `c2bc873` → `56a823f`, all pushed)
 - `tools/preset_series.py`: every preset (76 library + 15 class) on inputs chosen for it, with written prompts, one
   headless Blender per scene; 91 presets: 73 ok, 16 to check, 2 fail (SeedVR2 3B OOM, Qwen 2.1 edit copies the
   reference layout). Report `baselines/2026-11-15/index.html` (vs 2026-10-22 and 2026-10-04).
@@ -641,14 +651,26 @@ change that session: the user must reinstall from the UI or restart Blender.
 - **Audit 2 phase 7 (2026-11-16):** class presets *Sketch → video (FLUX.3 Klein + LTX 2.5)* (GPU 2.5 min) and *Find and
   replace an object (SAM3 + Flux2 Klein inpaint)* (`tools/make_phase7_presets.py`; 20 class presets); help/student.html
   sections Workspace / Draw / Mask / Shots (audit #46); MCP **26 tools** (+ `blender_sketch`, `blender_find_zone`).
+- **Severity 1/0 sweep** (`16bdbde`): no "min", "(s)", "e.g.", "VRAM ?", "Your" in student text; Title Case toggles;
+  Clear Graph reason + report; Run Graph / folder / Import tooltips; `comfyq.random_seed` and `comfyq.import_result` removed.
+- **Workspace layout 2** (`56a823f`, the user's choice after seeing it): camera view | frame on top, the graph across the
+  full width, a thin timeline under it. The workspace mark holds the layout version (`ui/workspace.LAYOUT`); a file
+  saved with an older one keeps it as "ComfyQ (old layout)" and the button adds the new one. Rebuild: `tools/
+  make_workspace_blend.py` (visible sandbox Blender) after changing LAYOUT in both files. Mode strip: text only in a
+  narrow sidebar.
+- Tests at the end: unit 98, smoke PASSED, GUI `-Ui` 136 checks (no drawing errors, screenshots looked at).
+- GPU runs of the day (all headless, sandbox profile, Solo): sketch → FLUX.3 / Qwen canny 0.6 / Sketch → video
+  (`live_check/sketch/`), Find "sofa" → inpaint (`live_check/mask_find/`), aspect / preset-fix checks
+  (`live_check/series_2026-11-15/*check*.json`). Drivers: `tools/sketch_check.py`, `tools/mask_find_check.py`
+  (both hosted by `preset_run_headless.py --module=`).
 
 ## Next steps
-0. **Audit-2 phases 3–5 DONE 2026-11-16 (workspace, Sketch, Find by Name / Paint Zone); next: phase 6 (severity-2 audit fixes) and 7 (presets, help, MCP tools). Left of 4: Paint Frame at the job's size.** Was (4) **Draw**: Sketch source/node (GP object parented to the camera,
-   white-background option in the clay pass, GP strokes in the fingerprint), Paint Frame (canvas at the job's size,
-   start from render/keyframe/result, pixel hash); (5) **Mask**: Mask Zone source/node (Compositor raster at upload
-   size, numpy fallback + unit tests, feather, invert, **grow**), Paint Zone (Erase/Add Alpha), red overlay, one
-   thumbnail per node, Lock Selection, SAM3 picking for students. Then severity-2 list + mechanical sweep (phase 6),
-   presets *Sketch → image / video*, *Mask a zone → inpaint*, help/student.html, MCP tools (phase 7).
+0. **Audit 2 DONE (2026-11-16).** Wait for the user's feedback on the workspace (layout 2), Sketch, Find by Name /
+   Paint Zone and the new presets. Open, not chosen yet: sub-panels instead of nested boxes (bar, Server panel; a
+   layout change, needs its own screenshot review), the icon table in docs/UI.md (8 icons missing), a paint canvas
+   at the job's size (Draw paints "ComfyQ Frame" at the shown picture's size), found regions in the 3D red overlay,
+   `blender_find_zone` never called through MCP on the GPU, the *Find and replace* preset never run as a file (its
+   chain was). D5 (masks that move over time) still later.
 0b. Wait for the user's feedback on `E:\zaki\mask_demo.blend` (masking test) and the splat presets.
 0c. DONE 2026-11-15: Blender 5.3 + native splats (docs/blender-5.3.md), presets folder synced (67 library + 13 class).
    Not yet: splats in the clay / material passes; splats as inputs.
