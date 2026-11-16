@@ -18,12 +18,12 @@ for _name in [m for m in sys.modules if m.startswith(__name__ + ".")]:
 import bpy
 
 from . import graph, mcp, prefs, props
-from .ops import connection, generate, results, sketch, workflow
+from .ops import connection, generate, mask, results, sketch, workflow
 from .passes import animation
 from .runtime.session import PUMP_INTERVAL_S, SESSION
 from .ui import panel, player, server, workspace, zone_tool
 
-_CLASSES = (*connection.classes, *workflow.classes, *sketch.classes, *generate.classes, *results.classes, *panel.classes,
+_CLASSES = (*connection.classes, *workflow.classes, *sketch.classes, *mask.classes, *generate.classes, *results.classes, *panel.classes,
             *graph.classes, *server.classes, *workspace.classes)
 
 

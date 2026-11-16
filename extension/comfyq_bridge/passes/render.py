@@ -445,12 +445,13 @@ def sketch_pass(scene: bpy.types.Scene, only: bool = False, max_edge: int | None
 
 def mask_pass(scene: bpy.types.Scene, selected: list[bpy.types.Object], style: str = "CLAY",
               max_edge: int | None = None, frame: int | None = None, shapes=None, grow: float = 0.0,
-              feather: float = 0.0, invert: bool = False) -> Path:
+              feather: float = 0.0, invert: bool = False, regions: list | None = None) -> Path:
     """Structure RGB + alpha 0 in the area to repaint: where `selected` objects are visible (occlusion-correct),
+    plus `regions` SAM3 found by name (Find by Name: mask files of the camera view),
     plus the zone `shapes` (a zone.Zone drawn with the ComfyQ Mask tool, frame coordinates), widened by `grow` and
     softened by `feather` (fractions of the picture width), optionally inverted."""
     has_shapes = shapes is not None and not shapes.empty
-    if not selected and not has_shapes:
+    if not selected and not has_shapes and not regions:
         raise RuntimeError("No zone to repaint: pick objects or draw a zone with the ComfyQ Mask tool "
                            "(3D View toolbar), or select the objects to repaint")
     size = fit_size(scene_aspect(scene), max_edge)
@@ -477,7 +478,7 @@ def mask_pass(scene: bpy.types.Scene, selected: list[bpy.types.Object], style: s
                     if o.name in colors:
                         o.color = colors[o.name]
     out = _out_path("mask")
-    _merge_alpha(rgb_path, matte_path, out, shapes if has_shapes else None, grow, feather, invert)
+    _merge_alpha(rgb_path, matte_path, out, shapes if has_shapes else None, grow, feather, invert, regions=regions)
     return out
 
 
@@ -560,12 +561,16 @@ def finish_zone(cover: np.ndarray, w: int, grow: float, feather: float, invert: 
 
 
 def _merge_alpha(rgb_path: Path, matte_path: Path | None, out: Path, shapes=None, grow: float = 0.0,
-                 feather: float = 0.0, invert: bool = False) -> None:
+                 feather: float = 0.0, invert: bool = False, regions: list | None = None) -> None:
     rgb, w, h = _pixels(rgb_path)
     base = None
     if matte_path is not None:
         matte, _, _ = _pixels(matte_path)
         base = np.clip(matte[..., 0] * matte[..., 3], 0.0, 1.0)
+    for r in regions or ():                        # found by name: SAM3 masks of the same camera view
+        from .picture_mask import matte as region_matte
+        m = region_matte(r["mask"], w, h).astype(np.float32)
+        base = m if base is None else np.maximum(base, m)
     cover = zone_coverage(shapes, w, h, base) if shapes is not None else (
         base if base is not None else np.zeros((h, w), np.float32))
     rgb[..., 3] = 1.0 - finish_zone(cover, w, grow, feather, invert)

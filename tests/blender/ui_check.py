@@ -1508,6 +1508,38 @@ def step_workspace():
     yield 0.8
     check("Mode strip: Graph again goes back to the workspace", now == "GRAPH" and back == "FRAME"
           and len(win.screen.areas) == 4, f"{now} → {back}, {len(win.screen.areas)} areas")
+    # phase 5 in the workspace: Mask mode › Paint Zone (the frame paints the zone copy with an erasing brush);
+    # Find by Name greyed with its reason until words are typed
+    mode("MASK")
+    with bpy.context.temp_override(window=win, screen=win.screen):
+        rp = bpy.ops.comfyq.zone_paint()
+        now = wsm.current_mode(bpy.context)
+    yield 1.0
+    fr = next(a for a in win.screen.areas if a.type == "IMAGE_EDITOR")
+    brush = getattr(bpy.context.tool_settings.image_paint, "brush", None)
+    blend = getattr(brush, "blend", None)
+    shot("26_ws_paint_zone")
+    check("Paint Zone: the frame paints the zone (a copy of the scene render) with an erasing brush; the strip stays "
+          "on Mask", rp == {"FINISHED"} and fr.spaces.active.image is not None
+          and fr.spaces.active.image.name == "ComfyQ Painted Zone" and fr.spaces.active.mode == "PAINT"
+          and now == "MASK" and blend == "ERASE_ALPHA" and brush.name.startswith("Erase"),
+          f"{rp} now={now} brush={brush and brush.name} blend={blend}")
+    mode("DRAW")
+    yield 0.5
+    brush = getattr(bpy.context.tool_settings.image_paint, "brush", None)
+    check("Draw after Paint Zone: back to a painting brush (never erasing the frame)",
+          brush is not None and brush.blend not in ("ERASE_ALPHA", "ADD_ALPHA"), f"{brush and brush.name} {brush and brush.blend}")
+    sc = bpy.context.scene
+    sc.comfyq.zone_words = ""
+    with bpy.context.temp_override(window=win, screen=win.screen):
+        greyed = not bpy.ops.comfyq.zone_find.poll()
+    sc.comfyq.zone_words = "sofa, rug"
+    with bpy.context.temp_override(window=win, screen=win.screen):
+        ready = bpy.ops.comfyq.zone_find.poll()
+    check("Find by Name: greyed until a name is typed, then ready", greyed and ready, f"{greyed} {ready}")
+    sc.comfyq.zone_words = ""
+    mode("FRAME")
+    yield 0.5
     with bpy.context.temp_override(window=win):
         r3 = bpy.ops.comfyq.workspace()
     yield 0.5

@@ -629,9 +629,16 @@ change that session: the user must reinstall from the UI or restart Blender.
   photoreal (FLUX.3 Klein edit)* and *Sketch Only → picture (Qwen canny, strength 0.6)*, GPU-checked
   (`tools/sketch_check.py`, `live_check/sketch/`). Smoke + GUI `step_sketch` (a real Pencil stroke: 0.40 % of the frame).
   Not yet: Paint Frame at the job's size (Draw mode paints "ComfyQ Frame" at the shown picture's size), MCP sketch tools.
+- **Mask for students (audit 2, phase 5, 2026-11-16):** `ops/mask.py`: **Find by Name** (zone_words → SAM3 on the camera
+  view in MATERIAL style, background `SESSION.run`, Solo loads SAM3; found regions in `scene.comfyq.zone_found` JSON,
+  tickable, merged into the zone by `render.mask_pass(regions=)`), **Paint Zone** (scene render → packed RGBA
+  "ComfyQ Painted Zone", Image Editor Paint with the essential **Erase Soft** brush; mask source *Painted Zone*; Draw
+  mode re-activates *Paint Hard*: essentials live in `brushes/essentials_brushes-mesh_texture.blend`), mask previews
+  in red (`mask_preview`). GPU: Find "sofa" 30 s → Flux2 inpaint 30 s, only the sofa changed (`live_check/mask_find/`).
+  Not yet: found regions in the 3D View's red overlay; a moving camera needs Find again (masks are of one frame).
 
 ## Next steps
-0. **Audit-2 phase 5 next (phase 3 workspace + phase 4 Sketch DONE 2026-11-16; left of 4: Paint Frame at the job's size).** Was (4) **Draw**: Sketch source/node (GP object parented to the camera,
+0. **Audit-2 phases 3–5 DONE 2026-11-16 (workspace, Sketch, Find by Name / Paint Zone); next: phase 6 (severity-2 audit fixes) and 7 (presets, help, MCP tools). Left of 4: Paint Frame at the job's size.** Was (4) **Draw**: Sketch source/node (GP object parented to the camera,
    white-background option in the clay pass, GP strokes in the fingerprint), Paint Frame (canvas at the job's size,
    start from render/keyframe/result, pixel hash); (5) **Mask**: Mask Zone source/node (Compositor raster at upload
    size, numpy fallback + unit tests, feather, invert, **grow**), Paint Zone (Erase/Add Alpha), red overlay, one

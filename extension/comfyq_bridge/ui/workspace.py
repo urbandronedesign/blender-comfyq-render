@@ -67,7 +67,10 @@ def current_mode(context) -> str:
     if screen.show_fullscreen and _graph_area(screen) is not None and len(screen.areas) == 1:
         return "GRAPH"
     frame = _frame_area(screen)
-    if (frame is not None and frame.spaces.active.mode == "PAINT") or context.mode == "PAINT_GREASE_PENCIL":
+    painting = frame is not None and frame.spaces.active.mode == "PAINT"
+    if painting and frame.spaces.active.image is not None and frame.spaces.active.image.name == "ComfyQ Painted Zone":
+        return "MASK"                    # Paint Zone: painting the zone, not a frame
+    if painting or context.mode == "PAINT_GREASE_PENCIL":
         return "DRAW"
     try:
         tool = context.workspace.tools.from_space_view3d_mode("OBJECT", create=False)
@@ -190,6 +193,11 @@ class COMFYQ_OT_workspace_mode(bpy.types.Operator):
             sp.image = _canvas(context.scene, sp.image)
             sp.ui_mode = "PAINT"
             fit_view_soon(frame)
+            from ..ops.mask import activate_brush  # after Paint Zone the brush erased: back to painting
+            if not activate_brush(context, frame, "Paint Hard"):
+                brush = getattr(context.tool_settings.image_paint, "brush", None)
+                if brush is not None and getattr(brush, "blend", "MIX") in ("ERASE_ALPHA", "ADD_ALPHA"):
+                    brush.blend = "MIX"
         else:
             self._paint(frame, False)
             self._select_tool(context, v3d)
@@ -279,6 +287,9 @@ def draw_strip(layout, context) -> None:
     if now == "DRAW":                    # the other way to draw: a sketch in the camera view (Grease Pencil)
         row = col.row(align=True)
         row.operator("comfyq.sketch_start", text="Sketch in Camera View", icon="OUTLINER_OB_GREASEPENCIL")
+    elif now == "MASK":                  # other ways to make the zone: paint it, or find it by name (bar › Inputs)
+        row = col.row(align=True)
+        row.operator("comfyq.zone_paint", text="Paint Zone on the Frame", icon="TPAINT_HLT")
 
 
 classes = (COMFYQ_OT_workspace, COMFYQ_OT_workspace_mode)

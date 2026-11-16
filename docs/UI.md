@@ -174,6 +174,18 @@ Tested on the GPU (2026-11-15, `E:\zaki\mask_demo_zone.blend`): the vase + a fre
 0.8 % → Flux2 Klein inpaint drew a sunflower bouquet in a glass vase filling the zone, the room unchanged
 (`live_check/mask_demo/zone/`).
 
+Added in audit 2, phase 5 (2026-11-16), in the same rows (bar mask input, Mask Zone node):
+
+| Control | Does | Check |
+|---|---|---|
+| **Find** field + ▶ (*Find by name: sofa, rug*) | SAM3 (on the server) finds each name in the camera view (material colours, current frame; in the background, the line under it says how far it is). Each name found joins the zone with its share of the picture, a tick box takes it out again. Grow / Feather / Invert apply as for the rest. SAM3 must be served (Solo loads it); greyed with the reason otherwise | smoke `Find by Name: a found surface is in the zone…`, `unticking…`; GUI `Find by Name: greyed until a name is typed` |
+| **Paint Zone** (mask source *Painted Zone*, mode strip *Mask*) | The scene render opens in the frame (Image Editor › Paint) as *ComfyQ Painted Zone*, with Blender's **Erase Soft** brush: what is painted turns transparent and is repainted (soft brush = soft edge). Kept in the .blend. Draw mode goes back to *Paint Hard* | smoke `Painted Zone: what is painted transparent is sent transparent…`; GUI `Paint Zone: the frame paints the zone…`, `Draw after Paint Zone` (`26_ws_paint_zone`) |
+| **Render Mask** preview | The scene with the zone **in red** (transparent pixels read badly), what the mask sends | smoke `mask preview: the zone in red over the picture` |
+
+Tested on the GPU (2026-11-16, a copy of `E:\zaki\mask_demo.blend`, `tools/mask_find_check.py`): *Find: sofa* → SAM3
+found the sofa (8.3 % of the picture, 30 s incl. loading SAM3) → the library preset *Flux2 Klein 9B — inpaint* (30 s)
+made it an emerald velvet sofa with brass legs, the room unchanged (`live_check/mask_find/find_sheet.jpg`).
+
 ### 2.9 Masking an existing picture: the Picture Mask node (graph › Scene › Picture Mask)
 For a photo, an AI result or a keyframe (not the 3D scene). Image in, Mask out (the picture with the zone
 transparent), linked into an inpaint workflow's mask input.

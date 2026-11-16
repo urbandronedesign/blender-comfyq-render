@@ -339,6 +339,9 @@ def show_preview(path: Path, mask: bool = False, name: str = ""):
     """Load a pass into the one preview image (refreshed on every render) and show it in the ComfyQ viewer."""
     from ..ui import player
     name = name or ("ComfyQ mask preview" if mask else "ComfyQ render preview")
+    if mask:                                       # the zone in red over the picture (transparent pixels read badly)
+        from .mask import mask_preview
+        path = mask_preview(path)
     img = bpy.data.images.get(name)
     if img is None:
         img = bpy.data.images.load(str(path), check_existing=False)

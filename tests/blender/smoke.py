@@ -1180,6 +1180,45 @@ from bl_ext.user_default.comfyq_bridge.props import _SOURCES_BY_KIND
 check("SKETCH" in _SOURCES_BY_KIND["image"], "Sketch: offered as a source for image inputs in the bar")
 _sk.remove(scene)
 check(not _sk.objects(scene), "Sketch: Delete Sketch removes it")
+
+# phase 5: Find by Name (a fake SAM3 result: a mask file of the camera view), Painted Zone, the red preview
+from bl_ext.user_default.comfyq_bridge.ops import mask as _mk
+from bl_ext.user_default.comfyq_bridge.passes import segment as _seg
+from bl_ext.user_default.comfyq_bridge.passes import zone_scene as _zs
+
+_zs.clear(scene)
+_fm = _np_sk.zeros((180, 320, 4), _np_sk.float32)
+_fm[..., 3] = 1.0
+_fm[40:100, 60:160, :3] = 1.0                      # "found": a white block, row 0 = top
+_fpath = _seg.write_rgba(_fm, tmp / "found_sofa.png")
+_zs.set_found(scene, {"words": ["sofa"], "regions": [{"label": "sofa", "mask": str(_fpath), "picked": True,
+                                                       "coverage_pct": 10.4}]})
+_zm = _zs.mask(scene, [], "CLAY", 640)
+_za = _seg.read_rgba(_zm)
+_zh, _zw = _za.shape[:2]
+_inside = _za[int(_zh * 70 / 180), int(_zw * 110 / 320), 3]
+_outside = _za[int(_zh * 150 / 180), int(_zw * 280 / 320), 3]
+check(_zs.active(scene) and _zs.describe(scene) == "1 found" and _inside < 0.1 and _outside > 0.9,
+      f"Find by Name: a found surface is in the zone (transparent there, alpha {_inside:.2f} / {_outside:.2f} "
+      f"outside), {_zs.describe(scene)}")
+_prev = _mk.mask_preview(_zm)
+_pa = _seg.read_rgba(_prev)
+_pi = _pa[int(_zh * 70 / 180), int(_zw * 110 / 320)]
+check(_pi[0] > _pi[1] + 0.2 and _pa[..., 3].min() > 0.99, f"mask preview: the zone in red over the picture ({_pi[:3]})")
+_zs.toggle_found(scene, "sofa")
+check(not _zs.active(scene), "Find by Name: unticking the found surface takes it out of the zone")
+_zs.clear(scene)
+_pz = _mk._painting_from(_rsk.structure_pass(scene, "CLAY", 320), None)
+_pp = _np_sk.empty(_pz.size[0] * _pz.size[1] * 4, _np_sk.float32)
+_pz.pixels.foreach_get(_pp)
+_pp = _pp.reshape(_pz.size[1], _pz.size[0], 4)
+_pp[:40, :60, 3] = 0.0                             # "painted" with the Erase brush (bottom-left corner)
+_pz.pixels.foreach_set(_pp.ravel())
+_sent = _seg.read_rgba(_rsk.image_pass(_pz))
+check(_pz.name == _mk.PAINTED and _sent[-5, 5, 3] < 0.1 and _sent[5, -5, 3] > 0.9 and _pz.packed_file is not None,
+      "Painted Zone: what is painted transparent is sent transparent; the painting is kept in the .blend")
+check("PAINTED" in _SOURCES_BY_KIND["mask"], "Painted Zone: offered as a source for mask inputs")
+bpy.data.images.remove(_pz)
 shutil.rmtree(shared, ignore_errors=True)
 del os.environ["COMFYQ_BRIDGE_PRESETS"]
 

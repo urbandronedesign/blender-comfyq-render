@@ -50,10 +50,12 @@ _SRC = {
                   "OBJECT_DATA", 7),
     "SKETCH": ("Sketch", ("The drawing made in the camera view (Start Sketch), over the clay scene or alone on "
                           "white"), "OUTLINER_OB_GREASEPENCIL", 8),
+    "PAINTED": ("Painted Zone", ("The scene render painted with Paint Zone: what is painted transparent is "
+                                 "repainted"), "TPAINT_HLT", 9),
 }
 _SOURCES_BY_KIND = {
     "image": ("STRUCTURE", "SKETCH", "KEYFRAME", "MASK", "IMAGE", "FILE", "NONE"),
-    "mask": ("MASK", "STRUCTURE", "IMAGE", "FILE"),
+    "mask": ("MASK", "PAINTED", "STRUCTURE", "IMAGE", "FILE"),
     "video": ("ANIMATION", "FILE", "NONE"),
     "audio": ("FILE", "NONE"),
     "model": ("SELECTION", "FILE"),
@@ -180,6 +182,10 @@ class ComfyQSceneProps(bpy.types.PropertyGroup):
                               description="Repaint everything except the zone")
     zone_show: BoolProperty(name="Show Zone", default=True, update=_redraw_views,
                             description="Show the zone in red over the 3D View")
+    zone_words: StringProperty(name="Find", default="",
+                               description="Name what to repaint (commas between names, for example: sofa, rug); "
+                                           "SAM3 finds it in the camera view")
+    zone_found: StringProperty(name="Found", default="", options={"HIDDEN"})    # JSON: what Find by Name found
     sketch_only: BoolProperty(name="Sketch Only", default=False,
                               description="Send the drawing alone on white, without the scene behind it")
 

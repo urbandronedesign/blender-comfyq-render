@@ -308,6 +308,12 @@ def draw_media(layout, context, wf_id: str, visible: list[ParamSpec], columns: i
             col.prop(it, "path", text="")
         elif it.source == "MASK":
             draw_zone_source(col, context)
+        elif it.source == "PAINTED":
+            from ..ops.mask import PAINTED
+            img = bpy.data.images.get(PAINTED)
+            col.label(text=f"{img.size[0]}×{img.size[1]}, painted" if img else "Nothing painted yet",
+                      icon="TPAINT_HLT" if img else "ERROR")
+            col.operator("comfyq.zone_paint", icon="TPAINT_HLT")
         elif it.source == "SKETCH":
             from ..ops.sketch import draw_sketch_source
             draw_sketch_source(col, context, scene.comfyq,
@@ -456,6 +462,17 @@ def draw_zone_source(col, context) -> None:
     row.operator("comfyq.zone_tool", icon="RESTRICT_SELECT_OFF")
     if zone_scene.active(scene):
         row.operator("comfyq.zone_clear", text="", icon="TRASH")
+    # Find by Name: SAM3 on the camera view
+    from ..ops.mask import FIND
+    row = col.row(align=True)
+    row.prop(scene.comfyq, "zone_words", text="", icon="VIEWZOOM", placeholder="Find by name: sofa, rug")
+    row.operator("comfyq.zone_find", text="", icon="PLAY")
+    if FIND["running"]:
+        col.label(text=f"Finding: {FIND['message']}", icon="SORTTIME")
+    for r in zone_scene.found(scene):
+        op = col.operator("comfyq.zone_found_toggle", text=f"{r['label']} · {r.get('coverage_pct', 0):.0f} %",
+                          icon="CHECKBOX_HLT" if r.get("picked") else "CHECKBOX_DEHLT", emboss=False)
+        op.label = r["label"]
 
 
 def _messages(layout) -> None:

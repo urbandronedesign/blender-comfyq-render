@@ -88,6 +88,12 @@ def _media(scene, selected, it, spec, rendered, style, frame, keyframe_ok) -> Pa
             else:
                 rendered[cache_key] = render.structure_pass(scene, style, spec.max_input_edge, f)
         return rendered[cache_key]
+    if src == "PAINTED":
+        from .mask import PAINTED
+        img = bpy.data.images.get(PAINTED)
+        if img is None:
+            raise RuntimeError(f"“{spec.label}”: press Paint Zone and paint what to repaint first")
+        return render.image_pass(img, spec.max_input_edge)
     if src == "SKETCH":
         f = frame if frame is not None else scene_match.frame_for(spec, scene_facts(scene))
         key = f"SKETCH:{scene.comfyq.sketch_only}:{spec.max_input_edge}:{f}"
