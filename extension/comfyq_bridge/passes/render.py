@@ -69,7 +69,7 @@ NEUTRAL_BG = (0.05, 0.05, 0.05)      # clay background: dark neutral grey, whate
 
 
 @contextmanager
-def _workbench(scene: bpy.types.Scene, size: tuple[int, int], style: str):
+def _workbench(scene: bpy.types.Scene, size: tuple[int, int], style: str, sketch_mode: str = "HIDE"):
     r, sh, vs = scene.render, scene.display.shading, scene.view_settings
     ims = r.image_settings
     world = scene.world
@@ -111,7 +111,9 @@ def _workbench(scene: bpy.types.Scene, size: tuple[int, int], style: str):
             if world is not None:
                 world.color = NEUTRAL_BG
             ims.color_mode = "BW"
-        yield
+        from . import sketch  # the ComfyQ Sketch only shows in its own pass
+        with sketch.visibility(scene, sketch_mode):
+            yield
     finally:
         r.use_sequencer, r.use_compositing = saved["seq"], saved["comp"]
         r.engine = saved["engine"]
@@ -179,7 +181,7 @@ def _fcurves(action):
     yield from getattr(action, "fcurves", ())
 
 
-def scene_fingerprint(scene: bpy.types.Scene, style: str) -> str:
+def scene_fingerprint(scene: bpy.types.Scene, style: str, sketch_mode: str = "HIDE") -> str:
     """A hash of what a camera render of the scene depends on: camera, frame range, resolution, every
     renderable object's placement (keyframes when animated), mesh shape, modifiers, materials (Material
     style). Not the current frame, selection, custom properties or UI state — so neither scrubbing the
@@ -193,8 +195,15 @@ def scene_fingerprint(scene: bpy.types.Scene, style: str) -> str:
     add(style, scene.frame_start, scene.frame_end, r.fps, r.fps_base, r.resolution_x, r.resolution_y,
         r.pixel_aspect_x, r.pixel_aspect_y, scene.camera.name if scene.camera else None)
     from ..importers.media import untouched_import
+    from . import sketch
+    if sketch_mode != "HIDE":                # the sketch's own pass: its strokes, and (Sketch Only) nothing else
+        add(sketch_mode, sketch.signature(scene))
+        if sketch_mode == "ONLY":
+            return h.hexdigest()[:16]
     actions, datas = set(), set()
     for ob in sorted(scene.objects, key=lambda o: o.name):
+        if ob.get(sketch.MARK):              # hashed above when it is rendered, else left out of every pass
+            continue
         if ob.hide_render:
             add(ob.name, "hidden")
             continue
@@ -421,6 +430,17 @@ def structure_pass(scene: bpy.types.Scene, style: str = "CLAY", max_edge: int | 
     size = fit_size(scene_aspect(scene), max_edge)
     with own_changes(), _at_frame(scene, frame), _workbench(scene, size, style):
         return _render_to(scene, _out_path("structure" if frame is None else f"structure_f{frame}"))
+
+
+def sketch_pass(scene: bpy.types.Scene, only: bool = False, max_edge: int | None = None,
+                frame: int | None = None) -> Path:
+    """The ComfyQ Sketch through the scene camera: over the clay scene, or alone on white (`only`)."""
+    from . import sketch
+    if not sketch.objects(scene):
+        raise RuntimeError("No sketch yet: press Start Sketch and draw in the camera view")
+    size = fit_size(scene_aspect(scene), max_edge)
+    with own_changes(), _at_frame(scene, frame), _workbench(scene, size, "CLAY", "ONLY" if only else "SHOW"):
+        return _render_to(scene, _out_path("sketch" if frame is None else f"sketch_f{frame}"))
 
 
 def mask_pass(scene: bpy.types.Scene, selected: list[bpy.types.Object], style: str = "CLAY",

@@ -335,10 +335,10 @@ class COMFYQ_OT_preview_pass(bpy.types.Operator):
         return {"FINISHED"}
 
 
-def show_preview(path: Path, mask: bool = False):
+def show_preview(path: Path, mask: bool = False, name: str = ""):
     """Load a pass into the one preview image (refreshed on every render) and show it in the ComfyQ viewer."""
     from ..ui import player
-    name = "ComfyQ mask preview" if mask else "ComfyQ render preview"
+    name = name or ("ComfyQ mask preview" if mask else "ComfyQ render preview")
     img = bpy.data.images.get(name)
     if img is None:
         img = bpy.data.images.load(str(path), check_existing=False)

@@ -54,6 +54,24 @@ bar shows the **mode strip** instead, with a one-line hint under it. The current
 Pressing the workspace icon again (from another workspace) switches to the same workspace, never a second copy
 (`ComfyQ Workspace button again`). Screenshots `18_workspace` … `22_ws_frame`.
 
+### 1.2 Sketch (audit 2, phase 4)
+
+A drawing made with Blender's own **Grease Pencil** in the camera view, sent as an image input. The *ComfyQ Sketch*
+object is parented to the scene camera and sits where the frame is 15 m wide, so Blender's brush sizes (scene units:
+the Pencil is 0.06 m) draw lines of about 0.4 % of the frame; it shows **in front** of everything, also in renders.
+Every other pass (Scene Render, Mask, Scene Animation) leaves it out.
+
+| Control | Where | Does | Check |
+|---|---|---|---|
+| **Start Sketch** / **Draw** | bar (input source *Sketch*), Sketch node, mode strip *Draw* › *Sketch in Camera View* | Makes the sketch (first time), Grease Pencil **Draw mode**, camera view, strokes on the view plane | GUI `Start Sketch: Grease Pencil Draw mode…`, `Draw: a Pencil stroke lands on the sketch… 0.4 %` |
+| Render icon | same rows | **Render Sketch**: the pass that will be sent, shown as *ComfyQ sketch preview* | GUI `Render Sketch` (`24_sketch_preview`) |
+| Trash icon | same rows | **Delete Sketch...** (asks first) | GUI `Delete Sketch` |
+| **Sketch Only** | bar (scene setting), Sketch node | Sends the drawing alone on white, in colour; off = over the clay scene | smoke `Sketch: the scene render leaves it out…` |
+| Source **Sketch** | bar, image inputs | What the input sends: the line under it counts the strokes | GUI `Bar: an image input takes the Sketch source` (`25_sketch_source`) |
+| **Sketch** node | graph › Scene | Image output; Frame; its result goes out of date when a stroke changes | smoke `Sketch node: a new stroke makes what it feeds out of date…` |
+
+Class presets: *Sketch → photoreal (FLUX.3 Klein edit)*, *Sketch Only → picture (Qwen canny)* (docs/CLASS.md).
+
 ---
 
 ## 2. The generation bar
@@ -285,6 +303,7 @@ collection* first, so it never reached ComfyQ.
 | WORKSPACE | the ComfyQ workspace | workspace button |
 | IMAGE_DATA / TPAINT_HLT | the frame / painting it | mode strip Frame / Draw |
 | RESTRICT_SELECT_OFF | the ComfyQ Mask tool | Mask Tool button, mode strip Mask |
+| OUTLINER_OB_GREASEPENCIL | the sketch | Start Sketch / Draw, Sketch source and node |
 | HELP | the student quickstart | ? (bar, graph header) |
 | USER | a person | name · server row, Server panel queue and Connected |
 | VIEW_CAMERA | a camera position setting | camera block heading |

@@ -1027,6 +1027,8 @@ def _node_media(node):
         return bpy.data.images.get("ComfyQ render preview")
     elif node.bl_idname == "ComfyQMaskNode":
         return bpy.data.images.get("ComfyQ mask preview")
+    elif node.bl_idname == "ComfyQSketchNode":
+        return bpy.data.images.get("ComfyQ sketch preview")
     elif node.bl_idname == "ComfyQSceneAnimationNode":
         return _animation_image()
     elif node.bl_idname == "ComfyQVideoFileNode" and node.filepath:

@@ -1,0 +1,177 @@
+{
+ "format": 1,
+ "label": "Sketch → photoreal (FLUX.3 Klein edit)",
+ "description": "Draw over the scene in the camera view (Start Sketch) and turn scene and drawing into a photograph: FLUX.3 Klein distilled edit keeps the camera and the layout and makes each drawn line the object it stands for. Say in the prompt what the lines are. About 20 s.",
+ "made": "2026-11-16 01:29",
+ "nodes": [
+  {
+   "name": "Sketch",
+   "type": "ComfyQSketchNode",
+   "location": [
+    -850.0,
+    0.0
+   ],
+   "width": 300.0,
+   "label": "Sketch",
+   "parent": "",
+   "only": false,
+   "frame": "CURRENT"
+  },
+  {
+   "name": "Workflow",
+   "type": "ComfyQWorkflowNode",
+   "location": [
+    -380.0,
+    0.0
+   ],
+   "width": 380.0,
+   "label": "",
+   "parent": "",
+   "workflow_id": "image_edit_flux3_klein_distilled_image_edit",
+   "params": [
+    {
+     "key": "image",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "prompt",
+     "s": "In <ref_image_0>, give her a pair of large gold hoop earrings; keep her face, hair, clothes, pose and the background exactly the same.",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "layout",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "improve_prompt",
+     "s": "",
+     "i": 0,
+     "f": 0.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "megapixels",
+     "s": "",
+     "i": 0,
+     "f": 1.0,
+     "b": false,
+     "randomize": true,
+     "text": null
+    },
+    {
+     "key": "steps",
+     "s": "",
+     "i": 16,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    },
+    {
+     "key": "seed",
+     "s": "",
+     "i": 7,
+     "f": 0.0,
+     "b": false,
+     "randomize": false,
+     "text": null
+    }
+   ],
+   "match_scene": true
+  },
+  {
+   "name": "Prompt",
+   "type": "ComfyQPromptNode",
+   "location": [
+    -850.0,
+    -420.0
+   ],
+   "width": 340.0,
+   "label": "Prompt",
+   "parent": "",
+   "text": "Turn <ref_image_0> into a photograph: keep the scene, the composition and the camera exactly; every black ink line becomes the real object it draws, at the same place and size. Photorealistic, natural light."
+  },
+  {
+   "name": "Viewer",
+   "type": "ComfyQViewerNode",
+   "location": [
+    120.0,
+    160.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": true
+  },
+  {
+   "name": "Save",
+   "type": "ComfyQSaveNode",
+   "location": [
+    120.0,
+    -200.0
+   ],
+   "width": 300.0,
+   "label": "",
+   "parent": "",
+   "auto": false,
+   "folder": "//comfyq/",
+   "pattern": "{source}_{date}_{time}",
+   "batch_suffix": "_render"
+  },
+  {
+   "name": "Frame",
+   "type": "NodeFrame",
+   "location": [
+    -1470.0,
+    0.0
+   ],
+   "width": 560.0,
+   "label": "How to use",
+   "parent": "",
+   "height": 220.0,
+   "text": "1. Sketch › Start Sketch: draw in the\n   camera view (Tab when done)\n2. Prompt: say what the lines are\n   (the circle in the sky is a balloon)\n3. Run Graph"
+  }
+ ],
+ "links": [
+  {
+   "from": "Sketch",
+   "from_socket": "Image",
+   "to": "Workflow",
+   "to_socket": "image"
+  },
+  {
+   "from": "Prompt",
+   "from_socket": "Text",
+   "to": "Workflow",
+   "to_socket": "prompt"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Viewer",
+   "to_socket": "Result"
+  },
+  {
+   "from": "Workflow",
+   "from_socket": "Image",
+   "to": "Save",
+   "to_socket": "Result"
+  }
+ ]
+}

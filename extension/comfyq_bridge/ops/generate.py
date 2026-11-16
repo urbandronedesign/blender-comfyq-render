@@ -88,6 +88,12 @@ def _media(scene, selected, it, spec, rendered, style, frame, keyframe_ok) -> Pa
             else:
                 rendered[cache_key] = render.structure_pass(scene, style, spec.max_input_edge, f)
         return rendered[cache_key]
+    if src == "SKETCH":
+        f = frame if frame is not None else scene_match.frame_for(spec, scene_facts(scene))
+        key = f"SKETCH:{scene.comfyq.sketch_only}:{spec.max_input_edge}:{f}"
+        if key not in rendered:
+            rendered[key] = render.sketch_pass(scene, scene.comfyq.sketch_only, spec.max_input_edge, f)
+        return rendered[key]
     if src == "IMAGE":
         if it.image is None:
             raise RuntimeError(f"Choose an image for “{spec.label}”")

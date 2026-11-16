@@ -162,6 +162,19 @@ Built by `tools/make_new_inputs_presets.py` (headless, sandbox profile) from Com
   taken → Cycles → FLUX.3 → this preset): with only "truck" kept, the street was repainted, the perspective lost and
   a second truck invented; with the ground kept, a clean glass tower and trees, 4096×2238, about 4 min with Solo
   loading three models. Built by `tools/make_bg_repaint_preset.py`.
+- **Sketch → photoreal (FLUX.3 Klein edit)**: **Start Sketch** (Sketch node, or the bar's *Sketch* source) puts
+  Blender in Grease Pencil Draw mode in the camera view; draw over the scene, then say in the prompt what the lines
+  are ("the circle with a basket in the sky is a hot-air balloon"). FLUX.3 Klein distilled edit keeps the camera and
+  the layout. Tested 2026-11-16 on the cliff house: a drawn balloon and stick figure became a red and white balloon
+  and a person on the roof, where they were drawn (`live_check/sketch/over_sheet.jpg`; the "larch" cladding came out
+  as greenery: name materials plainly).
+- **Sketch Only → picture (Qwen canny)**: a picture from nothing: the drawing alone on white is the layout, Qwen Image
+  2.1 draw-from-edges paints the rest from the prompt, at the scene camera's shape. Control strength **0.6**: at 1.0
+  (the trained strength) it traced the lines literally (a circle-on-a-stick tree stayed a drawn circle in the sky);
+  at 0.6 the cabin kept its place, shape, chimney, windows and door and no lines remained, but the tree moved to the
+  other side. FLUX.3 edit on the same drawing kept the tree's side but changed the house's proportions
+  (`live_check/sketch/only_compare.jpg`). About 20 s. Both built by `tools/make_sketch_presets.py`; GPU driver
+  `tools/sketch_check.py` (draws by script, runs the preset headless).
 
 ### The workflow library (one preset per image / video workflow)
 `presets\library\` in this repository holds 67 ready-made graphs (regenerated 2026-11-15 for ComfyQ's 87

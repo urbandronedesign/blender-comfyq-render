@@ -24,8 +24,8 @@ BLEND = Path(__file__).resolve().parents[1] / "workspace.blend"
 MODES = (
     ("FRAME", "Frame", "Show the frame: the latest render or result, the scene seen through its camera",
      "IMAGE_DATA"),
-    ("DRAW", "Draw", ("Paint on the frame in the Image Editor (a white canvas when there is no frame yet); the "
-                      "painted picture can be sent as a Blender Image input"), "TPAINT_HLT"),
+    ("DRAW", "Draw", ("Paint on the frame in the Image Editor (a white canvas when there is no frame yet), sent "
+                      "as a Blender Image input; or sketch in the camera view, sent as a Sketch input"), "TPAINT_HLT"),
     ("MASK", "Mask", "Pick the zone to repaint in the camera view with the ComfyQ Mask tool", "RESTRICT_SELECT_OFF"),
     ("GRAPH", "Graph", "Show the node graph across the whole workspace (Back to Previous, or Graph again, returns)",
      "NODETREE"),
@@ -67,7 +67,7 @@ def current_mode(context) -> str:
     if screen.show_fullscreen and _graph_area(screen) is not None and len(screen.areas) == 1:
         return "GRAPH"
     frame = _frame_area(screen)
-    if frame is not None and frame.spaces.active.mode == "PAINT":
+    if (frame is not None and frame.spaces.active.mode == "PAINT") or context.mode == "PAINT_GREASE_PENCIL":
         return "DRAW"
     try:
         tool = context.workspace.tools.from_space_view3d_mode("OBJECT", create=False)
@@ -193,6 +193,8 @@ class COMFYQ_OT_workspace_mode(bpy.types.Operator):
         else:
             self._paint(frame, False)
             self._select_tool(context, v3d)
+            if context.mode == "PAINT_GREASE_PENCIL":          # leave the sketch's Draw mode
+                bpy.ops.object.mode_set(mode="OBJECT")
             if v3d is not None and context.scene.camera is not None:
                 v3d.spaces.active.region_3d.view_perspective = "CAMERA"
         self.report({"INFO"}, HINT[mode])
@@ -274,6 +276,9 @@ def draw_strip(layout, context) -> None:
     hint = col.row()
     hint.enabled = False
     hint.label(text=HINT[now])
+    if now == "DRAW":                    # the other way to draw: a sketch in the camera view (Grease Pencil)
+        row = col.row(align=True)
+        row.operator("comfyq.sketch_start", text="Sketch in Camera View", icon="OUTLINER_OB_GREASEPENCIL")
 
 
 classes = (COMFYQ_OT_workspace, COMFYQ_OT_workspace_mode)

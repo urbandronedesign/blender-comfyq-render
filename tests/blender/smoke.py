@@ -1127,6 +1127,59 @@ with bpy.data.libraries.load(str(_wsm.BLEND)) as (_src, _dst):
     _ws_names = list(_src.workspaces)
 check(_wsm.BLEND.is_file() and _wsm.NAME in _ws_names and hasattr(bpy.ops.comfyq, "workspace_mode"),
       f"ComfyQ workspace: {_wsm.BLEND.name} holds the '{_wsm.NAME}' workspace, operators registered")
+
+# the ComfyQ Sketch (audit 2, phase 4): a Grease Pencil drawing in front of the camera, only in its own pass
+import numpy as _np_sk
+from bl_ext.user_default.comfyq_bridge.graph import run as _grun_sk
+from bl_ext.user_default.comfyq_bridge.passes import render as _rsk
+from bl_ext.user_default.comfyq_bridge.passes import sketch as _sk
+
+_fp0 = _rsk.scene_fingerprint(scene, "CLAY")
+_sko = _sk.ensure(scene)
+_skd = _sko.data.layers["Lines"].frames[0].drawing
+_skd.add_strokes([30])
+_pw = _sk.plane_width(scene)                 # strokes in fractions of the frame's width
+for _i, _pt in enumerate(_skd.strokes[0].points):
+    _pt.position, _pt.radius, _pt.opacity = ((-0.15 + 0.01 * _i) * _pw, 0.05 * _pw, 0.0), 0.004 * _pw, 1.0
+
+
+def _dark(path):
+    _im = bpy.data.images.load(str(path), check_existing=False)
+    _a = _np_sk.empty(_im.size[0] * _im.size[1] * _im.channels, dtype=_np_sk.float32)
+    _im.pixels.foreach_get(_a)
+    _a = _a.reshape(-1, _im.channels)[:, :3].mean(1)
+    bpy.data.images.remove(_im)
+    return float((_a < 0.08).mean()), float((_a > 0.95).mean()), float((_a < 0.5).mean())
+
+
+_plain, _over, _only = (_rsk.structure_pass(scene, "CLAY", 640), _rsk.sketch_pass(scene, False, 640),
+                        _rsk.sketch_pass(scene, True, 640))
+(_d0, _w0, _m0), (_d1, _w1, _m1), (_d2, _w2, _m2) = _dark(_plain), _dark(_over), _dark(_only)
+check(_d1 > _d0 + 1e-4 and _m2 > 1e-4 and _w2 > 0.9 and not _sko.hide_render,
+      f"Sketch: the scene render leaves it out, Sketch draws it over the scene, Sketch Only on white "
+      f"(ink px {_d0:.4f} / {_d1:.4f}, on white {_m2:.4f}, white {_w2:.2f})")
+_s1 = _rsk.scene_fingerprint(scene, "CLAY", "SHOW")
+_skd.add_strokes([5])
+check(_rsk.scene_fingerprint(scene, "CLAY") == _fp0 and _rsk.scene_fingerprint(scene, "CLAY", "SHOW") != _s1,
+      "Sketch: a stroke changes the sketch's fingerprint, never the scene render's")
+_skt = bpy.data.node_groups.new("smoke sketch", gtree_mod.TREE)
+_skn = _skt.nodes.new("ComfyQSketchNode")
+_skn.only = True
+_h1 = _grun_sk._own_hash(_skn, scene)
+_skd.add_strokes([5])
+_h2 = _grun_sk._own_hash(_skn, scene)
+_skback = bpy.data.node_groups.new("smoke sketch back", gtree_mod.TREE)
+gpo.build_saved(gpo.serialize(_skt, "sk", ""), _skback, scene)
+_skn2 = next((n for n in _skback.nodes if n.bl_idname == "ComfyQSketchNode"), None)
+check(_h1 != _h2 and _skn2 is not None and _skn2.only,
+      "Sketch node: a new stroke makes what it feeds out of date; saved in presets with Sketch Only")
+for _t in (_skt, _skback):
+    bpy.data.node_groups.remove(_t)
+from bl_ext.user_default.comfyq_bridge.props import _SOURCES_BY_KIND
+
+check("SKETCH" in _SOURCES_BY_KIND["image"], "Sketch: offered as a source for image inputs in the bar")
+_sk.remove(scene)
+check(not _sk.objects(scene), "Sketch: Delete Sketch removes it")
 shutil.rmtree(shared, ignore_errors=True)
 del os.environ["COMFYQ_BRIDGE_PRESETS"]
 

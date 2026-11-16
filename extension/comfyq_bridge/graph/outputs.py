@@ -104,6 +104,8 @@ def linked_socket(sock) -> Media | None:
         m.path = _image_file("ComfyQ render preview")
     elif idn == "ComfyQMaskNode":
         m.path = _image_file("ComfyQ mask preview")
+    elif idn == "ComfyQSketchNode":
+        m.path = _image_file("ComfyQ sketch preview")
     elif idn == "ComfyQSceneAnimationNode":
         m.path = animation_path()
     elif idn == "ComfyQImageNode":

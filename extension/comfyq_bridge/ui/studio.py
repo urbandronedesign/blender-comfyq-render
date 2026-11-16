@@ -308,6 +308,10 @@ def draw_media(layout, context, wf_id: str, visible: list[ParamSpec], columns: i
             col.prop(it, "path", text="")
         elif it.source == "MASK":
             draw_zone_source(col, context)
+        elif it.source == "SKETCH":
+            from ..ops.sketch import draw_sketch_source
+            draw_sketch_source(col, context, scene.comfyq,
+                               frame=scene_match.frame_for(s, wfops.scene_facts(scene)))
         elif it.source == "STRUCTURE":
             col.label(text=f"Camera view at frame {scene_match.frame_for(s, wfops.scene_facts(scene))}")
         elif it.source == "SELECTION":

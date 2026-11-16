@@ -1389,6 +1389,76 @@ def step_picture_mask():
     tree.nodes.remove(pm)
 
 
+def step_sketch():
+    """The ComfyQ Sketch (audit 2, phase 4): Start Sketch → Grease Pencil Draw mode through the camera; a stroke;
+    Render Sketch; the bar's Sketch source; the graph's Sketch node; Delete Sketch."""
+    sk = ext("passes.sketch")
+    sc = bpy.context.scene
+    res = click("sketch_start", v3d)
+    yield 0.5
+    _w, area = v3d()
+    ob = bpy.context.view_layer.objects.active
+    check("Start Sketch: Grease Pencil Draw mode on the ComfyQ Sketch, through the camera",
+          res == {"FINISHED"} and bpy.context.mode == "PAINT_GREASE_PENCIL" and ob is not None and ob.get(sk.MARK)
+          and area.spaces.active.region_3d.view_perspective == "CAMERA", f"{res} mode={bpy.context.mode}")
+    d = ob.data.layers["Lines"].frames[0].drawing
+    d.add_strokes([40])
+    pw = sk.plane_width(sc)                                    # a zigzag across the frame, in frame widths
+    for i, pt in enumerate(d.strokes[0].points):
+        pt.position = ((-0.4 + 0.02 * i) * pw, 0.05 * (1 if i % 8 < 4 else -1) * pw, 0.0)
+        pt.radius, pt.opacity = 0.003 * pw, 1.0
+    # a real brush stroke (the Pencil, as a student's drag) across the middle of the 3D View: it must land in the
+    # frame, on the sketch, with a line width of a few pixels (brush sizes are in scene units)
+    region = next(r for r in area.regions if r.type == "WINDOW")
+    n0 = len(d.strokes)
+    pts = []
+    for i in range(24):
+        x, y = region.width * (0.3 + 0.4 * i / 23), region.height * (0.35 + 0.1 * ((i // 4) % 2))
+        pts.append({"name": "", "location": (0, 0, 0), "mouse": (x, y), "mouse_event": (x, y),
+                    "is_start": i == 0, "pressure": 1.0, "size": 0, "time": i * 0.01, "x_tilt": 0, "y_tilt": 0})
+    try:
+        with bpy.context.temp_override(window=_w, area=area, region=region):
+            r = bpy.ops.grease_pencil.brush_stroke(stroke=pts, mode="NORMAL")
+    except Exception as e:  # noqa: BLE001
+        r = repr(e)
+    d = ob.data.layers["Lines"].frames[0].drawing
+    radius = float(d.strokes[-1].points[0].radius) if len(d.strokes) > n0 else 0.0
+    check("Draw: a Pencil stroke lands on the sketch, in front of the camera, a thin line (about 0.4 % of the frame)",
+          len(d.strokes) == n0 + 1 and 0 < radius * 2 / pw < 0.02, f"{r} strokes {n0}→{len(d.strokes)} "
+          f"width {radius * 2 / pw * 100 if pw else 0:.2f} % of the frame")
+    yield 0.5
+    shot("23_sketch_draw")
+    with ctx(v3d):
+        bpy.ops.object.mode_set(mode="OBJECT")
+    res = click("sketch_preview", v3d, "EXEC_DEFAULT")
+    yield 0.8
+    shot("24_sketch_preview")
+    check("Render Sketch: the sketch pass is shown as ComfyQ sketch preview",
+          res == {"FINISHED"} and bpy.data.images.get("ComfyQ sketch preview") is not None, res)
+    wf = sc.comfyq.workflow_id
+    item = next((it for it in sc.comfyq.params if it.workflow_id == wf and it.kind == "image"), None)
+    if item is not None:
+        old = item.source
+        item.source = "SKETCH"
+        yield from show_comfyq_tab(v3d)
+        yield 0.5
+        shot("25_sketch_source")
+        check("Bar: an image input takes the Sketch source (its row draws)",
+              item.source == "SKETCH" and not any("sketch" in e.lower() for e in draw_errors), item.source)
+        item.source = old
+    gui = ext("graph.ui")
+    tree = gui.ensure_graph()
+    node = tree.nodes.new("ComfyQSketchNode")
+    node.location = (-2400, 0)
+    yield 0.5
+    check("Graph: the Sketch node is added (Scene menu) and its hash follows the strokes",
+          node.bl_idname == "ComfyQSketchNode" and bool(ext("graph.run")._own_hash(node, sc)))
+    tree.nodes.remove(node)
+    with ctx(v3d):
+        r = bpy.ops.comfyq.sketch_clear("EXEC_DEFAULT")
+    check("Delete Sketch: the drawing is gone", r == {"FINISHED"} and not sk.objects(sc), r)
+
+
 def step_workspace():
     """The ComfyQ workspace (audit 2, phase 3): appended from the extension's workspace.blend, the editors pointed
     at ComfyQ, and the bar's mode strip Frame · Draw · Mask · Graph (Graph again = back)."""
@@ -1453,7 +1523,7 @@ def step_workspace():
 STEPS = [step_start, step_connect, step_refresh, step_tabs_and_menu, step_chips, step_prompt, step_match,
          step_render_scene, step_animation, step_player, step_library, step_cleanup, step_finished_job_card,
          step_failed_job_card,
-         step_keyframe, step_graph, step_cycles_render, step_graph_run, step_generate, step_disconnect_reconnect, step_reload_file, step_new_inputs, step_mask_zone, step_picture_mask, step_workspace, step_extras, step_preferences, step_media_folder, step_queue_popover, step_server_panel,
+         step_keyframe, step_graph, step_cycles_render, step_graph_run, step_generate, step_disconnect_reconnect, step_reload_file, step_new_inputs, step_mask_zone, step_picture_mask, step_sketch, step_workspace, step_extras, step_preferences, step_media_folder, step_queue_popover, step_server_panel,
          step_presets_menu]
 
 

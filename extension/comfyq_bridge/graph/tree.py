@@ -343,6 +343,28 @@ class ComfyQMaskNode(_Node, bpy.types.Node):
         _thumbnail(layout, bpy.data.images.get("ComfyQ mask preview"))
 
 
+class ComfyQSketchNode(_Node, bpy.types.Node):
+    """A drawing made in the camera view (Grease Pencil), over the clay scene or alone on white"""
+    bl_idname = "ComfyQSketchNode"
+    bl_label = "Sketch"
+    bl_icon = "OUTLINER_OB_GREASEPENCIL"
+    bl_width_default = 300
+
+    only: BoolProperty(name="Sketch Only", default=False,
+                       description="Send the drawing alone on white, without the scene behind it")
+    frame: EnumProperty(name="Frame", items=FRAMES, default="CURRENT")
+
+    def init(self, context):
+        self.outputs.new(SOCKET_IDNAME["image"], "Image")
+
+    def draw_buttons(self, context, layout):
+        from ..ops.sketch import PREVIEW, draw_sketch_source
+        layout.prop(self, "frame", text="")
+        draw_sketch_source(layout.column(align=True), context, self, "only",
+                           frame=frame_number(context.scene, self.frame))
+        _thumbnail(layout, bpy.data.images.get(PREVIEW))
+
+
 class ComfyQSceneAnimationNode(_Node, bpy.types.Node):
     """The scene's frame range through the camera, as a clay video (what V2V workflows restyle)"""
     bl_idname = "ComfyQSceneAnimationNode"
@@ -1313,7 +1335,7 @@ SOURCE_FOR = {"image": "ComfyQSceneRenderNode", "video": "ComfyQSceneAnimationNo
 SOURCE_LABEL = {"image": "Scene render", "video": "Scene animation", "mask": "Selection mask",
                 "audio": "Audio file", "text": "Prompt", "model": "Scene objects"}
 
-NODE_CLASSES = (ComfyQImageNode, ComfyQSceneRenderNode, ComfyQMaskNode, ComfyQSceneAnimationNode,
+NODE_CLASSES = (ComfyQImageNode, ComfyQSceneRenderNode, ComfyQMaskNode, ComfyQSketchNode, ComfyQSceneAnimationNode,
                 ComfyQVideoFileNode, ComfyQFolderNode, ComfyQAudioFileNode, ComfyQSceneObjectsNode,
                 ComfyQModelFileNode, ComfyQPromptNode, ComfyQBoardNode, ComfyQJoinTextNode, ComfyQWorkflowNode,
                 ComfyQSurfacesNode, ComfyQPictureMaskNode, ComfyQViewerNode, ComfyQImportNode, ComfyQSaveNode,
@@ -1321,7 +1343,7 @@ NODE_CLASSES = (ComfyQImageNode, ComfyQSceneRenderNode, ComfyQMaskNode, ComfyQSc
 # nodes a graph run books (a ComfyQ job / a SAM3 segmentation / a picture mask, with SAM3 when it has words)
 RUN_NODES = (WORKFLOW_NODE, SURFACES_NODE, PICTURE_MASK_NODE)
 OUTPUT_CLASSES = (ComfyQViewerNode, ComfyQImportNode, ComfyQSaveNode, ComfyQFilmNode)
-SOURCE_NODES = (ComfyQSceneAnimationNode, ComfyQSceneRenderNode, ComfyQMaskNode, ComfyQImageNode,
+SOURCE_NODES = (ComfyQSceneAnimationNode, ComfyQSceneRenderNode, ComfyQMaskNode, ComfyQSketchNode, ComfyQImageNode,
                 ComfyQVideoFileNode, ComfyQFolderNode, ComfyQAudioFileNode, ComfyQSceneObjectsNode,
                 ComfyQModelFileNode, ComfyQPromptNode)
 

@@ -343,6 +343,12 @@ change that session: the user must reinstall from the UI or restart Blender.
     (`frame_y = 0.5 + (y − 0.5)·W/H`). Rasterize with the Compositor's Mask node (exact, feather) — numpy fill only as
     a checked fallback. Area types changed in background mode are not applied (workspace .blend: author in a GUI).
 
+64. **`bpy.ops.workspace.delete` under `temp_override(workspace=ws)` deletes the ACTIVE workspace**, not `ws`. Workspaces
+    shipped in a .blend are appended by name (`workspace.append_activate(idname=)`): leave the others in the file.
+65. **Grease Pencil brush sizes are in scene units** (the Pencil is 0.06 m): a sketch plane 0.5 m from the camera
+    gave lines 1/6 of the frame wide. The ComfyQ Sketch sits where the frame is 15 m wide (`passes/sketch.depth`)
+    and shows In Front, which also holds in Workbench renders (checked with the sketch 30 m away, behind a cube).
+    Scripted strokes: `grease_pencil.brush_stroke` elements take no `pen_flip` in 5.3.
 
 ## Status (2026-11-15 evening, last commit see `git log`; installed build `6f5b4d1` = HEAD extension code, in the user's **Blender 5.3** profile; ComfyQ of 2026-11-15, 87 workflows) — **hand-over for b2renger / the teacher: docs/RUNBOOK.md**
 - **Host:** **Blender 5.3.0** (since 2026-11-15; 5.2.2 LTS still on disk and supported). The user's 5.3 profile came from
@@ -615,9 +621,17 @@ change that session: the user must reinstall from the UI or restart Blender.
   the bar's **mode strip** Frame · Draw (paints on a copy "ComfyQ Frame", never the render preview) · Mask (ComfyQ
   Mask tool) · Graph (maximized; Back to Previous). Mode read from the editors. GUI `step_workspace` (9 checks,
   shots 18–22), smoke checks the .blend. docs/UI.md §1.1.
+- **Sketch (audit 2, phase 4, 2026-11-16):** `passes/sketch.py` (Grease Pencil object parented to the camera where the
+  frame is 15 m wide, In Front; `visibility` HIDE / SHOW / ONLY used by every Workbench pass: only the sketch's own pass
+  shows it), `render.sketch_pass`, fingerprint skips it (`sketch_mode`); `ops/sketch.py` Start Sketch (GP Draw mode,
+  camera view, origin / view plane) · Render Sketch · Delete Sketch...; bar source **Sketch** + scene `sketch_only`;
+  graph **Sketch** node (`only`, frame); workspace Draw offers *Sketch in Camera View*. Class presets *Sketch →
+  photoreal (FLUX.3 Klein edit)* and *Sketch Only → picture (Qwen canny, strength 0.6)*, GPU-checked
+  (`tools/sketch_check.py`, `live_check/sketch/`). Smoke + GUI `step_sketch` (a real Pencil stroke: 0.40 % of the frame).
+  Not yet: Paint Frame at the job's size (Draw mode paints "ComfyQ Frame" at the shown picture's size), MCP sketch tools.
 
 ## Next steps
-0. **Audit-2 phases 4–5 (the user's current goal; phase 3 workspace DONE 2026-11-16):** (4) **Draw**: Sketch source/node (GP object parented to the camera,
+0. **Audit-2 phase 5 next (phase 3 workspace + phase 4 Sketch DONE 2026-11-16; left of 4: Paint Frame at the job's size).** Was (4) **Draw**: Sketch source/node (GP object parented to the camera,
    white-background option in the clay pass, GP strokes in the fingerprint), Paint Frame (canvas at the job's size,
    start from render/keyframe/result, pixel hash); (5) **Mask**: Mask Zone source/node (Compositor raster at upload
    size, numpy fallback + unit tests, feather, invert, **grow**), Paint Zone (Erase/Add Alpha), red overlay, one

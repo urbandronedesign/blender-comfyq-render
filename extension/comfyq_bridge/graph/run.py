@@ -35,7 +35,7 @@ from .tree import (
     upstream,
 )
 
-SCENE_SOURCES = {"ComfyQSceneRenderNode", "ComfyQMaskNode", "ComfyQSceneAnimationNode"}
+SCENE_SOURCES = {"ComfyQSceneRenderNode", "ComfyQMaskNode", "ComfyQSceneAnimationNode", "ComfyQSketchNode"}
 FOLDER_NODE = "ComfyQFolderNode"
 OBJECTS_NODE = "ComfyQSceneObjectsNode"
 FILE_NODES = ("ComfyQVideoFileNode", "ComfyQAudioFileNode", "ComfyQModelFileNode")
@@ -73,8 +73,10 @@ def _own_hash(node, scene) -> str:
             sel = (["zone", zone_scene.signature(scene)] if zone_scene.active(scene)
                    else sorted(o.name for o in scene.objects if o.select_get()))
         samples = node.cycles_samples if getattr(node, "style", "") == "CYCLES" else None
-        return engine.settings_hash(idn, node.style, frame, render.scene_fingerprint(scene, node.style), sel, samples,
-                                    shots.signature(scene, getattr(node, "shot", "")))
+        style = getattr(node, "style", "CLAY")
+        sketch_mode = ("ONLY" if node.only else "SHOW") if idn == "ComfyQSketchNode" else "HIDE"
+        return engine.settings_hash(idn, style, frame, render.scene_fingerprint(scene, style, sketch_mode), sel,
+                                    samples, shots.signature(scene, getattr(node, "shot", "")))
     if idn == "ComfyQImageNode":
         img = node.image
         return engine.settings_hash(idn, img.name if img else "", img.filepath if img else "",
@@ -556,6 +558,8 @@ class Run:
             with shots.apply(scene, src.shot):
                 from ..passes import zone_scene
                 p = zone_scene.mask(scene, sel, src.style, edge, frame_number(scene, src.frame))
+        elif idn == "ComfyQSketchNode":
+            p = render.sketch_pass(scene, src.only, edge, frame_number(scene, src.frame))
         elif idn == "ComfyQSceneAnimationNode":
             with shots.apply(scene, src.shot):
                 p = animation.animation_pass(scene, src.style, edge, force=True).path
