@@ -36,10 +36,14 @@ raise a window). The icon is hidden inside the ComfyQ window itself.
 ┌──────────────────────────────┬──────────────────────────┐
 │ 3D Viewport (camera view)    │ Image Editor: the FRAME  │
 │  sidebar = the ComfyQ bar    │  view / paint, the bar   │
-├──────────────────────────────┴──────────────┬───────────┤
-│ Node Editor: the ComfyQ graph               │ Timeline  │
-└─────────────────────────────────────────────┴───────────┘
+├──────────────────────────────┴──────────────────────────┤
+│ Node Editor: the ComfyQ graph (full width)              │
+├─────────────────────────────────────────────────────────┤
+│ Timeline                                                │
+└─────────────────────────────────────────────────────────┘
 ```
+Layout version 2 (2026-11-16). A file saved with the older layout (graph and timeline side by side) keeps it as
+*ComfyQ (old layout)*; the workspace button adds the current one.
 The layout ships in the extension (`workspace.blend`, authored by `tools/make_workspace_blend.py` in a visible
 Blender); the editors are pointed at ComfyQ when it opens. The window and workspace icons are hidden inside it; the
 bar shows the **mode strip** instead, with a one-line hint under it. The current mode is read from the editors.

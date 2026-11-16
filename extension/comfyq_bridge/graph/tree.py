@@ -930,7 +930,9 @@ class ComfyQWorkflowNode(_Node, bpy.types.Node):
             col = layout.column(align=True)
             col.alert = True
             from ..ui.studio import wrap
-            msg = f"{PHASE_TEXT.get(job.phase, job.phase)} {job.error or ''}".strip()
+            phase = PHASE_TEXT.get(job.phase, job.phase)
+            err = "" if (job.error or "").strip().lower() == phase.lower() else (job.error or "")
+            msg = f"{phase} {err}".strip()             # ComfyQ's error is often the phase text again
             for k, line in enumerate(wrap(msg, 48, max_lines=4)):
                 col.label(text=line, icon="ERROR" if k == 0 else "BLANK1")
             col.label(text="Press ⟳ to try again", icon="FILE_REFRESH")

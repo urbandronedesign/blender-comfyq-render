@@ -5,9 +5,11 @@ workspace.blend (authored once in a visible Blender by tools/make_workspace_blen
     ┌──────────────────────────────┬──────────────────────────┐
     │ 3D Viewport (camera view)    │ Image Editor: the FRAME  │
     │  sidebar = the ComfyQ bar    │  view / paint, the bar   │
-    ├──────────────────────────────┴──────────────┬───────────┤
-    │ Node Editor: the ComfyQ graph               │ Timeline  │
-    └─────────────────────────────────────────────┴───────────┘
+    ├──────────────────────────────┴──────────────────────────┤
+    │ Node Editor: the ComfyQ graph (full width)              │
+    ├─────────────────────────────────────────────────────────┤
+    │ Timeline                                                │
+    └─────────────────────────────────────────────────────────┘
 
 and the bar's mode strip Frame · Draw · Mask · Graph, each switching the editors in one click. The mode is read
 from the editors themselves (no stored state, nothing written while drawing).
@@ -19,7 +21,8 @@ from pathlib import Path
 import bpy
 
 NAME = "ComfyQ"
-MARK = "comfyq_workspace"
+MARK = "comfyq_workspace"           # its value is the layout version (see LAYOUT)
+LAYOUT = 2                          # 2: full-width graph with the timeline under it (the user's choice, 2026-11-16)
 BLEND = Path(__file__).resolve().parents[1] / "workspace.blend"
 MODES = (
     ("FRAME", "Frame", "Show the frame: the latest render or result, the scene seen through its camera",
@@ -131,6 +134,11 @@ class COMFYQ_OT_workspace(bpy.types.Operator):
 
     def execute(self, context):
         ws = next((w for w in bpy.data.workspaces if w.get(MARK)), None)
+        if ws is not None and int(ws.get(MARK, 0)) < LAYOUT:
+            # a file saved with an older layout: set it aside (the student may have changed it) and add this one
+            ws.name = f"{NAME} (old layout)"
+            del ws[MARK]
+            ws = None
         if ws is not None:
             context.window.workspace = ws
         else:
@@ -143,7 +151,7 @@ class COMFYQ_OT_workspace(bpy.types.Operator):
             if new is None:
                 self.report({"ERROR"}, "Could not add the ComfyQ workspace")
                 return {"CANCELLED"}
-            new[MARK] = 1
+            new[MARK] = LAYOUT
         setup_soon(context.window.as_pointer())
         return {"FINISHED"}
 
@@ -279,8 +287,12 @@ def draw_strip(layout, context) -> None:
     col = layout.column(align=True)
     row = col.row(align=True)
     row.scale_y = 1.2
+    region = getattr(context, "region", None)
+    scale = context.preferences.system.ui_scale or 1.0
+    narrow = region is not None and region.width / scale < 340          # "Frame" was cut to "Fra…": text only
     for m in MODES:
-        row.operator(COMFYQ_OT_workspace_mode.bl_idname, text=m[1], icon=m[3], depress=m[0] == now).mode = m[0]
+        row.operator(COMFYQ_OT_workspace_mode.bl_idname, text=m[1], icon="NONE" if narrow else m[3],
+                     depress=m[0] == now).mode = m[0]
     hint = col.row()
     hint.enabled = False
     hint.label(text=HINT[now])

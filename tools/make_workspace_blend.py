@@ -5,9 +5,12 @@ and save it as extension/comfyq_bridge/workspace.blend, which the extension appe
     ┌──────────────────────────────┬──────────────────────────┐
     │ 3D Viewport (camera view)    │ Image Editor: the FRAME  │
     │  sidebar = the ComfyQ bar    │  view / paint, sidebar   │
-    ├──────────────────────────────┴──────────────┬───────────┤
-    │ Node Editor: the ComfyQ graph               │ Timeline  │
-    └─────────────────────────────────────────────┴───────────┘
+    ├──────────────────────────────┴──────────────────────────┤
+    │ Node Editor: the ComfyQ graph (full width)              │
+    ├─────────────────────────────────────────────────────────┤
+    │ Timeline                                                │
+    └─────────────────────────────────────────────────────────┘
+(the user's choice, 2026-11-16: the graph, and the timeline under it)
 
     blender --factory-startup --python tools/make_workspace_blend.py -- <out.blend> [<screenshot.png>]
 
@@ -25,6 +28,7 @@ ARGS = sys.argv[sys.argv.index("--") + 1:]
 OUT = Path(ARGS[0]).resolve()
 SHOT = Path(ARGS[1]).resolve() if len(ARGS) > 1 else None
 NAME = "ComfyQ"
+LAYOUT = 2             # 1: graph | timeline side by side; 2: full-width graph, timeline under it (2026-11-16)
 state = {"step": 0, "tries": 0, "split": None}
 
 
@@ -77,7 +81,7 @@ def step():
         # (workspace.delete under temp_override deleted the ACTIVE workspace, not the one passed)
         keep = w.workspace
         keep.name = NAME
-        keep["comfyq_workspace"] = 1
+        keep["comfyq_workspace"] = LAYOUT        # the layout version: files holding an older one get this one
         for ob in list(bpy.data.objects):
             bpy.data.objects.remove(ob)
         state["step"] = 1
@@ -109,14 +113,18 @@ def step():
         right.type = "IMAGE_EDITOR"
         right.spaces.active.show_region_ui = True
         node = next(a for a in areas() if a.type == "NODE_EDITOR")
-        split(node, "VERTICAL", 0.8)
+        split(node, "HORIZONTAL", 0.2)
         state["step"] = 4
         return 0.2
-    if s == 4:
+    if s == 4:                                   # the timeline: the thin strip at the bottom, the graph above it
         p = pair()
         if p is None:
             return 0.1
-        _graph, tl = p
+        top, bottom = p
+        if bottom.height > top.height:           # area_split's factor side: make sure the graph keeps the room
+            print("WORKSPACE NOTE: timeline came out taller than the graph", top.height, bottom.height, flush=True)
+        top.type = "NODE_EDITOR"
+        tl = bottom
         tl.type = "DOPESHEET_EDITOR"
         tl.ui_type = "TIMELINE"
         for a in areas():
