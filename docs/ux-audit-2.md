@@ -265,3 +265,27 @@ Still open for masking:
 4. **Phases 3–5 — workspace, Draw, Mask:** covers 13–16, 18, 19, 28, 39 and requirements 1–18.
 5. **Phase 6 — the severity 2 list, then the mechanical sweep** (severity 1/0) in one pass. Then `-Ui` and docs/UI.md.
 6. **Phase 7 — class presets, docs, MCP tools, GPU checks.**
+
+## Phase 6, first pass (2026-11-16)
+Done (smoke + GUI `-Ui` 136 checks, no drawing errors):
+- **Safety:** #23 *Cancel Job?* asks (queue place / work lost); #35 Import › Replace keeps objects moved since the last
+  import; #43 an empty served list received from ComfyQ blocks booking ("No model is served right now…").
+- **Feedback:** #25 bar notes expire after 2 minutes and on disconnect; #26 unlinking a prompt clears it from the
+  Text Editors (ComfyQ-made texts deleted); #29 a 3D / splat result in the viewer says "Import it to see it", not
+  "0×0"; #31 node notes and job errors wrapped, with "Press ⟳ to try again"; #36 "Not Served: Ask the Teacher",
+  "Model Gone from Server: Change Model"; #37 Solo waiting for other people's jobs says so on the node; #38 (already
+  the file name); #42 admin mode: waits for the teacher to start serving and connects by itself (30 min).
+- **Wording:** #20 "Scene animation" / "Render & Play Animation" (not clay whatever the style); #21 the animation
+  tooltip told the truth; #22 "No scene camera: add one and make it active" as an alert line; #27 no "Workbench" jargon;
+  #32 node titles, not "Workflow.002", in run messages; "Model (Not Connected)" instead of a raw id; #33 each Add-menu
+  item's tooltip is its node's own description; mechanical: job ids → model names ("Booked: …", "AI result · …"),
+  "workflow" → "model" in three messages, no hard-coded Ctrl+B / Ctrl+Shift+Q.
+- **Code health:** #34 the Presets menu lists folders again only when their time changes; Media Folder scans at most
+  every 15 s while drawing.
+- **Layout:** #39 each Scene Render / Mask / Sketch node shows its own render; #41 new nodes never land on another;
+  #45 **Add Shot Here** (+ next to Shot).
+- #28 (red mask preview) was done in phase 5.
+
+Still open: #24 cut labels (job-card errors are cut mid-word too), #30 an Import dialog on job cards, #40 the graph
+header's unlabelled icons, #44 the Server panel (close a lane, not-serving state, Solo indicator, raw errors), #46
+(phase 7), and the rest of the severity 1/0 sweep (title case, tooltips, nested boxes, icon table).

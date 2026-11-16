@@ -354,10 +354,10 @@ def step_animation():
     yield 0.5
     _, ia = img()
     shown = ia.spaces.active.image
-    check("Render & play clay animation → plays in the ComfyQ viewer",
+    check("Render & play animation → plays in the ComfyQ viewer",
           res == {"FINISHED"} and shown is not None and shown.name == "ComfyQ animation pass"
           and player.is_playing(), f"res={res} shown={shown and shown.name} playing={player.is_playing()}")
-    check("viewer label says it is the clay animation", player.describe(shown).startswith("Clay animation"),
+    check("viewer label says it is the scene animation that is sent", player.describe(shown).startswith("Scene animation"),
           player.describe(shown))
     f0 = player._PLAY["frame"]
     yield 1.0
@@ -966,7 +966,7 @@ def step_graph_run():
           and run.pending == {names[1]} and "reusing" in S().status_note, S().status_note)
     yield (lambda: bool(tree.nodes[names[1]].job_id) and tree.nodes[names[1]].job_id != report["graph_jobs"][1]), 60
     jid = tree.nodes[names[1]].job_id
-    click("cancel", graph_area, job_id=jid)
+    click("cancel", graph_area, "EXEC_DEFAULT", job_id=jid)      # confirmed (Cancel Job? asks)
     yield (lambda: tree.name not in grun.RUNS), 90
     v = S().jobs.get(jid)
     check("node › ✕ cancels its job and ends the run", v is not None and v.job.phase == "cancelled"
@@ -992,7 +992,7 @@ def step_generate():
     sent = json.loads(rec.inputs or "{}")
     check("job booked; card lists what was sent", bool(sent) and all(Path(p).is_file() for p in sent.values()),
           sent)
-    res = click("cancel", v3d, job_id=jid)
+    res = click("cancel", v3d, "EXEC_DEFAULT", job_id=jid)       # confirmed (Cancel Job? asks)
     yield (lambda: (v := S().jobs.get(jid)) is not None and v.job.done), 60
     v = S().jobs.get(jid)
     check("card › ✕ cancels the job", res == {"FINISHED"} and v is not None and v.job.phase == "cancelled",

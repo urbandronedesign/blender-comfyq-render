@@ -68,6 +68,7 @@ class COMFYQ_OT_sketch_preview(bpy.types.Operator):
     bl_description = "Render the sketch as it will be sent (over the clay scene, or alone on white) and show it"
     only: bpy.props.BoolProperty(default=False, options={"SKIP_SAVE"})
     frame: bpy.props.IntProperty(default=-1, options={"SKIP_SAVE"})
+    tag: bpy.props.StringProperty(default="", options={"HIDDEN", "SKIP_SAVE"})   # "<tree>/<node>": its thumbnail
 
     @classmethod
     def poll(cls, context):
@@ -84,6 +85,11 @@ class COMFYQ_OT_sketch_preview(bpy.types.Operator):
             self.report({"ERROR"}, str(e))
             return {"CANCELLED"}
         img = show_preview(path, name=PREVIEW)
+        if self.tag:
+            from ..graph.tree import set_node_preview, tagged_node
+            node = tagged_node(self.tag)
+            if node is not None:
+                set_node_preview(node, path)
         self.report({"INFO"}, f"{img.size[0]}×{img.size[1]} sketch ({sketch.describe(context.scene)})")
         return {"FINISHED"}
 
@@ -117,7 +123,8 @@ class COMFYQ_OT_sketch_clear(bpy.types.Operator):
 PREVIEW = "ComfyQ sketch preview"
 
 
-def draw_sketch_source(col, context, only_owner, only_prop: str = "sketch_only", frame: int = -1) -> None:
+def draw_sketch_source(col, context, only_owner, only_prop: str = "sketch_only", frame: int = -1,
+                       tag: str = "") -> None:
     """What a Sketch input sends, and its buttons (bar and graph node)."""
     scene = context.scene
     has = bool(sketch.objects(scene))
@@ -128,7 +135,7 @@ def draw_sketch_source(col, context, only_owner, only_prop: str = "sketch_only",
     row.operator(COMFYQ_OT_sketch_start.bl_idname, text="Draw" if has else "Start Sketch", icon="OUTLINER_OB_GREASEPENCIL")
     if has:
         op = row.operator(COMFYQ_OT_sketch_preview.bl_idname, text="", icon="RENDER_STILL")
-        op.only, op.frame = getattr(only_owner, only_prop), frame
+        op.only, op.frame, op.tag = getattr(only_owner, only_prop), frame, tag
         row.operator(COMFYQ_OT_sketch_clear.bl_idname, text="", icon="TRASH")
     col.prop(only_owner, only_prop)
 

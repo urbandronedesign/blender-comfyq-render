@@ -36,7 +36,8 @@ REL_PATH = _relative_ok()
 
 # Fixed numbers so the stored value means the same source whatever list a kind shows.
 _SRC = {
-    "STRUCTURE": ("Scene Render", "Workbench render of the scene camera", "SCENE", 0),
+    "STRUCTURE": ("Scene Render", ("A quick render of the scene through its camera, in the chosen style (clay, matcap, "
+                                   "material colours)"), "SCENE", 0),
     "MASK": ("Render + Mask Zone", ("Scene render; the zone picked with the ComfyQ Mask tool (else the selected "
                                     "objects) is the area to repaint"), "SELECT_SET", 1),
     "ANIMATION": ("Scene Animation", "The frame range rendered through the scene camera, as a video",

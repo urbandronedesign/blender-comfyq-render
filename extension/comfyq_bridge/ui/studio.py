@@ -288,7 +288,7 @@ def draw_prompts(layout, scene, wf_id: str, visible: list[ParamSpec], big: bool)
             op = ed.operator("comfyq.edit_prompt", text="", icon="FULLSCREEN_ENTER")
             op.key, op.workflow_id = s.key, wf_id
     if big and SESSION.specs.get(wf_id) and not any(s.kind == "prompt" for s in visible):
-        layout.label(text="This workflow takes no prompt", icon="INFO")
+        layout.label(text="This model takes no prompt", icon="INFO")
 
 
 def draw_media(layout, context, wf_id: str, visible: list[ParamSpec], columns: int) -> None:
@@ -399,7 +399,11 @@ def _draw_scene_strip(box, context, specs) -> None:
     current = {it.key: it.value() for it in workflow_items(scene, scene.comfyq.workflow_id)}
     mismatched = [k for k, v in m.values.items() if not _same(current.get(k), v)]
     strip = box.box()
-    cam = scene.camera.name if scene.camera else "NO CAMERA"
+    cam = scene.camera.name if scene.camera else "no camera"
+    if scene.camera is None:
+        warn = box.row()
+        warn.alert = True
+        warn.label(text="No scene camera: add one and make it active", icon="ERROR")
     text = (f"Scene {facts.frame_start}–{facts.frame_end} · {facts.fps:g} fps · {facts.seconds:.1f} s · "
             f"{scene.render.resolution_x}×{scene.render.resolution_y} · {cam}")
     narrow = _CHARS[0] < 60
@@ -420,9 +424,9 @@ def _draw_scene_strip(box, context, specs) -> None:
     edge = max((s.max_input_edge or 0 for s in specs if s.kind == "video"), default=0) or None
     ready = animation.current(scene, scene.comfyq.style, edge)
     col = strip.column(align=True)
-    _wrapped(col, "Clay animation (what is sent): rendered again on every Generate", "RENDER_ANIMATION")
+    _wrapped(col, "Scene animation (what is sent): rendered again on every Generate", "RENDER_ANIMATION")
     row = col.row(align=True)
-    op = row.operator("comfyq.preview_animation", text="Render & Play Clay Animation", icon="RENDER_ANIMATION")
+    op = row.operator("comfyq.preview_animation", text="Render & Play Animation", icon="RENDER_ANIMATION")
     op.force, op.play = True, True
     if ready:
         op = row.operator("comfyq.preview_animation", text="Replay", icon="LOOP_BACK")

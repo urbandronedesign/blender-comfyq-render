@@ -204,7 +204,7 @@ def _draw_workflow_menu(layout, wfs, role) -> None:
     served = SESSION.served_ids()
     budget = shared_budget()
     if not wfs:
-        layout.label(text="No workflow in this category")
+        layout.label(text="No model in this category")
     for group in (True, False):
         items = [w for w in wfs if (w.id in served) == group]
         if group and items:
@@ -331,6 +331,11 @@ class COMFYQ_OT_preview_pass(bpy.types.Operator):
             self.report({"ERROR"}, str(e))
             return {"CANCELLED"}
         img = show_preview(path, self.mask)
+        if self.tag:
+            from ..graph.tree import set_node_preview, tagged_node
+            node = tagged_node(self.tag)
+            if node is not None:
+                set_node_preview(node, img.filepath)
         self.report({"INFO"}, f"{img.size[0]}×{img.size[1]} {style.lower()} render of “{scene.camera.name}”")
         return {"FINISHED"}
 
@@ -378,6 +383,10 @@ def _watch_cycles(job, scene_name: str) -> None:
         if path is None:
             return 0.5
         show_preview(path)
+        from ..graph.tree import set_node_preview, tagged_node
+        node = tagged_node(job.tag)
+        if node is not None:
+            set_node_preview(node, path)
         SESSION.status_note = f"Cycles render done: {path.name}"
         return None
     bpy.app.timers.register(tick, first_interval=0.5)
@@ -423,7 +432,7 @@ class COMFYQ_OT_preview_animation(bpy.types.Operator):
     bl_idname = "comfyq.preview_animation"
     bl_label = "Render Animation Pass"
     bl_description = ("Render the frame range through the scene camera (the video that will be sent) "
-                      "and play it. Generate reuses it while the scene is unchanged")
+                      "and play it. Generate renders it again, so the job always gets the scene as it is now")
     force: BoolProperty(default=False, options={"SKIP_SAVE"})
     play: BoolProperty(default=True, options={"SKIP_SAVE"})
     style: StringProperty(default="", options={"SKIP_SAVE"})     # "" = the bar's style
@@ -511,9 +520,24 @@ class COMFYQ_OT_unlink_prompt(bpy.types.Operator):
     def execute(self, context):
         it = param_item(context.scene, self.key, self.workflow_id or None)
         if it is not None and it.text is not None:
-            it.s = " ".join(it.text.as_string().split())
+            txt = it.text
+            it.s = " ".join(txt.as_string().split())
             it.text = None
+            release_text(txt)
+            self.report({"INFO"}, "The prompt is back in its one-line field")
         return {"FINISHED"}
+
+
+def release_text(txt) -> None:
+    """A prompt text no longer used (audit 2, #26: the ComfyQ window kept showing it): out of every Text Editor, and
+    deleted when ComfyQ made it ("ComfyQ prompt · …") and nothing else uses it."""
+    for w in bpy.context.window_manager.windows:
+        for a in w.screen.areas:
+            if a.type == "TEXT_EDITOR" and a.spaces.active.text == txt:
+                a.spaces.active.text = None
+                a.tag_redraw()
+    if txt.name.startswith("ComfyQ prompt") and txt.users == 0:
+        bpy.data.texts.remove(txt)
 
 
 def view3d_eye(context):

@@ -31,6 +31,7 @@ from .tree import (
     WORKFLOW_NODE,
     frame_number,
     remember_result,
+    set_node_preview,
     socket_kind,
     upstream,
 )
@@ -206,6 +207,10 @@ class Run:
         if others:                                     # someone's job: never switch under it; wait
             SESSION.status_note = (f"Solo: waiting for {count(len(others), 'job')} on ComfyQ before loading “{name}” "
                                    f"({others[0]})")
+            for n in waiting:                          # audit 2, #37: not "Waiting for its inputs"
+                node = tree.nodes.get(n)
+                if node is not None and node.workflow_id == wf_id:
+                    node.note = f"Solo: waits for {count(len(others), 'job')} of other people before loading its model"
             return
         self.switch = {"wf": wf_id, "state": "asking", "t0": time.monotonic(), "error": ""}
         for n in waiting:
@@ -301,8 +306,8 @@ class Run:
                 self.pending.discard(other)
                 n = tree.nodes.get(other)
                 if n is not None:
-                    n.note = f"Not run: “{name}” failed"
-        self.error = f"{name}: {why}"
+                    n.note = f"Not run: “{_title(tree, name)}” failed"
+        self.error = f"{_title(tree, name)}: {why}"
 
     def _book(self, tree, scene, name: str) -> None:
         from ..ops.generate import book
@@ -550,16 +555,21 @@ class Run:
             if p is None:
                 raise Rendering(job.text())
             self.cycles.pop(key, None)
+            set_node_preview(src, p)
         elif idn == "ComfyQSceneRenderNode":
             with shots.apply(scene, src.shot):
                 p = render.structure_pass(scene, src.style, edge, frame_number(scene, src.frame), src.cycles_samples)
+            set_node_preview(src, p)
         elif idn == "ComfyQMaskNode":
             sel = [o for o in scene.objects if o.name in self.selected]
             with shots.apply(scene, src.shot):
                 from ..passes import zone_scene
                 p = zone_scene.mask(scene, sel, src.style, edge, frame_number(scene, src.frame))
+            from ..ops.mask import mask_preview
+            set_node_preview(src, mask_preview(p))
         elif idn == "ComfyQSketchNode":
             p = render.sketch_pass(scene, src.only, edge, frame_number(scene, src.frame))
+            set_node_preview(src, p)
         elif idn == "ComfyQSceneAnimationNode":
             with shots.apply(scene, src.shot):
                 p = animation.animation_pass(scene, src.style, edge, force=True).path
@@ -696,6 +706,18 @@ def _wf_name(wf_id: str) -> str:
     return next((w.name for w in SESSION.workflows if w.id == wf_id), wf_id)
 
 
+def _title(tree, name: str) -> str:
+    """What students call a node: its label, else its model's name, else its kind (never "Workflow.002")."""
+    node = tree.nodes.get(name) if tree is not None else None
+    if node is None:
+        return name
+    if node.label:
+        return node.label
+    if node.bl_idname == WORKFLOW_NODE and node.workflow_id:
+        return _wf_name(node.workflow_id)
+    return getattr(node, "bl_label", "") or name
+
+
 def solo_on() -> bool:
     """Solo mode: ticked AND this is the teacher's PC (the profile holds ComfyQ's admin password)."""
     from ..prefs import prefs, teacher_unlocked
@@ -768,7 +790,7 @@ def act_outputs(tree, scene, names) -> list[str]:
     for name in names:
         node = tree.nodes.get(name)
         if node is not None:
-            msgs.append(outputs.act(node, scene, force=True) or f"{name}: nothing to {node.verb} yet")
+            msgs.append(outputs.act(node, scene, force=True) or f"{_title(tree, name)}: nothing to {node.verb} yet")
     return msgs
 
 
@@ -778,7 +800,7 @@ def _check(tree, todo: list[str]) -> tuple[str, bool]:
     unloaded = [n for n in todo if tree.nodes[n].bl_idname == WORKFLOW_NODE
                 and tree.nodes[n].workflow_id not in SESSION.specs]
     if unloaded:
-        return "Still loading the settings of: " + ", ".join(unloaded), False
+        return "Still loading the settings of: " + ", ".join(_title(tree, n) for n in unloaded), False
     unserved = [tree.nodes[n].draw_label() for n in todo if needed_model(tree.nodes[n]) not in served | {""}]
     solo = bool(unserved) and solo_on()
     if unserved and not solo:
@@ -793,12 +815,12 @@ def _check(tree, todo: list[str]) -> tuple[str, bool]:
         node = tree.nodes[name]
         if node.bl_idname in (SURFACES_NODE, PICTURE_MASK_NODE):
             if "Image" not in _links_into(node):
-                missing.append(f"{name} › Image")
+                missing.append(f"{_title(tree, name)} › Image")
             continue
         specs = SESSION.specs[node.workflow_id]
         cur = node.current_values()
         linked = set(_links_into(node))
-        missing += [f"{name} › {s.label}" for s in specs
+        missing += [f"{_title(tree, name)} › {s.label}" for s in specs
                     if s.is_media and s.required and s.key not in linked and not is_disabled(s, cur, specs)]
     if missing:
         return "Link these inputs first: " + "; ".join(missing), False
@@ -835,7 +857,7 @@ def start(tree, scene, targets: list[str], selected: list[str], force: bool = Fa
     RUNS[tree.name] = run
     run.tick()
     reused = [n for n in engine.order(nodes, targets) if n not in todo]
-    msg = f"Running {count(len(todo), 'job')}: " + " → ".join(todo)
+    msg = f"Running {count(len(todo), 'job')}: " + " → ".join(_title(tree, n) for n in todo)
     if solo:
         n_models = len({needed_model(tree.nodes[n]) for n in todo
                         if needed_model(tree.nodes[n]) not in served | {""}})

@@ -131,6 +131,63 @@ class _Node:
         return ntree.bl_idname == TREE
 
 
+class COMFYQ_OT_shot_add(bpy.types.Operator):
+    bl_idname = "comfyq.shot_add"
+    bl_label = "Add Shot Here"
+    bl_description = ("Start a shot at the current frame: a timeline marker bound to the active camera (else the scene "
+                      "camera), used by this node. The shot runs to the next shot's marker")
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+    tag: StringProperty(options={"HIDDEN", "SKIP_SAVE"})
+
+    @classmethod
+    def poll(cls, context):
+        ob = context.active_object
+        if not ((ob is not None and ob.type == "CAMERA") or context.scene.camera is not None):
+            cls.poll_message_set("Add a camera first (or select one)")
+            return False
+        return True
+
+    def execute(self, context):
+        scene = context.scene
+        ob = context.active_object
+        cam = ob if ob is not None and ob.type == "CAMERA" else scene.camera
+        f = scene.frame_current
+        marker = next((m for m in scene.timeline_markers if m.frame == f), None)
+        if marker is None:
+            n = 1 + sum(1 for m in scene.timeline_markers if m.camera is not None)
+            marker = scene.timeline_markers.new(f"Shot {n}", frame=f)
+        marker.camera = cam
+        node = tagged_node(self.tag)
+        if node is not None and hasattr(node, "shot"):
+            node.shot = marker.name
+        self.report({"INFO"}, f"{marker.name}: camera “{cam.name}” from frame {f} (move the marker in the Timeline)")
+        return {"FINISHED"}
+
+
+def node_preview_name(node) -> str:
+    return f"ComfyQ preview · {node.id_data.name}/{node.name}"
+
+
+def set_node_preview(node, path) -> None:
+    """The node's own preview picture (audit 2, #39: every Scene Render / Mask node showed the one global render).
+    Main thread, never from draw code."""
+    name = node_preview_name(node)
+    img = bpy.data.images.get(name)
+    if img is None:
+        img = bpy.data.images.load(str(path), check_existing=False)
+        img.name = name
+    else:
+        img.filepath = str(path)
+        img.reload()
+
+
+def tagged_node(tag: str):
+    """The node of a "<tree>/<node>" tag (preview buttons pass it)."""
+    tree_name, _, node_name = (tag or "").partition("/")
+    tree = bpy.data.node_groups.get(tree_name)
+    return tree.nodes.get(node_name) if tree is not None else None
+
+
 def _thumbnail(layout, img, scale: float = 9.0) -> None:
     """Large preview of an image/movie datablock (previews are made by the timer, not while drawing)."""
     if img is None:
@@ -250,8 +307,8 @@ def frame_number(scene, which: str) -> int:
     return {"START": scene.frame_start, "END": scene.frame_end}.get(which, scene.frame_current)
 
 
-SHOT_TIP = ("Render a shot: a timeline marker bound to a camera (Ctrl+B in the Timeline) gives the camera and the "
-            "frames up to the next one. Empty uses the scene camera and frame range")
+SHOT_TIP = ("Render a shot: a timeline marker bound to a camera (the + button makes one here) gives the camera and "
+            "the frames up to the next one. Empty uses the scene camera and frame range")
 
 
 def shot_frame(scene, node, which: str) -> int:
@@ -269,7 +326,10 @@ def shot_frame(scene, node, which: str) -> int:
 def draw_shot(layout, node, scene) -> None:
     """The Shot field (timeline markers) and what it resolves to: camera, frames, seconds, or why not."""
     from ..passes import shots
-    layout.prop_search(node, "shot", scene, "timeline_markers", text="Shot", icon="MARKER_HLT")
+    row = layout.row(align=True)
+    row.prop_search(node, "shot", scene, "timeline_markers", text="Shot", icon="MARKER_HLT")
+    op = row.operator("comfyq.shot_add", text="", icon="ADD")
+    op.tag = f"{node.id_data.name}/{node.name}"
     if node.shot:
         sig = shots.signature(scene, node.shot)
         row = layout.row()
@@ -313,7 +373,7 @@ class ComfyQSceneRenderNode(_Node, bpy.types.Node):
             op = layout.operator("comfyq.preview_pass", text=f"Render Frame {f}", icon="RENDER_STILL")
             op.mask, op.style, op.frame, op.shot = False, self.style, f, self.shot
             op.tag = tag
-        _thumbnail(layout, bpy.data.images.get("ComfyQ render preview"))
+        _thumbnail(layout, bpy.data.images.get(node_preview_name(self)))
 
 
 class ComfyQMaskNode(_Node, bpy.types.Node):
@@ -339,8 +399,9 @@ class ComfyQMaskNode(_Node, bpy.types.Node):
         draw_shot(layout, self, context.scene)
         op = layout.operator("comfyq.preview_pass", text="Render Mask", icon="SELECT_SET")
         op.mask, op.style, op.frame = True, self.style, shot_frame(context.scene, self, self.frame)
+        op.tag = f"{self.id_data.name}/{self.name}"
         op.shot = self.shot
-        _thumbnail(layout, bpy.data.images.get("ComfyQ mask preview"))
+        _thumbnail(layout, bpy.data.images.get(node_preview_name(self)))
 
 
 class ComfyQSketchNode(_Node, bpy.types.Node):
@@ -358,11 +419,11 @@ class ComfyQSketchNode(_Node, bpy.types.Node):
         self.outputs.new(SOCKET_IDNAME["image"], "Image")
 
     def draw_buttons(self, context, layout):
-        from ..ops.sketch import PREVIEW, draw_sketch_source
+        from ..ops.sketch import draw_sketch_source
         layout.prop(self, "frame", text="")
         draw_sketch_source(layout.column(align=True), context, self, "only",
-                           frame=frame_number(context.scene, self.frame))
-        _thumbnail(layout, bpy.data.images.get(PREVIEW))
+                           frame=frame_number(context.scene, self.frame), tag=f"{self.id_data.name}/{self.name}")
+        _thumbnail(layout, bpy.data.images.get(node_preview_name(self)))
 
 
 class ComfyQSceneAnimationNode(_Node, bpy.types.Node):
@@ -384,10 +445,14 @@ class ComfyQSceneAnimationNode(_Node, bpy.types.Node):
         if not self.shot:
             f = scene_facts(sc)
             layout.label(text=f"{f.frame_start}–{f.frame_end} · {f.fps:g} fps · {f.seconds:.1f} s · "
-                              f"{sc.camera.name if sc.camera else 'NO CAMERA'}", icon="CAMERA_DATA")
+                              f"{sc.camera.name if sc.camera else 'no camera'}", icon="CAMERA_DATA")
+            if sc.camera is None:
+                warn = layout.row()
+                warn.alert = True
+                warn.label(text="No scene camera: add one and make it active", icon="ERROR")
         draw_shot(layout, self, sc)
         layout.prop(self, "style", text="")
-        op = layout.operator("comfyq.preview_animation", text="Render & Play Clay Animation", icon="RENDER_ANIMATION")
+        op = layout.operator("comfyq.preview_animation", text="Render & Play Animation", icon="RENDER_ANIMATION")
         op.force, op.play, op.style, op.shot = True, True, self.style, self.shot
         _movie(layout, animation_path())
 
@@ -458,7 +523,7 @@ class ComfyQSceneObjectsNode(_Node, bpy.types.Node):
 _SCAN: dict = {}                    # (folder, recursive) -> (time, {"image": [...], "video": [...]}): draw is frequent
 
 
-def folder_files(node, max_age: float = 3.0) -> dict:
+def folder_files(node, max_age: float = 15.0) -> dict:      # draw: a network folder is not scanned every redraw
     """The pictures and videos a Media Folder node would feed (scan cached a few seconds)."""
     import time as _time
 
@@ -656,7 +721,9 @@ class ComfyQWorkflowNode(_Node, bpy.types.Node):
 
     def draw_label(self):
         wf = workflow_of(self.workflow_id)
-        return wf.name if wf else (self.workflow_id or "Choose Model")
+        if wf is not None:
+            return wf.name
+        return "Model (Not Connected)" if self.workflow_id else "Choose Model"     # never the raw id
 
     def item(self, key: str):
         return next((it for it in self.params if it.key == key and it.workflow_id == self.workflow_id), None)
@@ -775,22 +842,24 @@ class ComfyQWorkflowNode(_Node, bpy.types.Node):
             head.label(text="Not connected", icon="UNLINKED")
         elif self.workflow_id and wf is None:
             head.alert = True
-            head.label(text="Unknown workflow", icon="ERROR")
+            head.label(text="Model Gone from Server: Change Model", icon="ERROR")
         elif wf is not None:
             from .run import solo_on
             served = wf.id in SESSION.served_ids()
             solo = not served and solo_on()
             sub = head.row()
             sub.alert = not served and not solo
-            sub.label(text="Served" if served else ("Loads on Run" if solo else "Not Served"),
+            sub.label(text="Served" if served else ("Loads on Run" if solo else "Not Served: Ask the Teacher"),
                       icon="CHECKMARK" if served else ("PACKAGE" if solo else "ERROR"))
             head.label(text=vram_badge(wf, shared_budget())[0], icon="MEMORY")
             if solo:
                 head.operator("comfyq.graph_load_model", text="", icon="PACKAGE").workflow_id = wf.id
         if self.note:
-            box = layout.box()
-            box.alert = True
-            box.label(text=self.note, icon="ERROR")
+            from ..ui.studio import wrap
+            box = layout.column(align=True)
+            box.alert = not self.note.startswith(("Loading", "Solo"))
+            for k, line in enumerate(wrap(self.note, 48, max_lines=4)):
+                box.label(text=line, icon="INFO" if not box.alert and k == 0 else "ERROR" if k == 0 else "BLANK1")
         if not self.workflow_id:
             return
         if specs is None:
@@ -860,7 +929,11 @@ class ComfyQWorkflowNode(_Node, bpy.types.Node):
         if job is not None and job.done and not job.ok and not state:
             col = layout.column(align=True)
             col.alert = True
-            col.label(text=f"{PHASE_TEXT.get(job.phase, job.phase)} {job.error or ''}".strip(), icon="ERROR")
+            from ..ui.studio import wrap
+            msg = f"{PHASE_TEXT.get(job.phase, job.phase)} {job.error or ''}".strip()
+            for k, line in enumerate(wrap(msg, 48, max_lines=4)):
+                col.label(text=line, icon="ERROR" if k == 0 else "BLANK1")
+            col.label(text="Press ⟳ to try again", icon="FILE_REFRESH")
         path = Path(self.result) if self.result else None
         if path is None or not path.is_file():
             return
@@ -1193,7 +1266,7 @@ class ComfyQImportNode(_OutputNode, bpy.types.Node):
     auto: BoolProperty(name="Import When Ready", default=False,
                        description="Import each new result as soon as it arrives")
     replace: BoolProperty(name="Replace Previous Import", default=True,
-                          description="Remove what this node imported last time (strips, objects) before importing")
+                          description="Remove what this node imported last time (strips, objects) before importing; objects moved since are kept")
     imported: StringProperty()             # JSON: what the last import created (to replace it)
     # 3D models / splats: generators put them at the origin at their own scale (inside the scene)
     place: EnumProperty(

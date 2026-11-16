@@ -115,7 +115,7 @@ def start_job(scene, selected, wf_id: str, report: Report, *, frame: int | None 
     """Render inputs now (main thread), then upload + book in the background."""
     specs = SESSION.specs.get(wf_id)
     if not specs or SESSION.client is None:
-        report({"ERROR"}, "Connect and choose a workflow first")
+        report({"ERROR"}, "Connect and choose a model first")
         return False
     try:
         values, uploads = _collect(scene, selected, wf_id, specs, frame, keyframe_ok=purpose != "keyframe")
@@ -153,7 +153,8 @@ def book(scene, wf_id: str, specs: list[ParamSpec], values: dict, uploads: dict[
             rec.inputs, rec.values = sent, sent_values
             name =next((w.name for w in SESSION.workflows if w.id == wf_id), wf_id)
             rec.label = label or (f"Keyframe · {name}" if purpose == "keyframe" else name)
-        SESSION.status_note = f"Booked {job_id[:8]}" + (" (AI keyframe)" if purpose == "keyframe" else "")
+        model = next((w.name for w in SESSION.workflows if w.id == wf_id), "the model")
+        SESSION.status_note = f"Booked: {label or model}" + (" (AI keyframe)" if purpose == "keyframe" else "")
         if on_booked:
             on_booked(job_id)
 
@@ -225,6 +226,8 @@ def why_not_generate(scene, wf_id: str) -> str:
     if wf_id not in SESSION.specs:
         return "The model's settings are still loading"
     served = SESSION.served_ids()
+    if SESSION.client is not None and SESSION.client.nothing_served():
+        return "No model is served right now (the server may be switching models): wait a moment"
     if served and wf_id not in served:
         name = next((w.name for w in SESSION.workflows if w.id == wf_id), wf_id)
         return f"“{name}” is not served right now: ask the teacher to serve it"
@@ -331,6 +334,15 @@ class COMFYQ_OT_cancel(bpy.types.Operator):
     bl_description = "Cancel this job on the ComfyQ server"
     bl_options = {"INTERNAL"}
     job_id: StringProperty()
+
+    def invoke(self, context, event):
+        # audit 2, #23: one stray click lost the job and its place in the queue
+        view = SESSION.jobs.get(self.job_id)
+        phase = getattr(getattr(view, "job", None), "phase", "")
+        msg = ("Its place in the queue is lost" if phase in ("scheduled", "") else
+               "It stops where it is; the work done so far is lost")
+        return context.window_manager.invoke_confirm(self, event, title="Cancel Job?", message=msg,
+                                                     confirm_text="Cancel Job", icon="WARNING")
 
     def execute(self, context):
         client = SESSION.client

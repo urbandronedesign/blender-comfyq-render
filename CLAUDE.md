@@ -636,6 +636,8 @@ change that session: the user must reinstall from the UI or restart Blender.
   mode re-activates *Paint Hard*: essentials live in `brushes/essentials_brushes-mesh_texture.blend`), mask previews
   in red (`mask_preview`). GPU: Find "sofa" 30 s → Flux2 inpaint 30 s, only the sofa changed (`live_check/mask_find/`).
   Not yet: found regions in the 3D View's red overlay; a moving camera needs Find again (masks are of one frame).
+- **Audit 2 phase 6, first pass (2026-11-16):** severity-2 items 20–23, 25–27, 29, 31–37, 39, 41–43, 45 fixed (list in
+  docs/ux-audit-2.md § Phase 6). Open: 24, 30, 40, 44 + the severity 1/0 sweep. GUI -Ui 136 checks.
 
 ## Next steps
 0. **Audit-2 phases 3–5 DONE 2026-11-16 (workspace, Sketch, Find by Name / Paint Zone); next: phase 6 (severity-2 audit fixes) and 7 (presets, help, MCP tools). Left of 4: Paint Frame at the job's size.** Was (4) **Draw**: Sketch source/node (GP object parented to the camera,

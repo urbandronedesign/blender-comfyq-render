@@ -291,6 +291,21 @@ _glb_objs[0].location.x -= 1.0
 bpy.context.view_layer.update()
 check(_fp1 != _fp0 and _render.scene_fingerprint(scene, "CLAY") == _fp0,
       "an untouched import does not change the scene fingerprint; moving it does (it is now meant for the shot)")
+# audit 2, #35: an Import node's Replace removes its last import, but never objects moved since
+from bl_ext.user_default.comfyq_bridge.graph import outputs as _gout
+
+_rt = bpy.data.node_groups.new("smoke replace", "ComfyQGraphTree")
+_rn = _rt.nodes.new("ComfyQImportNode")
+_gout._import(_rn, scene, _gout.Media(kind="model", path=str(glb), job_id="smoke-rep1", workflow_id="wf"))
+_first = [bpy.data.objects[n] for n in json.loads(_rn.imported)["objects"] if n in bpy.data.objects]
+_moved = next(o for o in _first if o.type == "MESH")
+_moved_name = _moved.name
+_moved.location.x += 2.0
+bpy.context.view_layer.update()
+_msg = _gout._import(_rn, scene, _gout.Media(kind="model", path=str(glb), job_id="smoke-rep2", workflow_id="wf"))
+check(_moved_name in bpy.data.objects and "kept 1 moved object" in _msg,
+      f"Import node › Replace keeps an object moved since the last import ({_msg[-60:]})")
+bpy.data.node_groups.remove(_rt)
 _rep = _media.import_report([tmp / "notes.xyz"], "smoketest-rep", "smoke_workflow", scene)
 check(not _rep.imported and _rep.kept and "kept in the job folder" in _rep.kept[0],
       f"import report: a file Blender cannot import is 'kept', not 'imported' ({_rep.kept})")
@@ -1218,6 +1233,29 @@ _sent = _seg.read_rgba(_rsk.image_pass(_pz))
 check(_pz.name == _mk.PAINTED and _sent[-5, 5, 3] < 0.1 and _sent[5, -5, 3] > 0.9 and _pz.packed_file is not None,
       "Painted Zone: what is painted transparent is sent transparent; the painting is kept in the .blend")
 check("PAINTED" in _SOURCES_BY_KIND["mask"], "Painted Zone: offered as a source for mask inputs")
+
+# audit 2 phase 6: each scene node keeps its own preview (#39); Add Shot Here (#45); notes expire (#25)
+from bl_ext.user_default.comfyq_bridge.graph import tree as _gt
+
+_pt6 = bpy.data.node_groups.new("smoke previews", gtree_mod.TREE)
+_na, _nb = _pt6.nodes.new("ComfyQSceneRenderNode"), _pt6.nodes.new("ComfyQSceneRenderNode")
+_gt.set_node_preview(_na, _rsk.structure_pass(scene, "CLAY", 320))
+check(bpy.data.images.get(_gt.node_preview_name(_na)) is not None
+      and bpy.data.images.get(_gt.node_preview_name(_nb)) is None,
+      "graph: a Scene Render node shows its own render, not the last one of any node")
+_markers0 = len(scene.timeline_markers)
+with bpy.context.temp_override(scene=scene):
+    _rs = bpy.ops.comfyq.shot_add(tag=f"{_pt6.name}/{_nb.name}")
+_mk6 = scene.timeline_markers.get(_nb.shot) if _nb.shot else None
+check(_rs == {"FINISHED"} and _mk6 is not None and _mk6.camera == scene.camera
+      and len(scene.timeline_markers) == _markers0 + 1,
+      f"Add Shot Here: a marker at the current frame bound to the camera, used by the node ({_nb.shot})")
+scene.timeline_markers.remove(_mk6)
+bpy.data.node_groups.remove(_pt6)
+SESSION.status_note = "smoke note"
+_fresh = SESSION.status_note
+SESSION._note_t -= 1000
+check(_fresh == "smoke note" and SESSION.status_note == "", "bar notes are news: they leave after 2 minutes")
 bpy.data.images.remove(_pz)
 shutil.rmtree(shared, ignore_errors=True)
 del os.environ["COMFYQ_BRIDGE_PRESETS"]

@@ -293,13 +293,39 @@ def saved_presets() -> list[tuple[Path, dict]]:
     out = []
     for n, folder in enumerate(preset_folders()):
         if folder.is_dir():
-            files = sorted(folder.glob("*.json")) + sorted(folder.glob("*/*.json"))
-            for f in files:
+            for f in _preset_files(folder):
                 head = _header(f)
                 if head:
                     out.append((f, {**head, "group": "" if f.parent == folder else f.parent.name,
                                     "shared": n > 0}))
     return out
+
+
+_LISTING: dict[str, tuple[tuple, list[Path]]] = {}
+
+
+def _preset_files(folder: Path) -> list[Path]:
+    """The .json files of a presets folder and its subfolders, listed again only when a folder's modification time
+    changed (adding / removing a file changes it): menus redraw often and the folder may be on the network (audit 2,
+    #34)."""
+    key = str(folder)
+    hit = _LISTING.get(key)
+    try:
+        if hit is not None:
+            sig, files = hit
+            if sig == _folder_sig(folder, [Path(d) for d in sig[1]]):
+                return files
+        subs = sorted(d for d in folder.iterdir() if d.is_dir())
+        files = sorted(folder.glob("*.json")) + sorted(f for d in subs for f in d.glob("*.json"))
+        _LISTING[key] = (_folder_sig(folder, subs), files)
+        return files
+    except OSError:
+        return []
+
+
+def _folder_sig(folder: Path, subs: list[Path]) -> tuple:
+    return (folder.stat().st_mtime_ns, tuple(str(d) for d in subs),
+            tuple(d.stat().st_mtime_ns if d.is_dir() else 0 for d in subs))
 
 
 _HEADERS: dict[str, tuple[int, dict]] = {}

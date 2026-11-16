@@ -5,7 +5,7 @@ from __future__ import annotations
 from . import picture_mask_ui, preset_ops, tree, ui
 
 classes = (*tree.SOCKET_CLASSES.values(), tree.ComfyQGraphTree, tree.ComfyQResultRecord, *tree.NODE_CLASSES,
-           *ui.classes, *preset_ops.classes)
+           tree.COMFYQ_OT_shot_add, *ui.classes, *preset_ops.classes)
 
 
 def register_extras():

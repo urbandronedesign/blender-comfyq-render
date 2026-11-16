@@ -86,3 +86,19 @@ def test_admin_mode_says_comfyq_serves_nothing():
     with pytest.raises(ComfyQError) as e:                  # serving but unreachable: the socket's own error
         _client("student").connect()
     assert "Connection error" in str(e.value)
+
+
+def test_an_empty_served_list_from_the_server_blocks_booking():
+    # audit 2, #43: during a model switch ComfyQ sends no lanes; "nothing served" must not mean "anything goes"
+    import pytest
+    from client.api import ComfyQError
+    from client.models import Lane
+    t = FakeTransport()
+    c = ComfyQClient(Profile(name="t"), transport=t)
+    assert not c.nothing_served()                   # never told: older servers keep working
+    t._set_lanes([])
+    assert c.nothing_served()
+    with pytest.raises(ComfyQError, match="No model is served"):
+        c.submit("wf", {"primitivestringmultiline_value_5508": "a"}, specs=SPECS)
+    t._set_lanes([Lane.from_wire({"workflow_id": "wf", "state": "ready"})])
+    assert not c.nothing_served() and c.submit("wf", {"primitivestringmultiline_value_5508": "a"}, specs=SPECS)

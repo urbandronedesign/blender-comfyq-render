@@ -91,6 +91,10 @@ class ComfyQClient:
     def served_ids(self) -> set[str]:
         return {l.workflow_id for l in self.lanes()}
 
+    def nothing_served(self) -> bool:
+        """The server said it serves no model (between two models, or not started): nothing can be booked."""
+        return bool(getattr(self.transport, "lanes_known", False)) and not self.lanes()
+
     # -- teacher: what the GPU serves (ComfyQ admin routes; the admin password when one is set) --------
     def server_lanes(self) -> dict[str, Any]:
         """GET /admin/lanes: {lanes, card: {vramGb, usedGb}, fit: {workflow id: {ok, reason, needGb…}}}."""
@@ -138,6 +142,9 @@ class ComfyQClient:
                scheduled_time: int | None = None) -> str:
         if check_served:
             served = self.served_ids()
+            if self.nothing_served():
+                raise ComfyQError("No model is served right now (the server may be switching models): "
+                                  "wait a moment and try again")
             if served and workflow_id not in served:
                 raise ComfyQError(f"{workflow_id} is not being served right now "
                                   f"(served: {', '.join(sorted(served))}). Ask the teacher to serve it.")

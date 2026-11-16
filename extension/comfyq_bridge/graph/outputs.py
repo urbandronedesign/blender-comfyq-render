@@ -197,10 +197,11 @@ def _snapshot(scene) -> dict:
             "objects": {o.name for o in bpy.data.objects}}
 
 
-def remove_imported(node) -> int:
-    """Remove what this Import node created last time (strips, objects, collections). Images stay
-    (they may be used elsewhere); the new one replaces them in the viewer."""
-    from ..importers.media import RESULTS_SCENE, _strips
+def remove_imported(node) -> tuple[int, int]:
+    """Remove what this Import node created last time (strips, objects, collections): (removed, kept). Objects the
+    student moved since (and their children) are KEPT (audit 2, #35: Replace deleted edited work). Images stay (they
+    may be used elsewhere); the new one replaces them in the viewer."""
+    from ..importers.media import PLACED_KEY, RESULTS_SCENE, _strips, matrix_key
     try:
         last = json.loads(node.imported or "{}")
     except ValueError:
@@ -214,23 +215,32 @@ def remove_imported(node) -> int:
             if s is not None:
                 strips.remove(s)
                 n += 1
-    for name in last.get("objects", []):
-        o = bpy.data.objects.get(name)
-        if o is not None:
-            bpy.data.objects.remove(o)
-            n += 1
+    objs = [o for o in (bpy.data.objects.get(name) for name in last.get("objects", [])) if o is not None]
+    moved = {o.name for o in objs if o.get(PLACED_KEY) is not None and o.get(PLACED_KEY) != matrix_key(o)}
+    keep = {o.name for o in objs if o.name in moved or any(p.name in moved for p in _parents(o))}
+    for o in [o for o in objs if o.name not in keep]:
+        bpy.data.objects.remove(o)
+        n += 1
     for name in last.get("collections", []):
         c = bpy.data.collections.get(name)
         if c is not None and not c.objects and not c.children:
             bpy.data.collections.remove(c)
     node.imported = ""
-    return n
+    return n, len(keep)
+
+
+def _parents(o):
+    p = o.parent
+    while p is not None:
+        yield p
+        p = p.parent
 
 
 def _import(node, scene, media: Media) -> str:
     from ..importers.media import import_files
+    kept = 0
     if node.replace:
-        remove_imported(node)
+        _n, kept = remove_imported(node)
     if (media.text is not None and not media.path) or media.kind == "text":
         txt = _text_block(node, media.text or "")
         node.imported = json.dumps({"texts": [txt.name]})
@@ -240,7 +250,8 @@ def _import(node, scene, media: Media) -> str:
                         node.placement())
     after = _snapshot(scene)
     node.imported = json.dumps({k: sorted(after[k] - before[k]) for k in after})
-    return "Imported " + "; ".join(msgs)
+    note = f" (kept {kept} moved object{'s' if kept != 1 else ''} from the last import)" if kept else ""
+    return "Imported " + "; ".join(msgs) + note
 
 
 _UNSAFE = '<>:"/\\|?*'

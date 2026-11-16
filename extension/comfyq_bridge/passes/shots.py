@@ -37,8 +37,8 @@ def resolve(scene: bpy.types.Scene, name: str) -> Shot | None:
     if marker is None:
         raise RuntimeError(f"No timeline marker “{name}”")
     if marker.camera is None:
-        raise RuntimeError(f"Marker “{name}” has no camera: select a camera, then Timeline › Marker › Bind Camera "
-                           "to Markers (Ctrl+B)")
+        raise RuntimeError(f"Marker “{name}” has no camera: select a camera, go to the marker's frame and press + "
+                           "next to the Shot field (or Timeline › Marker › Bind Camera to Markers)")
     later = [m.frame for m in bound_markers(scene) if m.frame > marker.frame]
     end = (min(later) - 1) if later else scene.frame_end
     return Shot(name, marker.camera, marker.frame, max(marker.frame, end))
@@ -60,7 +60,8 @@ def describe(scene: bpy.types.Scene, name: str) -> str:
         s = resolve(scene, name)
     except RuntimeError:
         marker = scene.timeline_markers.get(name)
-        return "No camera bound: Timeline › Ctrl+B" if marker is not None else "No marker with this name"
+        return ("No camera bound: select a camera and press +" if marker is not None
+                else "No marker with this name")
     if s is None:
         return ""
     fps = scene.render.fps / (scene.render.fps_base or 1.0)

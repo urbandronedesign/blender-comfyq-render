@@ -164,17 +164,23 @@ def describe(img) -> str:
         return "Nothing shown"
     path = Path(bpy.path.abspath(img.filepath)) if img.filepath else None
     if img.get("comfyq_job"):
-        return f"AI result · job {str(img['comfyq_job'])[:8]}"
+        return f"AI result · {_job_label(str(img['comfyq_job']))}"
     if path is not None and path.parent.parent.name == "passes" and is_movie(img):
-        return "Clay animation (sent to ComfyQ)"            # cache/passes/<stamp>_animation/*.mp4
+        return "Scene animation (sent to ComfyQ)"           # cache/passes/<stamp>_animation/*.mp4
     if img.name.startswith("ComfyQ animation pass"):
-        return "Clay animation (sent to ComfyQ)"
+        return "Scene animation (sent to ComfyQ)"
     if img.name.startswith(("ComfyQ render preview", "ComfyQ mask preview")) or (
             path is not None and path.parent.name == "passes"):
         return "Scene render (camera view)"
     if path is not None and path.parent.parent.name == "cache" and len(path.parent.name) == 8:
-        return f"AI result · job {path.parent.name}"           # cache/<job8>/<file>
+        return f"AI result · {_job_label(path.parent.name)}"   # cache/<job8>/<file>
     return img.name
+
+
+def _job_label(job_id: str) -> str:
+    """The job's name as its card shows it (the model), never its hex id (mechanical sweep)."""
+    rec = next((r for r in bpy.context.scene.comfyq.jobs if r.job_id.startswith(job_id[:8])), None)
+    return rec.label if rec is not None and rec.label else "an earlier job"
 
 
 def _pos_update(self, context):
@@ -357,7 +363,11 @@ class COMFYQ_PT_player(bpy.types.Panel):
         row.menu(COMFYQ_MT_results.bl_idname, text=describe(img) if img else "Choose Result",
                  icon="RENDER_ANIMATION" if img is not None and not img.get("comfyq_job") else "IMAGE_DATA")
         if not is_movie(img):
-            if img is not None:
+            if img is not None and not img.size[0]:     # audit 2, #29: a 3D / splat file read as "0×0"
+                ext = Path(img.filepath or "").suffix.lower()
+                kind = "3D model" if ext in (".glb", ".gltf", ".ply", ".spz", ".obj", ".fbx", ".usdz") else "This file"
+                layout.label(text=f"{kind}: no picture here. Import it to see it in the scene", icon="INFO")
+            elif img is not None:
                 layout.label(text=f"Still image · {img.size[0]}×{img.size[1]}")
             return
         frames, fps = peek_meta(img)

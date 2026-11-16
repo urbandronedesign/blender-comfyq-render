@@ -54,8 +54,25 @@ class COMFYQ_OT_graph_add(bpy.types.Operator):
     workflow_id: StringProperty()
 
     @classmethod
+    def description(cls, context, props):
+        """What the node does (audit 2, #33: every item said "Add this node in the middle of the view")."""
+        if props.workflow_id:
+            wf = next((w for w in SESSION.workflows if w.id == props.workflow_id), None)
+            text = (wf.description or wf.name) if wf is not None else ""
+        else:
+            node_cls = getattr(bpy.types, props.node_type, None)
+            text = (node_cls.__doc__ or "") if node_cls is not None else ""
+        text = " ".join(text.split())
+        if len(text) > 300:
+            text = text[:297].rstrip() + "…"
+        return f"Add: {text}" if text else cls.bl_description
+
+    @classmethod
     def poll(cls, context):
-        return _in_graph(context) and context.space_data.edit_tree is not None
+        if not (_in_graph(context) and context.space_data.edit_tree is not None):
+            cls.poll_message_set("Open the ComfyQ Graph first")
+            return False
+        return True
 
     def execute(self, context):
         from ..ops.workflow import request_specs
@@ -84,7 +101,15 @@ def _view_center(context, node):
     x, y = region.view2d.region_to_view(region.width / 2, region.height / 2)
     scale = context.preferences.system.ui_scale or 1.0       # node locations are unscaled view units
     shift = 30 * sum(1 for n in context.space_data.edit_tree.nodes if n != node) % 300
-    return (x / scale - node.width / 2 + shift, y / scale + 120 - shift)
+    loc = [x / scale - node.width / 2 + shift, y / scale + 120 - shift]
+    # audit 2, #41: never on top of another node; step down until the spot is free
+    others = [n for n in context.space_data.edit_tree.nodes if n != node and n.bl_idname != "NodeFrame"]
+    for _ in range(40):
+        if not any(abs(n.location.x - loc[0]) < max(n.width, node.width) * 0.8
+                   and abs(n.location.y - loc[1]) < 160 for n in others):
+            break
+        loc[1] -= 180
+    return tuple(loc)
 
 
 def _draw_workflow_items(layout, wfs) -> None:
@@ -339,6 +364,9 @@ class COMFYQ_OT_graph_unlink_text(_NodeOp, bpy.types.Operator):
             return {"CANCELLED"}
         setattr(owner, str_attr, " ".join(txt.as_string().split()))
         setattr(owner, text_attr, None)
+        from ..ops.workflow import release_text
+        release_text(txt)
+        self.report({"INFO"}, "The prompt is back in its one-line field")
         return {"FINISHED"}
 
 

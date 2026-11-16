@@ -109,7 +109,7 @@ class ComfyQPreferences(bpy.types.AddonPreferences):
         description="Override the profile's server address, for example http://192.168.1.10:3000")
     header_buttons: BoolProperty(name="3D View Header Buttons", default=True,
                                  description="Show the ComfyQ and ComfyQ Window buttons in the 3D View header "
-                                             "(Ctrl+Shift+Q opens the bar either way)")
+                                             "(the ComfyQ shortcut opens the bar either way)")
     presets_dir: StringProperty(
         name="Shared Presets Folder", default="", subtype="DIR_PATH",
         description="A folder of class presets shared by the class (for example a network share on the "

@@ -24,6 +24,7 @@ class ComfyQTransport(ABC):
         self._lock = threading.RLock()
         self._jobs: dict[str, Job] = {}
         self._lanes: list[Lane] = []
+        self.lanes_known = False                  # the server has sent its lane list (an empty one = nothing served)
         self._users: list[str] = []               # names of the users connected to ComfyQ now
         self._job_listeners: list[JobListener] = []
         self._lane_listeners: list[LaneListener] = []
@@ -93,6 +94,7 @@ class ComfyQTransport(ABC):
         with self._lock:
             changed = [(l.workflow_id, l.state) for l in lanes] != [(l.workflow_id, l.state) for l in self._lanes]
             self._lanes = lanes
+            self.lanes_known = True
         if changed:
             for fn in list(self._lane_listeners):
                 fn(lanes)

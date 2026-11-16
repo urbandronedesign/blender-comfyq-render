@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 import queue
 import sys
+import time
 import traceback
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -34,13 +35,28 @@ class JobView:
     callbacks: list[Callable[[JobView], None]] = field(default_factory=list)
 
 
+NOTE_TTL_S = 120.0     # a note is news: it leaves the bar after 2 minutes (audit 2, #25: "Cycles render done: …png"
+                       # from an old graph run stayed for ever, even disconnected)
+
+
 class Session:
+    @property
+    def status_note(self) -> str:
+        """The last user-facing event, while it is recent."""
+        return self._note if self._note and time.monotonic() - self._note_t < NOTE_TTL_S else ""
+
+    @status_note.setter
+    def status_note(self, value: str) -> None:
+        self._note, self._note_t = value or "", time.monotonic()
+
     def __init__(self) -> None:
         self.client: ComfyQClient | None = None
         self.status = "Not connected"
         self.error = ""
         self.busy = ""                        # current blocking activity, shown in the panel
-        self.status_note = ""                 # last user-facing event ("Booked 1a2b3c4d")
+        self._note, self._note_t = "", 0.0     # last user-facing event ("Booked …"), see status_note
+        self._conn_gen = 0                     # bumped by connect / close: a running wait for serving stops
+        self.waiting_serving = False
         self.workflows: list[Workflow] = []
         self.specs: dict[str, list[ParamSpec]] = {}
         self._loading: dict[str, list[Callable[[list[ParamSpec]], None]]] = {}
@@ -111,6 +127,7 @@ class Session:
     # -- connection ----------------------------------------------------------------
     def connect(self, profile_name: str, user: str, url_override: str = "") -> None:
         self.close()
+        gen = self._conn_gen
         profile = load_profile(profile_name or None)
         if url_override:
             profile = _replace(profile, url=url_override.rstrip("/"))
@@ -148,8 +165,36 @@ class Session:
                 self.on_connected()
 
         self.status = f"Connecting to {profile.url}…"
-        self.run(work, done, label="Connecting",
-                 on_error=lambda _msg: self._connect_problem(why["need"], why["unset"]))   # after the raw error
+        def failed(msg: str) -> None:
+            self._connect_problem(why["need"], why["unset"])      # after the raw error
+            if "serves no model" in msg:                         # admin mode: wait for the teacher, then connect
+                self._wait_for_serving(profile, gen, (profile_name, user, url_override))
+        self.run(work, done, label="Connecting", on_error=failed)
+
+    def _wait_for_serving(self, profile, gen: int, again: tuple) -> None:
+        """ComfyQ is up but not serving (admin mode, gotcha 59): ask it every 10 s for up to 30 min and connect as
+        soon as the teacher starts serving (audit 2, #42: a dead end before). Connect / Disconnect cancel it."""
+        self.waiting_serving = True
+        self.error = "ComfyQ serves no model yet: waiting for the teacher to start serving (connects by itself)"
+
+        def work():
+            probe = ComfyQClient(profile)
+            t0 = time.monotonic()
+            while gen == self._conn_gen and time.monotonic() - t0 < 1800:
+                time.sleep(10)
+                if probe.mode() not in ("admin", ""):
+                    return True
+            return False
+
+        def done(ok):
+            if gen != self._conn_gen:
+                return
+            self.waiting_serving = False
+            if ok and self.client is None:
+                self.connect(*again)
+            elif not ok:
+                self.error = "ComfyQ still serves no model after 30 minutes: press Connect when the teacher is ready"
+        self.run(work, done)
 
     def _connect_problem(self, need_password: bool, no_server_set: bool) -> None:
         self.need_password = need_password
@@ -171,10 +216,13 @@ class Session:
         return time.monotonic() - self.lost_since
 
     def close(self) -> None:
+        self._conn_gen += 1                    # a wait for serving (see _wait_for_serving) stops
+        self.waiting_serving = False
         if self.client is not None:
             client, self.client = self.client, None
             self._pool.submit(client.close)
         self.status = "Not connected"
+        self.status_note = ""
 
     @property
     def connected(self) -> bool:
